@@ -9,7 +9,6 @@ import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_i18n.dart';
 import 'package:town_pass/util/tp_route.dart';
-import 'package:town_pass/util/tp_i18n.dart';
 
 /// 首頁左上角：這支手機現在是誰。整個 App 都是 demo，所以切換身分放在最顯眼的地方，
 /// 點開是一個面板：切長輩、切協助者、一鍵讓信任的人發出請求、切伺服器。
@@ -249,7 +248,8 @@ class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
                     backgroundColor: TPColors.white,
                     onSelected: (_) async {
                       await service.setLanguage(l.code);
-                      if (mounted) setState(() {});
+                      // 業務名稱是後端給的，換語言後重新載入才會跟著換
+                      _load();
                     },
                   ),
               ],
