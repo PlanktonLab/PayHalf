@@ -35,11 +35,21 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   const identityLimiter = createRateLimiter({ ...config.identityLookupLimit, now });
   const pairingLimiter = createRateLimiter({ ...config.pairingAttemptLimit, now });
   const trustedLimiter = createRateLimiter({ ...config.trustedRequestLimit, now });
+  const helpLimiter = createRateLimiter({ ...(config.helpRequestLimit ?? { max: 5, windowMs: 600000 }), now });
+  // 長輩主動求助：id -> { id, elderId, helperId, createdAt, expiresAt, status: pending|answered|cancelled|expired }
+  const helpRequests = new Map();
+  // 加好友邀請碼：code -> { elderId, expiresAt }；每位長輩同時只有一組
+  const trustInvites = new Map();
+  const elderInvite = new Map();
+  // 家人掃了邀請碼、等長輩確認：id -> { id, elderId, helperId, createdAt, expiresAt, status }
+  const trustRequests = new Map();
   // 信任的人：elderId -> Map<helperId, { since }>
   // 只有長輩本人能新增，而且必須是「已經真的陪辦過一次」的人（第一次一定要掃 QR Code）。
   const trust = new Map();
   for (const [elderId, helperId] of config.demoTrust ?? []) {
-    if (findUser(elderId) && findUser(helperId)) trust.set(elderId, new Map([[helperId, { since: now(), demo: true }]]));
+    if (!findUser(elderId) || !findUser(helperId)) continue;
+    if (!trust.has(elderId)) trust.set(elderId, new Map());
+    trust.get(elderId).set(helperId, { since: now(), demo: true });
   }
 
   // ───────────────────────── helpers
@@ -78,6 +88,9 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     blocks.get(elderId).add(helperId);
     // 封鎖一定同時取消信任
     if (trust.get(elderId)?.delete(helperId)) notifyTrust(elderId, helperId);
+    for (const r of helpRequests.values()) {
+      if (r.elderId === elderId && r.helperId === helperId && r.status === 'pending') r.status = 'cancelled';
+    }
   }
 
   function hasOpen(elderId, helperId) {
@@ -340,9 +353,16 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   // ───────────────────────── 信任的人
 
   /** 長輩把「這次陪辦的人」加為信任的人。必須已經同意過這個人的協助。 */
-  function addTrusted(elder, sessionId) {
-    const s = ownedByElder(elder, sessionId);
-    if (!s.startedAt) throw conflict('要先接受過這個人的協助，才能加為信任的人', 'NOT_ACCEPTED');
+  function addTrusted(elder, { sessionId, helperId } = {}) {
+    let s;
+    if (sessionId) {
+      s = ownedByElder(elder, sessionId);
+      if (!s.startedAt) throw conflict('要先接受過這個人的協助，才能加為信任的人', 'NOT_ACCEPTED');
+    } else {
+      // 從「陪我辦過的人」裡挑：一樣必須真的接受過他的協助
+      s = lastAcceptedSession(elder.id, helperId);
+      if (!s) throw conflict('要先讓他陪您辦過一次，才能加為信任的人', 'NOT_ACCEPTED');
+    }
     const helper = findUser(s.helperId);
     if (isBlocked(elder.id, helper.id)) throw forbidden('您已封鎖這個人', 'BLOCKED');
     if (!trust.has(elder.id)) trust.set(elder.id, new Map());
@@ -367,6 +387,12 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   function removeTrusted(elder, helperId) {
     const helper = findUser(helperId);
     if (!helper || !trust.get(elder.id)?.delete(helperId)) throw notFound('這個人不在您信任的名單裡');
+    for (const r of helpRequests.values()) {
+      if (r.elderId === elder.id && r.helperId === helperId && r.status === 'pending') {
+        r.status = 'cancelled';
+        publishHelp(r);
+      }
+    }
     audit.append({
       type: 'trust.removed',
       actor: ROLE_ACTOR(elder),
@@ -375,6 +401,217 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       summary: `您把 ${helper.title} ${helper.name} 從信任的人移除`,
     });
     notifyTrust(elder.id, helperId);
+    return listTrusted(elder);
+  }
+
+  function lastAcceptedSession(elderId, helperId) {
+    let last = null;
+    for (const s of sessions.values()) {
+      if (s.elderId === elderId && s.helperId === helperId && s.startedAt && (!last || s.startedAt > last.startedAt)) last = s;
+    }
+    return last;
+  }
+
+  /** 可以加為信任的人：陪長輩辦過（長輩按過同意）、還沒信任、沒被封鎖。 */
+  function trustCandidates(elder) {
+    const seen = new Map();
+    for (const s of sessions.values()) {
+      if (s.elderId !== elder.id || !s.startedAt) continue;
+      if (isTrusted(elder.id, s.helperId) || isBlocked(elder.id, s.helperId)) continue;
+      const prev = seen.get(s.helperId);
+      if (!prev || s.startedAt > prev.lastHelpedAt) {
+        seen.set(s.helperId, { helper: publicHelper(findUser(s.helperId)), lastHelpedAt: s.startedAt, serviceTitle: s.serviceTitle });
+      }
+    }
+    return [...seen.values()].sort((a, b) => b.lastHelpedAt - a.lastHelpedAt);
+  }
+
+  // ───────────────────────── 長輩主動請信任的人來幫忙
+
+  function helpView(r) {
+    const elder = findUser(r.elderId);
+    const helper = findUser(r.helperId);
+    return {
+      id: r.id,
+      status: r.status,
+      createdAt: r.createdAt,
+      expiresAt: r.expiresAt,
+      // 協助者只看得到遮罩後的姓名
+      elder: { id: r.elderId, displayName: maskName(elder.profile.realName) },
+      helper: publicHelper(helper),
+    };
+  }
+
+  function publishHelp(r) {
+    const v = helpView(r);
+    notify(r.elderId, 'help:update', v);
+    notify(r.helperId, 'help:update', v);
+  }
+
+  /** 長輩點信任的人「請他來幫我」：對方手機跳通知，由對方發起陪辦（長輩一樣要按同意）。 */
+  function requestHelp(elder, { helperId } = {}) {
+    const helper = findUser(helperId);
+    if (!helper || helper.role !== 'helper' || !isTrusted(elder.id, helperId) || isBlocked(elder.id, helperId)) {
+      throw forbidden('只能請您信任的人幫忙', 'NOT_TRUSTED');
+    }
+    for (const r of helpRequests.values()) {
+      if (r.elderId === elder.id && r.helperId === helperId && r.status === 'pending' && r.expiresAt > now()) return helpView(r);
+    }
+    if (!helpLimiter.take(elder.id)) throw tooMany('請求次數過多，請 10 分鐘後再試', 'HELP_RATE_LIMITED');
+    const t = now();
+    const r = {
+      id: crypto.randomUUID(),
+      elderId: elder.id,
+      helperId,
+      createdAt: t,
+      expiresAt: t + (config.helpRequestTtlMs ?? 10 * 60 * 1000),
+      status: 'pending',
+    };
+    helpRequests.set(r.id, r);
+    audit.append({
+      type: 'help.requested',
+      actor: ROLE_ACTOR(elder),
+      elderId: elder.id,
+      helperId,
+      summary: `您請 ${helper.title} ${helper.name} 來幫忙`,
+    });
+    publishHelp(r);
+    return helpView(r);
+  }
+
+  function cancelHelp(elder, id) {
+    const r = helpRequests.get(id);
+    if (!r || r.elderId !== elder.id) throw notFound('找不到這個求助');
+    if (r.status === 'pending') {
+      r.status = 'cancelled';
+      publishHelp(r);
+    }
+    return helpView(r);
+  }
+
+  const pendingHelp = (pred) =>
+    [...helpRequests.values()].filter((r) => r.status === 'pending' && r.expiresAt > now() && pred(r)).map(helpView);
+  const listHelpForElder = (elder) => pendingHelp((r) => r.elderId === elder.id);
+  const listHelpForHelper = (helper) => pendingHelp((r) => r.helperId === helper.id);
+
+  /** 協助者真的發起陪辦後，這位長輩的求助就算回應了。 */
+  function answerHelp(elderId, helperId) {
+    for (const r of helpRequests.values()) {
+      if (r.elderId === elderId && r.helperId === helperId && r.status === 'pending') {
+        r.status = 'answered';
+        publishHelp(r);
+      }
+    }
+  }
+
+  // ───────────────────────── 加好友：邀請碼 → 家人掃碼 → 長輩確認
+
+  const inviteTtl = () => config.trustInviteTtlMs ?? 5 * 60 * 1000;
+
+  function createTrustInvite(elder) {
+    const old = elderInvite.get(elder.id);
+    if (old) trustInvites.delete(old);
+    let code;
+    do {
+      code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+    } while (trustInvites.has(code));
+    const expiresAt = now() + inviteTtl();
+    trustInvites.set(code, { elderId: elder.id, expiresAt });
+    elderInvite.set(elder.id, code);
+    audit.append({
+      type: 'trust.invite_created',
+      actor: ROLE_ACTOR(elder),
+      elderId: elder.id,
+      summary: '您產生了一組「加信任的人」邀請碼',
+    });
+    return { code, expiresAt, qrPayload: `townpass-trust:${code}` };
+  }
+
+  function trustRequestView(r, forHelper) {
+    const elder = findUser(r.elderId);
+    return {
+      id: r.id,
+      status: r.status,
+      createdAt: r.createdAt,
+      expiresAt: r.expiresAt,
+      helper: publicHelper(findUser(r.helperId)),
+      // 協助者只看得到遮罩後的姓名
+      elder: { id: r.elderId, displayName: forHelper ? maskName(elder.profile.realName) : elder.profile.realName },
+    };
+  }
+
+  function publishTrustRequest(r) {
+    notify(r.elderId, 'trust:request', trustRequestView(r, false));
+    notify(r.helperId, 'trust:request', trustRequestView(r, true));
+  }
+
+  /** 家人掃了長輩的邀請碼：送一個「想成為您信任的人」給長輩確認。 */
+  function acceptTrustInvite(helper, { code } = {}) {
+    const normalized = String(code ?? '').replace(/^townpass-trust:/, '').trim();
+    if (!/^\d{6}$/.test(normalized)) throw badRequest('邀請碼是 6 位數字', 'INVALID_CODE_FORMAT');
+    if (!pairingLimiter.take(helper.id)) throw tooMany('嘗試次數過多，請 10 分鐘後再試', 'PAIRING_RATE_LIMITED');
+    const entry = trustInvites.get(normalized);
+    if (!entry || entry.expiresAt < now()) throw notFound('邀請碼無效或已過期，請長輩重新產生', 'CODE_NOT_FOUND');
+    // 一組邀請碼只能用一次
+    trustInvites.delete(normalized);
+    if (elderInvite.get(entry.elderId) === normalized) elderInvite.delete(entry.elderId);
+    if (isBlocked(entry.elderId, helper.id)) throw notFound('邀請碼無效或已過期，請長輩重新產生', 'CODE_NOT_FOUND');
+    const elder = findUser(entry.elderId);
+    if (isTrusted(entry.elderId, helper.id)) {
+      return { status: 'already', elder: { id: elder.id, displayName: maskName(elder.profile.realName) } };
+    }
+    const t = now();
+    const r = {
+      id: crypto.randomUUID(),
+      elderId: entry.elderId,
+      helperId: helper.id,
+      createdAt: t,
+      expiresAt: t + inviteTtl(),
+      status: 'pending',
+    };
+    trustRequests.set(r.id, r);
+    audit.append({
+      type: 'trust.invite_scanned',
+      actor: ROLE_ACTOR(helper),
+      elderId: r.elderId,
+      helperId: helper.id,
+      summary: `${helper.title} ${helper.name} 掃了您的邀請碼，想成為您信任的人`,
+    });
+    publishTrustRequest(r);
+    return trustRequestView(r, true);
+  }
+
+  const listTrustRequests = (elder) =>
+    [...trustRequests.values()]
+      .filter((r) => r.elderId === elder.id && r.status === 'pending' && r.expiresAt > now())
+      .map((r) => trustRequestView(r, false));
+
+  /** 長輩確認「要不要把他加為信任的人」：一定要長輩本人按同意。 */
+  function respondTrustRequest(elder, id, accept) {
+    const r = trustRequests.get(id);
+    if (!r || r.elderId !== elder.id) throw notFound('找不到這個邀請');
+    if (r.status !== 'pending' || r.expiresAt <= now()) throw conflict('這個邀請已經失效', 'REQUEST_NOT_PENDING');
+    const helper = findUser(r.helperId);
+    if (accept) {
+      if (!trust.has(elder.id)) trust.set(elder.id, new Map());
+      const list = trust.get(elder.id);
+      if (!list.has(helper.id) && list.size >= config.maxTrustedPerElder) {
+        throw conflict(`信任的人最多 ${config.maxTrustedPerElder} 位，請先移除一位`, 'TOO_MANY_TRUSTED');
+      }
+      list.set(helper.id, { since: now() });
+      r.status = 'accepted';
+      audit.append({
+        type: 'trust.added',
+        actor: ROLE_ACTOR(elder),
+        elderId: elder.id,
+        helperId: helper.id,
+        summary: `您把 ${helper.title} ${helper.name} 加為信任的人，對方之後不用配對碼就能請求陪您辦`,
+      });
+      notifyTrust(elder.id, helper.id);
+    } else {
+      r.status = 'rejected';
+    }
+    publishTrustRequest(r);
     return listTrusted(elder);
   }
 
@@ -416,6 +653,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       elderLabel: maskName(elder.profile.realName),
       method: 'trusted',
     });
+    answerHelp(elderId, helper.id);
     return hView(s);
   }
 
@@ -924,6 +1162,24 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
 
   function sweep() {
     const t = now();
+    for (const [code, entry] of trustInvites) {
+      if (entry.expiresAt < t) {
+        trustInvites.delete(code);
+        if (elderInvite.get(entry.elderId) === code) elderInvite.delete(entry.elderId);
+      }
+    }
+    for (const r of trustRequests.values()) {
+      if (r.status === 'pending' && r.expiresAt <= t) {
+        r.status = 'expired';
+        publishTrustRequest(r);
+      }
+    }
+    for (const r of helpRequests.values()) {
+      if (r.status === 'pending' && r.expiresAt <= t) {
+        r.status = 'expired';
+        publishHelp(r);
+      }
+    }
     for (const [code, entry] of pairingCodes) {
       if (entry.expiresAt < t) {
         pairingCodes.delete(code);
@@ -981,6 +1237,15 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     removeTrusted,
     listTrusted,
     listTrustingElders,
+    trustCandidates,
+    createTrustInvite,
+    acceptTrustInvite,
+    listTrustRequests,
+    respondTrustRequest,
+    requestHelp,
+    cancelHelp,
+    listHelpForElder,
+    listHelpForHelper,
     respond,
     gotoStep,
     setElderNav,

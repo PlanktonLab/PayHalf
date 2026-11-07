@@ -31,8 +31,17 @@ export function buildConfig(overrides = {}) {
     // 信任的人：每位長輩最多幾位、信任的人直接發起請求的次數上限
     maxTrustedPerElder: 5,
     trustedRequestLimit: { max: 5, windowMs: 10 * 60 * 1000 },
-    // Demo 預設好友：王大明（elder-wang）已信任家人王小華（helper-family）
-    demoTrust: [['elder-wang', 'helper-family']],
+    // 長輩主動請信任的人來幫忙：多久沒回應就失效、次數上限
+    helpRequestTtlMs: Number(process.env.HELP_REQUEST_TTL_MS ?? 10 * 60 * 1000),
+    helpRequestLimit: { max: 5, windowMs: 10 * 60 * 1000 },
+    // 加好友（信任的人）邀請碼：長輩出示 QR／6 位數，家人掃了之後長輩再按一次同意
+    trustInviteTtlMs: Number(process.env.TRUST_INVITE_TTL_MS ?? 5 * 60 * 1000),
+    // Demo 預設好友：王大明（elder-wang）已信任家人王小華（helper-family）、
+    // 李秀英（elder-lee）已信任里長陳美玲（helper-chief）。demo 可直接發請求，不用配對碼
+    demoTrust: [
+      ['elder-wang', 'helper-family'],
+      ['elder-lee', 'helper-chief'],
+    ],
     // 送出後可撤回的時間（降低誤觸送出的風險）。網頁原型原設 5 秒，長輩反應較慢，放寬為 10 秒
     undoWindowMs: 10 * 1000,
     staticDir: process.env.STATIC_DIR ?? null,

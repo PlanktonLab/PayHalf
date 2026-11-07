@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:town_pass/page/assist/widget/assist_home_section.dart';
+import 'package:town_pass/page/assist/widget/assist_persona_switcher.dart';
 import 'package:town_pass/page/assist/widget/assist_scan.dart';
-import 'package:town_pass/gen/assets.gen.dart';
 import 'package:town_pass/page/home/widget/activity_info/activity_info_widget.dart';
 import 'package:town_pass/page/home/widget/city_news/city_news_widget.dart';
 import 'package:town_pass/page/home/widget/news/news_banner_widget.dart';
 import 'package:town_pass/page/home/widget/subscription/subscription_widget.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
-import 'package:town_pass/util/tp_route.dart';
 
 class HomeView extends StatelessWidget {
   const HomeView({super.key});
@@ -20,13 +18,9 @@ class HomeView extends StatelessWidget {
       appBar: TPAppBar(
         showLogo: true,
         title: '首頁',
-        leading: IconButton(
-          icon: Semantics(
-            label: '帳戶',
-            child: Assets.svg.iconPerson.svg(),
-          ),
-          onPressed: () => Get.toNamed(TPRoute.account),
-        ),
+        // Demo：左上角直接切換「這支手機是誰」，帳戶頁從切換面板進
+        leading: const AssistPersonaButton(),
+        leadingWidth: AssistPersonaButton.width,
         backgroundColor: TPColors.white,
       ),
       floatingActionButton: const AssistScanButton(),
@@ -41,6 +35,8 @@ class HomeView extends StatelessWidget {
           _SliverGap(8),
           SliverToBoxAdapter(child: CityNewsWidget()),
           _SliverGap(12),
+          // 協助者身分：信任我的長輩請我幫忙時才出現
+          SliverToBoxAdapter(child: AssistHelpCallCard()),
           SliverToBoxAdapter(child: AssistEntryCard()),
           _SliverGap(16),
           SliverToBoxAdapter(child: SubscriptionWidget()),

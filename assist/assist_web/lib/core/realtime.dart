@@ -11,6 +11,9 @@ class Realtime {
     required void Function(Map<String, dynamic> session) onSession,
     void Function()? onConnect,
     void Function(bool connected)? onStatus,
+    void Function()? onTrusted,
+    void Function(Map<String, dynamic> help)? onHelp,
+    void Function(Map<String, dynamic> request)? onTrustRequest,
   }) {
     dispose();
     final socket = io.io(
@@ -28,6 +31,20 @@ class Realtime {
       } catch (e) {
         debugPrint('[realtime] 推播處理失敗：$e');
       }
+    });
+    // 信任的人清單有變（長輩加入／移除、封鎖）
+    socket.on('trusted:update', (_) => onTrusted?.call());
+    // 長輩主動請信任的人幫忙（雙方都會收到狀態更新）
+    socket.on('help:update', (data) {
+      try {
+        onHelp?.call(Map<String, dynamic>.from(data as Map));
+      } catch (_) {}
+    });
+    // 加好友：家人掃了長輩的邀請碼（長輩確認／結果）
+    socket.on('trust:request', (data) {
+      try {
+        onTrustRequest?.call(Map<String, dynamic>.from(data as Map));
+      } catch (_) {}
     });
     socket.onConnect((_) {
       onStatus?.call(true);

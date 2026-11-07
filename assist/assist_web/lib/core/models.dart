@@ -106,6 +106,8 @@ class AssistSession {
   /// 長輩自己換頁（完成一步自動到下一步、長輩可按上一頁／下一頁）
   bool get elderNav => raw['elderNav'] != false;
   bool get elderSelfAuth => raw['elderSelfAuth'] != false;
+  /// 長輩視圖：協助者是不是長輩信任的人
+  bool get helperTrusted => raw['helperTrusted'] == true;
   String? get pendingAuth => raw['pendingAuth'] as String?;
   String? get caseNo => raw['caseNo'] as String?;
   String? get endReason => raw['endReason'] as String?;
@@ -154,3 +156,39 @@ String statusLabel(AssistSession s) => switch (s.status) {
   },
   _ => s.status,
 };
+
+/// 長輩信任的人
+class TrustedHelper {
+  TrustedHelper(this.raw);
+  final Map<String, dynamic> raw;
+  HelperInfo get helper => HelperInfo(Map<String, dynamic>.from(raw['helper'] as Map));
+  DateTime? get since => raw['since'] == null ? null : DateTime.fromMillisecondsSinceEpoch((raw['since'] as num).toInt());
+}
+
+/// 長輩主動請信任的人來幫忙
+class HelpRequest {
+  HelpRequest(this.raw);
+  final Map<String, dynamic> raw;
+  String get id => raw['id'] as String;
+  bool get isPending => raw['status'] == 'pending';
+  String get elderId => (raw['elder'] as Map)['id'] as String;
+  String get elderName => (raw['elder'] as Map)['displayName'] as String;
+  HelperInfo get helper => HelperInfo(Map<String, dynamic>.from(raw['helper'] as Map));
+}
+
+/// 可以加為信任的人：陪長輩辦過的人
+class TrustCandidate {
+  TrustCandidate(this.raw);
+  final Map<String, dynamic> raw;
+  HelperInfo get helper => HelperInfo(Map<String, dynamic>.from(raw['helper'] as Map));
+  String? get serviceTitle => raw['serviceTitle'] as String?;
+}
+
+/// 加好友：家人掃了長輩的邀請碼，等長輩確認
+class TrustRequest {
+  TrustRequest(this.raw);
+  final Map<String, dynamic> raw;
+  String get id => raw['id'] as String;
+  bool get isPending => raw['status'] == 'pending';
+  HelperInfo get helper => HelperInfo(Map<String, dynamic>.from(raw['helper'] as Map));
+}

@@ -80,6 +80,10 @@ class MyApp extends StatelessWidget {
         NotificationService.requestPermission();
       },
       getPages: TPRoute.page,
+      // 讓陪辦提示膠囊知道目前在哪一頁（在協辦畫面本身就不顯示，避免重複）
+      routingCallback: (r) {
+        if (r != null && Get.isRegistered<AssistService>()) Get.find<AssistService>().route.value = r.current;
+      },
       // 陪辦進行中：整個畫面加上光框與「某某 正在陪您操作」提示
       builder: (context, child) => AssistRemoteFrame(child: child ?? const SizedBox.shrink()),
     );

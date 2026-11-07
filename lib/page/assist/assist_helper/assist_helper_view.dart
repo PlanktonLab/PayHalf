@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:town_pass/page/assist/widget/assist_scan.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/bean/assist.dart';
@@ -11,11 +12,14 @@ import 'package:town_pass/util/tp_colors.dart';
 /// 協助者（里長、家人、1999 客服）用手機陪長輩辦事的畫面。
 /// 由首頁「掃描」掃到長輩的配對 QR Code 進來（帶入配對碼），或從「設定 › 測試身分」打開。
 class AssistHelperView extends StatefulWidget {
-  const AssistHelperView({super.key, this.code});
+  const AssistHelperView({super.key, this.code, this.elderId});
   final String? code;
 
-  static Future<void> open([String? code]) async {
-    await Get.to(() => AssistHelperView(code: code), routeName: '/assist_helper');
+  /// 從首頁「幫某某辦事」進來：直接選好這位信任我的長輩
+  final String? elderId;
+
+  static Future<void> open({String? code, String? elderId}) async {
+    await Get.to(() => AssistHelperView(code: code, elderId: elderId), routeName: '/assist_helper');
   }
 
   @override
@@ -56,7 +60,7 @@ class _AssistHelperViewState extends State<AssistHelperView> {
         );
       } else if (s == null) {
         title = '新陪辦';
-        body = _NewRequest(c: c, code: widget.code);
+        body = _NewRequest(c: c, code: widget.code, elderId: widget.elderId);
       } else if (s.isPending) {
         title = '等待長輩回應';
         body = _Waiting(c: c, s: s);
@@ -221,9 +225,10 @@ ButtonStyle _secondary() => OutlinedButton.styleFrom(
 // ═════════════════════════════════════════════ 新陪辦
 
 class _NewRequest extends StatefulWidget {
-  const _NewRequest({required this.c, this.code});
+  const _NewRequest({required this.c, this.code, this.elderId});
   final AssistHelperController c;
   final String? code;
+  final String? elderId;
   @override
   State<_NewRequest> createState() => _NewRequestState();
 }
@@ -243,7 +248,9 @@ class _NewRequestState extends State<_NewRequest> {
     if (widget.c.services.isNotEmpty) serviceId = widget.c.services.first['id'] as String;
     if (widget.code == null) {
       final trusted = widget.c.trustedElders;
-      if (trusted.length == 1) {
+      if (widget.elderId != null && trusted.any((e) => e['elderId'] == widget.elderId)) {
+        elderId = widget.elderId;
+      } else if (trusted.length == 1) {
         // 只有一位信任您的長輩：直接選好，按一下就能送出
         elderId = trusted.first['elderId'] as String;
       } else if (trusted.isEmpty) {
@@ -323,7 +330,7 @@ class _NewRequestState extends State<_NewRequest> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _Label('信任您的長輩・不用配對碼'),
+                    const _Label('信任您的長輩・按一下就通知，不用配對碼'),
                     for (final e in trusted) ...[
                       _TrustedElderTile(
                         name: e['displayName'] as String,
@@ -368,7 +375,15 @@ class _NewRequestState extends State<_NewRequest> {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: assistEnterTrustCode,
+                  icon: const Icon(Icons.favorite_border_rounded, size: 18),
+                  label: const Text('長輩給您的是「加信任的人」號碼？'),
+                ),
+              ),
+              const SizedBox(height: 4),
               const _Label('要陪長輩辦什麼'),
               for (final sv in c.services) ...[
                 _ServiceTile(
@@ -428,7 +443,7 @@ class _NewRequestState extends State<_NewRequest> {
                 icon: busy
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: TPColors.white))
                     : const Icon(Icons.send_rounded),
-                label: Text(elderId != null ? '請長輩確認' : '送出陪辦請求'),
+                label: Text(elderId != null ? '通知長輩確認' : '送出陪辦請求'),
               ),
             ),
           ],
@@ -1106,10 +1121,22 @@ class _Done extends StatelessWidget {
             ),
           ),
         ),
+        // 多數情況幫完一位就結束了，主按鈕回首頁；連續服務（里長、1999）再用次要鈕
         _BottomBar(
           children: [
             Expanded(
-              child: FilledButton(style: _primary(), onPressed: () => c.focusedId.value = null, child: const Text('新陪辦')),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FilledButton(style: _primary(), onPressed: Get.back, child: const Text('回到首頁')),
+                  const SizedBox(height: 6),
+                  TextButton(
+                    onPressed: () => c.focusedId.value = null,
+                    style: TextButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+                    child: const Text('再陪辦另一位', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

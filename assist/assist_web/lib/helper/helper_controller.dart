@@ -26,6 +26,8 @@ class HelperController extends ChangeNotifier {
   List<Map<String, dynamic>> auditEntries = [];
   /// 把我加為「信任的人」的長輩：不用配對碼就能請求
   List<Map<String, dynamic>> trustedElders = [];
+  /// 信任我的長輩按了「請他來幫我」
+  List<HelpRequest> helpRequests = [];
 
   bool get loggedIn => me != null;
 
@@ -59,6 +61,8 @@ class HelperController extends ChangeNotifier {
       token: api.token!,
       onSession: _onSession,
       onConnect: refresh,
+      onTrusted: refreshTrusted,
+      onHelp: _onHelp,
       onStatus: (c) {
         connected = c;
         notifyListeners();
@@ -76,6 +80,7 @@ class HelperController extends ChangeNotifier {
     me = null;
     sessions.clear();
     trustedElders = [];
+    helpRequests = [];
     focusedSessionId = null;
     notifyListeners();
   }
@@ -99,9 +104,24 @@ class HelperController extends ChangeNotifier {
     for (final e in list) {
       _onSession(Map<String, dynamic>.from(e as Map));
     }
+    await refreshTrusted();
+    helpRequests = (await api.get('/helper/help-requests') as List)
+        .map((e) => HelpRequest(Map<String, dynamic>.from(e as Map)))
+        .toList();
+    await refreshAudit();
+  }
+
+  void _onHelp(Map<String, dynamic> raw) {
+    final r = HelpRequest(raw);
+    helpRequests = [...helpRequests.where((e) => e.id != r.id), if (r.isPending) r];
+    notifyListeners();
+  }
+
+  Future<void> refreshTrusted() async {
+    if (!loggedIn) return;
     trustedElders =
         (await api.get('/helper/trusted-elders') as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
-    await refreshAudit();
+    notifyListeners();
   }
 
   Future<void> refreshAudit() async {
@@ -130,6 +150,10 @@ class HelperController extends ChangeNotifier {
     refreshAudit();
     return s;
   }
+
+  /// 掃了（或輸入）長輩的加好友邀請碼；回傳長輩遮罩姓名與狀態（pending／already）
+  Future<Map<String, dynamic>> acceptTrustInvite(String code) async =>
+      Map<String, dynamic>.from(await api.post('/helper/trust-invite/accept', {'code': code}) as Map);
 
   Future<AssistSession> requestTrusted(String serviceId, String elderId) async {
     final s = await _apply(

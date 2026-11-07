@@ -25,13 +25,15 @@ class AssistRemoteFrame extends StatelessWidget {
       service.sessions.length;
       final s = service.active;
       final on = s != null && s.helper != null;
+      // 協辦畫面上方已經有「某某 正在陪您辦理」，膠囊就不再重複出現（光框保留）
+      final banner = on && service.route.value != TPRoute.assistSession;
       final mq = MediaQuery.of(context);
       final top = mq.padding.top;
       return Stack(
         children: [
           // 把內容往下推，讓出提示列的位置（像通話中的狀態列）
           MediaQuery(
-            data: on
+            data: banner
                 ? mq.copyWith(
                     padding: mq.padding.copyWith(top: top + bannerHeight),
                     viewPadding: mq.viewPadding.copyWith(top: mq.viewPadding.top + bannerHeight),
@@ -45,6 +47,8 @@ class AssistRemoteFrame extends StatelessWidget {
                 child: _GlowFrame(radius: _screenRadius(top), reduceMotion: mq.disableAnimations),
               ),
             ),
+          ],
+          if (banner) ...[
             Positioned(
               top: top,
               left: 0,

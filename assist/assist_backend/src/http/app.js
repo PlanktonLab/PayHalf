@@ -1,5 +1,7 @@
 import express from 'express';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
+import path from 'node:path';
 import { ApiError, unauthorized, forbidden, badRequest } from '../core/errors.js';
 import { HELPERS, ELDERS, findUser, findElderByTownpassAccount, publicHelper, publicElder } from '../data/users.js';
 import { SERVICES, findService, serviceSummary } from '../data/services.js';
@@ -90,6 +92,19 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
     }),
   );
 
+  // ── Demo 快速觸發：由預設信任的人直接向長輩發出請求（整個 App 都是 demo，正式版沒有這支）
+  api.post(
+    '/demo/trusted-request',
+    wrap((req) => {
+      const helper = findUser(req.body?.helperId);
+      const elder = findUser(req.body?.elderId);
+      if (!helper || helper.role !== 'helper') throw badRequest('沒有這個協助者');
+      if (!elder || elder.role !== 'elder') throw badRequest('沒有這位長輩');
+      const serviceId = req.body?.serviceId ?? SERVICES[0].id;
+      return assist.requestTrusted(helper, { serviceId, elderId: elder.id });
+    }),
+  );
+
   // ── 公開資訊
   api.get('/services', (_req, res) => res.json(SERVICES.map(serviceSummary)));
   api.get(
@@ -158,7 +173,19 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
   );
   elder.post('/sessions/:id/undo', wrap((req) => assist.undoSubmit(req.user, req.params.id)));
   elder.get('/trusted', wrap((req) => assist.listTrusted(req.user)));
-  elder.post('/trusted', wrap((req) => assist.addTrusted(req.user, req.body?.sessionId)));
+  elder.post('/trusted', wrap((req) => assist.addTrusted(req.user, req.body ?? {})));
+  elder.get('/trusted/candidates', wrap((req) => assist.trustCandidates(req.user)));
+  // 加好友：產生邀請碼、看誰掃了、確認
+  elder.post('/trust-invite', wrap((req) => assist.createTrustInvite(req.user)));
+  elder.get('/trust-requests', wrap((req) => assist.listTrustRequests(req.user)));
+  elder.post(
+    '/trust-requests/:id/respond',
+    wrap((req) => assist.respondTrustRequest(req.user, req.params.id, req.body?.accept === true)),
+  );
+  // 長輩主動請信任的人來幫忙
+  elder.get('/help-requests', wrap((req) => assist.listHelpForElder(req.user)));
+  elder.post('/help-requests', wrap((req) => assist.requestHelp(req.user, req.body ?? {})));
+  elder.post('/help-requests/:id/cancel', wrap((req) => assist.cancelHelp(req.user, req.params.id)));
   elder.post('/trusted/:helperId/remove', wrap((req) => assist.removeTrusted(req.user, req.params.helperId)));
   elder.post('/sessions/:id/block', wrap((req) => assist.blockHelper(req.user, req.params.id)));
   api.use('/elder', elder);
@@ -181,6 +208,8 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
   );
   helper.get('/sessions', wrap((req) => assist.listForHelper(req.user)));
   helper.get('/trusted-elders', wrap((req) => assist.listTrustingElders(req.user)));
+  helper.get('/help-requests', wrap((req) => assist.listHelpForHelper(req.user)));
+  helper.post('/trust-invite/accept', wrap((req) => assist.acceptTrustInvite(req.user, req.body ?? {})));
   helper.get('/audit', wrap((req) => assist.helperAudit(req.user)));
   helper.post(
     '/sessions/:id/step',
@@ -223,7 +252,45 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
 
   // ── 前端靜態檔（Flutter Web build）
   if (config.staticDir && fs.existsSync(config.staticDir)) {
-    app.use(express.static(config.staticDir, { index: 'index.html' }));
+    // Flutter Web 的檔名沒有 hash，前面的 Cloudflare 會讓瀏覽器把 .js 快取 4 小時（連 no-cache 都會被覆寫）。
+    // 所以在 index.html → flutter_bootstrap.js → main.dart.js 這條鏈上加 ?v=<內容雜湊>：
+    // 每次部署網址就不同，絕對拿到新版；沒改時網址不變，照樣吃快取。
+    const webVersion = (() => {
+      let cache = { mtime: 0, v: '' };
+      return () => {
+        const file = path.join(config.staticDir, 'main.dart.js');
+        const mtime = fs.statSync(file).mtimeMs;
+        if (mtime !== cache.mtime) {
+          const v = crypto.createHash('sha1').update(fs.readFileSync(file)).digest('hex').slice(0, 10);
+          cache = { mtime, v };
+        }
+        return cache.v;
+      };
+    })();
+    const sendRewritten = (res, name, type, rewrite) => {
+      const text = fs.readFileSync(path.join(config.staticDir, name), 'utf8');
+      res.setHeader('Content-Type', type);
+      res.setHeader('Cache-Control', 'no-cache');
+      res.send(rewrite(text, webVersion()));
+    };
+    app.get(['/', '/index.html'], (_req, res) =>
+      sendRewritten(res, 'index.html', 'text/html; charset=utf-8', (t, v) =>
+        t.replaceAll('flutter_bootstrap.js"', `flutter_bootstrap.js?v=${v}"`),
+      ),
+    );
+    app.get('/flutter_bootstrap.js', (_req, res) =>
+      sendRewritten(res, 'flutter_bootstrap.js', 'text/javascript; charset=utf-8', (t, v) =>
+        t.replaceAll('"mainJsPath":"main.dart.js"', `"mainJsPath":"main.dart.js?v=${v}"`),
+      ),
+    );
+    // Flutter Web 的 main.dart.js 等檔名沒有 hash，部署後檔名不變。
+    // 一律 no-cache（每次向伺服器確認，沒變就回 304），避免 CDN／瀏覽器拿舊版好幾個小時
+    app.use(
+      express.static(config.staticDir, {
+        index: 'index.html',
+        setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache'),
+      }),
+    );
   }
 
   // ── 錯誤處理：不外洩內部錯誤細節

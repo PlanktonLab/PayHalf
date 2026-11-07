@@ -572,7 +572,8 @@ test('信任的人：陪辦過才能加入；信任的人不用配對碼也能�
     const nope = await helper.post('/helper/requests', { serviceId: 'senior-card', method: 'trusted', elderId: 'elder-wang' });
     assert.equal(nope.status, 403);
     assert.equal(nope.body.error.code, 'NOT_TRUSTED');
-    assert.deepEqual((await helper.get('/helper/trusted-elders')).body, []);
+    // 里長預設只被李秀英信任（demo 好友），王大明還沒加
+    assert.ok(!(await helper.get('/helper/trusted-elders')).body.some((e) => e.elderId === 'elder-wang'));
 
     // 長輩從這次陪辦加入信任；協助者不能幫自己加
     assert.equal((await helper.post('/elder/trusted', { sessionId: id })).status, 403);
@@ -580,7 +581,7 @@ test('信任的人：陪辦過才能加入；信任的人不用配對碼也能�
     assert.ok(added.body.some((t) => t.helper.id === 'helper-chief'));
     assert.equal((await elder.get(`/sessions/${id}`)).body.helperTrusted, true);
     const list = (await helper.get('/helper/trusted-elders')).body;
-    assert.deepEqual(list.map((e) => [e.elderId, e.displayName]), [['elder-wang', '王○明']]);
+    assert.deepEqual(list.filter((e) => e.elderId === 'elder-wang').map((e) => [e.elderId, e.displayName]), [['elder-wang', '王○明']]);
     assert.ok(!JSON.stringify(list).includes('A102837499'));
     await elder.post(`/sessions/${id}/end`);
 
@@ -677,6 +678,134 @@ test('長輩自己授權：預設可以不等請求直接同意；陪辦人員�
     assert.equal((await elder.post(`/elder/sessions/${id}/fields/idNo/self-authorize`)).body.fields.idNo.status, 'authorized');
     // 長輩不能改開關
     assert.equal((await elder.post(`/helper/sessions/${id}/elder-self-auth`, { enabled: true })).status, 403);
+  } finally {
+    await h.close();
+  }
+});
+
+test('Demo：預設信任的人可由 /demo/trusted-request 直接向長輩發出請求', async () => {
+  const h = await startTestServer();
+  try {
+    const elder = await h.login('elder-wang');
+    const elderSock = h.listen(elder.token);
+    await elderSock.ready;
+    // 預設好友：王小華→王大明、陳美玲→李秀英；其他組合不行
+    assert.equal((await elder.post('/demo/trusted-request', { helperId: 'helper-chief', elderId: 'elder-wang' })).status, 403);
+    assert.equal((await elder.post('/demo/trusted-request', { helperId: 'nobody', elderId: 'elder-wang' })).status, 400);
+    const r = await elder.post('/demo/trusted-request', { helperId: 'helper-family', elderId: 'elder-wang', serviceId: 'senior-card' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.status, 'pending');
+    await wait();
+    const pushed = elderSock.events.find((e) => e.event === 'session:update' && e.payload.id === r.body.id);
+    assert.ok(pushed, '長輩手機應收到推播');
+    assert.equal(pushed.payload.helper.name, '王小華');
+    assert.equal(pushed.payload.helperTrusted, true);
+    const lee = await h.login('elder-lee');
+    assert.equal((await lee.get('/elder/trusted')).body[0].helper.id, 'helper-chief');
+  } finally {
+    await h.close();
+  }
+});
+
+test('信任的人：可從「陪我辦過的人」直接加入；沒陪辦過的人加不進來', async () => {
+  const h = await startTestServer();
+  try {
+    const { elder, id } = await startActive(h);
+    await elder.post(`/sessions/${id}/end`);
+    // 1999 林志明沒陪辦過：不能加
+    assert.equal((await elder.post('/elder/trusted', { helperId: 'helper-1999' })).body.error.code, 'NOT_ACCEPTED');
+    const cand = (await elder.get('/elder/trusted/candidates')).body;
+    assert.deepEqual(cand.map((c) => c.helper.id), ['helper-chief']);
+    const added = await elder.post('/elder/trusted', { helperId: 'helper-chief' });
+    assert.ok(added.body.some((t) => t.helper.id === 'helper-chief'));
+    assert.deepEqual((await elder.get('/elder/trusted/candidates')).body, []);
+  } finally {
+    await h.close();
+  }
+});
+
+test('長輩主動求助：只能找信任的人；對方收到推播；對方發起陪辦後求助自動結束', async () => {
+  const h = await startTestServer();
+  try {
+    const elder = await h.login('elder-wang');
+    const family = await h.login('helper-family');
+    const chief = await h.login('helper-chief');
+    const famSock = h.listen(family.token);
+    await famSock.ready;
+
+    // 里長沒被王大明信任：不能找
+    assert.equal((await elder.post('/elder/help-requests', { helperId: 'helper-chief' })).status, 403);
+    // 協助者不能呼叫長輩的 API
+    assert.equal((await chief.post('/elder/help-requests', { helperId: 'helper-family' })).status, 403);
+
+    const r = await elder.post('/elder/help-requests', { helperId: 'helper-family' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.status, 'pending');
+    assert.equal(r.body.elder.displayName, '王○明');
+    // 重複按不會一直發
+    assert.equal((await elder.post('/elder/help-requests', { helperId: 'helper-family' })).body.id, r.body.id);
+
+    await wait();
+    const pushed = famSock.events.find((e) => e.event === 'help:update' && e.payload.id === r.body.id);
+    assert.ok(pushed, '信任的人手機要收到求助推播');
+    assert.ok(!JSON.stringify(pushed.payload).includes('A102837499'));
+    assert.equal((await family.get('/helper/help-requests')).body.length, 1);
+
+    // 家人發起陪辦 → 求助算回應了
+    const s = await family.post('/helper/requests', { serviceId: 'senior-card', method: 'trusted', elderId: 'elder-wang' });
+    assert.equal(s.status, 202, JSON.stringify(s.body));
+    assert.deepEqual((await family.get('/helper/help-requests')).body, []);
+    assert.deepEqual((await elder.get('/elder/help-requests')).body, []);
+
+    // 取消
+    await elder.post(`/elder/sessions/${s.body.id}/respond`, { accept: false });
+    const r2 = await elder.post('/elder/help-requests', { helperId: 'helper-family' });
+    assert.equal((await elder.post(`/elder/help-requests/${r2.body.id}/cancel`)).body.status, 'cancelled');
+  } finally {
+    await h.close();
+  }
+});
+
+test('加好友：長輩出示邀請碼 → 家人掃碼 → 長輩確認才加入；邀請碼只能用一次', async () => {
+  const h = await startTestServer();
+  try {
+    const elder = await h.login('elder-wang');
+    const chief = await h.login('helper-chief');
+    const other = await h.login('helper-1999');
+    const elderSock = h.listen(elder.token);
+    await elderSock.ready;
+
+    const inv = (await elder.post('/elder/trust-invite')).body;
+    assert.match(inv.code, /^\d{6}$/);
+    assert.equal(inv.qrPayload, `townpass-trust:${inv.code}`);
+    // 協助者不能自己產生邀請碼
+    assert.equal((await chief.post('/elder/trust-invite')).status, 403);
+
+    const r = await chief.post('/helper/trust-invite/accept', { code: inv.qrPayload });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.status, 'pending');
+    assert.equal(r.body.elder.displayName, '王○明');
+    // 用過的碼不能再用
+    assert.equal((await other.post('/helper/trust-invite/accept', { code: inv.code })).body.error.code, 'CODE_NOT_FOUND');
+
+    await wait();
+    const pushed = elderSock.events.find((e) => e.event === 'trust:request' && e.payload.id === r.body.id);
+    assert.ok(pushed, '長輩手機要收到「想成為您信任的人」');
+    assert.equal(pushed.payload.helper.name, '陳美玲');
+
+    // 還沒同意：不算信任
+    assert.equal((await chief.post('/helper/requests', { serviceId: 'senior-card', method: 'trusted', elderId: 'elder-wang' })).status, 403);
+    // 只有長輩本人能同意
+    assert.equal((await chief.post(`/elder/trust-requests/${r.body.id}/respond`, { accept: true })).status, 403);
+    const ok = await elder.post(`/elder/trust-requests/${r.body.id}/respond`, { accept: true });
+    assert.ok(ok.body.some((t) => t.helper.id === 'helper-chief'));
+    assert.equal((await chief.post('/helper/requests', { serviceId: 'senior-card', method: 'trusted', elderId: 'elder-wang' })).status, 202);
+
+    // 拒絕
+    const inv2 = (await elder.post('/elder/trust-invite')).body;
+    const r2 = await other.post('/helper/trust-invite/accept', { code: inv2.code });
+    await elder.post(`/elder/trust-requests/${r2.body.id}/respond`, { accept: false });
+    assert.ok(!(await elder.get('/elder/trusted')).body.some((t) => t.helper.id === 'helper-1999'));
   } finally {
     await h.close();
   }
