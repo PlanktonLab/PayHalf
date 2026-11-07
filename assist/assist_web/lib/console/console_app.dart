@@ -540,6 +540,20 @@ class _Sidebar extends StatelessWidget {
             selected: section == Section.forms,
             onTap: () => onGo(Section.forms),
           ),
+          _NavItem(
+            icon: Icons.workspace_premium_outlined,
+            label: '台北通徽章',
+            rail: rail,
+            external: true,
+            onTap: () => openInNewTab('/badge'),
+          ),
+          _NavItem(
+            icon: Icons.language_rounded,
+            label: '局處網站示意',
+            rail: rail,
+            external: true,
+            onTap: () => openInNewTab('/demo/agency?form=demo'),
+          ),
           group('測試'),
           _NavItem(
             icon: Icons.playlist_add_check_rounded,

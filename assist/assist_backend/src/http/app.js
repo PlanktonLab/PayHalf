@@ -8,6 +8,9 @@ import { SERVICES, findService, serviceSummary } from '../data/services.js';
 import { LEGAL_INFO } from '../data/legal.js';
 import { posterSvg, posterPage, landingPage, LAYOUTS } from '../poster/poster.js';
 import { posterPdf } from '../poster/pdf.js';
+import { badgeSvg } from '../poster/badge.js';
+import { agencyPage, badgeKitPage } from '../poster/agency.js';
+import QRCode from 'qrcode';
 
 export const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 
@@ -338,15 +341,48 @@ export function buildHttpApp({ config, tokens, assist, audit, forms }) {
   });
 
   // ── 靜態 QR Code 指向的網址（一般相機掃到時的說明頁）與可列印的海報頁
-  app.get('/f/:id', (req, res) => {
-    let form = null;
-    try {
-      form = forms.publicForm(req.params.id);
-    } catch {
-      res.status(404);
-    }
+  app.get(
+    '/f/:id',
+    wrapAsync(async (req, res) => {
+      let form = null;
+      try {
+        form = forms.publicForm(req.params.id);
+      } catch {
+        res.status(404);
+      }
+      const url = formUrl(req, req.params.id);
+      // 電腦上點了局處官網的徽章：顯示 QR Code 讓民眾用手機掃
+      const qrSvg = form ? await QRCode.toString(url, { type: 'svg', margin: 1, color: { dark: '#1D2A30' } }) : '';
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(landingPage(form, url, req.params.id, qrSvg));
+    }),
+  );
+
+  // ── 「本表單支援台北通」徽章：局處貼在自己官網表單上方，民眾點了改用台北通填
+  app.get('/badge.svg', (req, res) => {
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.send(badgeSvg(req.query.theme === 'light' ? 'light' : 'dark'));
+  });
+  const openForms = () =>
+    [...forms.forms.values()].filter((f) => f.status === 'open').sort((a, b) => (a.id === 'demo' ? -1 : b.id === 'demo' ? 1 : 0));
+  app.get('/badge', (req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(landingPage(form, formUrl(req, req.params.id), req.params.id));
+    res.send(badgeKitPage(openForms(), { base: baseUrl(req) }));
+  });
+  // 示意：局處既有官網的表單（虛構頁面），上方貼了徽章
+  app.get('/demo/agency', (req, res) => {
+    let form;
+    try {
+      form = forms.publicForm(String(req.query.form || 'demo'));
+    } catch {
+      form = openForms()[0] && forms.publicForm(openForms()[0].id);
+    }
+    if (!form) return res.status(404).send('找不到表單');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(agencyPage(form, { base: baseUrl(req), kitHref: '/badge' }));
   });
   app.get(
     '/poster/:id',
