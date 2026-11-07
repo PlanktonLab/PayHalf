@@ -1,5 +1,5 @@
 name: assist_web
-description: "台北通 陪你辦 協辦 Demo"
+description: "台北通 陪辦 協辦 Demo"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

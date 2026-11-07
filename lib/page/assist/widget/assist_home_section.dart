@@ -263,7 +263,7 @@ class AssistEntryCard extends StatelessWidget {
               child: ExcludeSemantics(
                 child: Row(
                   children: [
-                    // 與服務頁「陪你辦」使用同一個台北通風格圖示
+                    // 與服務頁「陪辦」使用同一個台北通風格圖示
                     Assets.svg.iconAccompany.svg(width: context.iconSize(52), height: context.iconSize(52)),
                     const SizedBox(width: 14),
                     const Expanded(

@@ -182,7 +182,7 @@ class _Offline extends StatelessWidget {
       const SizedBox(height: 40),
       Icon(Icons.cloud_off_rounded, size: context.iconSize(56), color: TPColors.grayscale400),
       const SizedBox(height: 16),
-      const Text('暫時連不上陪你辦服務', textAlign: TextAlign.center, style: AssistText.title),
+      const Text('暫時連不上陪辦服務', textAlign: TextAlign.center, style: AssistText.title),
       const SizedBox(height: 8),
       const Text('請確認網路，稍後再試。也可以直接撥打 1999 請客服協助。', textAlign: TextAlign.center, style: AssistText.callout),
       const SizedBox(height: 24),

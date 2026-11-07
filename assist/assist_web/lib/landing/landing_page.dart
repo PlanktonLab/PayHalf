@@ -60,7 +60,7 @@ class LandingPage extends StatelessWidget {
                     children: [
                       TownPassLogo(size: 30),
                       SizedBox(width: 12),
-                      Text('台北通　陪你辦', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w600)),
+                      Text('台北通　陪辦', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w600)),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -76,7 +76,7 @@ class LandingPage extends StatelessWidget {
                       entry(Icons.view_column_rounded, '並排示範', '一個畫面同時看協助者工作台與長輩手機，適合評審展示。', '/demo', primary: true),
                       entry(Icons.desktop_windows_rounded, '協助者工作台', '里長、家人或 1999 客服使用的電腦版介面。', '/helper'),
                       entry(Icons.phone_iphone_rounded, '長輩的手機', '模擬已登入台北通的長輩手機。可在另一台裝置開啟。', '/elder'),
-                      entry(Icons.dynamic_form_rounded, '承辦人表單後台', '各局處建立民眾要填的表單，並決定是否開放陪你辦。', '/admin/'),
+                      entry(Icons.dynamic_form_rounded, '承辦人表單後台', '各局處建立民眾要填的表單，並決定是否開放陪辦。', '/admin/'),
                     ],
                   ),
                   const SizedBox(height: 28),

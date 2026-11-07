@@ -16,8 +16,8 @@ abstract final class TrendingServiceModel {
         forceWebViewTitle: '市政資訊儀表板',
       ),
       TrendingService(icon: Assets.svg.iconLocationSearch.svg(), title: '施工資訊', url: ''),
-      // 陪你辦：開啟 App 內的原生流程（請人陪我辦），與首頁入口相同
-      TrendingService(icon: Assets.svg.iconAccompany.svg(), title: '陪你辦', url: 'local://assist_pairing'),
+      // 陪辦：開啟 App 內的原生流程（請人陪我辦），與首頁入口相同
+      TrendingService(icon: Assets.svg.iconAccompany.svg(), title: '陪辦', url: 'local://assist_pairing'),
       // 在此列表後加入新熱門按鈕
       // add new trending service button here
     ];

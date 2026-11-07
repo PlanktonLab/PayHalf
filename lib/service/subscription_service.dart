@@ -11,7 +11,7 @@ import 'package:town_pass/bean/subscription.dart';
 
 class SubscriptionService extends GetxService {
   static const settingsUrl = 'https://taipei-pass-service.vercel.app/subscription';
-  static const relatedTitle = '訂閱與我相關';
+  static const relatedTitle = '與我相關';
 
   final RxList<SubscriptionItem> itemList = RxList();
 

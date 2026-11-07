@@ -65,7 +65,7 @@ abstract class TPRoute {
   static const String suspendAccount = '/suspend_account';
   static const String webView = '/web_view';
 
-  // 陪你辦（協辦）
+  // 陪辦（協辦）
   static const String assistPairing = '/assist_pairing';
   static const String assistRequest = '/assist_request';
   static const String assistSession = '/assist_session';

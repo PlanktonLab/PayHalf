@@ -76,7 +76,7 @@ class _Banner extends StatelessWidget {
                     right: 4,
                     child: Align(
                       alignment: Alignment.topLeft,
-                      child: ActivityTag(activity!),
+                      child: ActivityTag(activity!, overlay: true),
                     ),
                   ),
                 ],

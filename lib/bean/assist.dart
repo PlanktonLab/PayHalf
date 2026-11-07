@@ -1,4 +1,4 @@
-/// 陪你辦（協辦）功能的資料模型，對應 assist_backend 的 JSON。
+/// 陪辦（協辦）功能的資料模型，對應 assist_backend 的 JSON。
 /// 刻意不走 json_serializable，避免為了 Demo 新增 build_runner 產生檔。
 class FieldDef {
   FieldDef(this.raw);

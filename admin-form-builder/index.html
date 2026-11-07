@@ -312,7 +312,7 @@ function vHome(){
       ${S.menu&&S.menu.k==='card'&&S.menu.id===f.id?`<div class="pop" style="right:0;top:42px"><button data-act="open" data-id="${f.id}">${ic('pencil',20)}開啟編輯</button><button data-act="resp" data-id="${f.id}">${ic('inbox',20)}看回覆</button><button data-act="dup" data-id="${f.id}">${ic('copy',20)}建立複本</button><button class="dg" data-act="del" data-id="${f.id}">${ic('trash-2',20)}刪除</button></div>`:''}</div></div></div>`).join('');
   return `<header class="appbar"><div class="r1"><button class="logo" data-act="homeTop"><i>${ic('clipboard-list',22)}</i><span>台北通表單</span></button>
      <div class="searchbox">${ic('search',20)}<input id="search" type="search" placeholder="搜尋我的表單" value="${esc(S.q)}" aria-label="搜尋表單"></div><span class="sp"></span>
-     <a class="hbtn ghost" href="/#/helper" style="text-decoration:none">${ic('hand-helping',20)}<span class="tx">陪你辦工作台</span></a>
+     <a class="hbtn ghost" href="/#/helper" style="text-decoration:none">${ic('hand-helping',20)}<span class="tx">陪辦工作台</span></a>
      <button class="hbtn ghost" data-act="help">${ic('circle-help',20)}<span class="tx">使用說明</span></button></div></header>
    <div class="band"><div class="wrap"><h2>開始建立新的表單</h2><div class="tplrow">${Object.entries(TEMPLATES).map(([k,t])=>`<button class="tplc" data-act="tpl" data-k="${k}"><div class="th">${ic(t.ic,k==='blank'?44:38)}</div><b>${t.n}</b><span>${t.d}</span></button>`).join('')}</div></div></div>
    <div class="wrap">${S.hideTip?'':`<div class="tip">${ic('lightbulb',24)}<span style="flex:1"><b>第一次使用?</b> 點選上面的範本,改一改文字就能發布,不需要懂程式。</span><button class="btn sm" data-act="help">看說明</button><button class="iconbtn" data-act="hidetip" aria-label="關閉這則提示">${ic('x',20)}</button></div>`}
@@ -443,7 +443,7 @@ function tabS(f){
     <div class="grid2"><div><label class="lb" for="s-dept">哪個單位辦的</label><input type="text" id="s-dept" data-set="dept" value="${esc(f.dept)}"></div>
     <div><label class="lb" for="s-dl">截止日期 <span class="muted small" style="font-weight:400">(不用就留空白)</span></label><input type="date" id="s-dl" data-set="deadline" value="${esc(f.deadline)}"></div></div></div>
    <div class="card sc"><h3>填寫方式</h3><p class="lead">決定誰可以填、怎麼填。</p>
-    <div class="srow"><div><b>開放「陪你辦」</b><div class="d">家人、里長、看護或 1999 客服可以陪長輩一起辦。長輩的個資由長輩在自己的台北通上逐項同意，協助者看不到內容；最後由長輩本人按送出。</div></div><label class="switch"><input type="checkbox" data-set="allowAssist" ${f.allowAssist?'checked':''} aria-label="開放陪你辦"><span class="sw"></span></label></div>
+    <div class="srow"><div><b>開放「陪辦」</b><div class="d">家人、里長、看護或 1999 客服可以陪長輩一起辦。長輩的個資由長輩在自己的台北通上逐項同意，協助者看不到內容；最後由長輩本人按送出。</div></div><label class="switch"><input type="checkbox" data-set="allowAssist" ${f.allowAssist?'checked':''} aria-label="開放陪辦"><span class="sw"></span></label></div>
     <div class="srow"><div><b>每人只能填一次</b><div class="d">同一位民眾送出後,就不能再填第二次。</div></div><label class="switch"><input type="checkbox" data-set="once" ${f.once?'checked':''} aria-label="每人只能填一次"><span class="sw"></span></label></div></div>
    <div class="card sc"><h3>送出之後</h3><p class="lead">民眾按下「確認送出」後會看到這段話。</p>
     <label class="lb" for="s-done">確認訊息</label><textarea id="s-done" rows="2" data-set="doneMsg">${esc(f.doneMsg)}</textarea></div>
@@ -527,7 +527,7 @@ function pubDlg(){
   if(f.fields.some(x=>!x.label.trim()))issues.push('有題目還沒輸入問題');
   if(f.fields.some(x=>OPT.includes(x.type)&&x.options.some(o=>!o.trim())))issues.push('有選項是空白的');
   dlg(`<h3>發布這份表單</h3><p class="muted">發布後,民眾就能在台北通找到並填寫。</p>
-   <div class="card" style="background:var(--p50);box-shadow:none;padding:14px 18px;margin:14px 0"><b>${esc(f.title||'未命名表單')}</b><div class="muted small">${f.fields.length} 題｜${f.deadline?'截止 '+f.deadline:'不設截止日'}｜${f.allowAssist?'開放陪你辦':'僅限本人填寫'}</div></div>
+   <div class="card" style="background:var(--p50);box-shadow:none;padding:14px 18px;margin:14px 0"><b>${esc(f.title||'未命名表單')}</b><div class="muted small">${f.fields.length} 題｜${f.deadline?'截止 '+f.deadline:'不設截止日'}｜${f.allowAssist?'開放陪辦':'僅限本人填寫'}</div></div>
    ${issues.length?issues.map(t=>`<div class="tipc" style="background:var(--red50);border-color:var(--red50);color:var(--red600)">${ic('triangle-alert',20)}<span>${t}</span></div>`).join(''):w?`<div class="tipc">${ic('lightbulb',20)}<span>有 ${w} 題可以寫得更好懂。可以先發布,之後再修改。</span></div>`:`<div class="good">${ic('circle-check',18)}所有題目長輩都看得懂</div>`}
    <div class="row" style="justify-content:flex-end;margin-top:20px"><button class="btn" data-act="closedlg">取消</button><button class="btn primary" data-act="pubok" ${issues.length?'disabled':''}>${ic('send',18)}發布</button></div>`);
 }

@@ -14,7 +14,7 @@ class AssistDemoApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '台北通 陪你辦',
+      title: '台北通 陪辦',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
       onGenerateRoute: (settings) {

@@ -8,7 +8,7 @@ import 'package:town_pass/gen/fonts.gen.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
 
-/// 陪你辦頁面共用的設計元件。
+/// 陪辦頁面共用的設計元件。
 ///
 /// 設計原則（參考 Apple HIG）：
 /// - 支援動態字型：不使用固定高度，字放大時元件跟著長高、換行。
@@ -16,9 +16,9 @@ import 'package:town_pass/util/tp_colors.dart';
 /// - 破壞性動作（結束、封鎖）用紅色並以系統樣式的對話框再確認一次。
 /// - 不只靠顏色傳達狀態，一律搭配圖示與文字。
 abstract final class AssistColors {
-  static const green50 = Color(0xFFEAF6EF);
-  static const green500 = Color(0xFF3E9E6E);
-  static const green700 = Color(0xFF2A6E4C);
+  static const green50 = TPColors.green50;
+  static const green500 = TPColors.green500;
+  static const green700 = TPColors.green700;
   static const blue500 = Color(0xFF4B8DBF);
 
   static const brandGradient = LinearGradient(
@@ -121,7 +121,7 @@ String assistHelperDisplayName(HelperInfo h) => h.helperType == 'village_chief'
 
 // ─────────────────────────────────────────── 元件
 
-/// 陪你辦頁面的字級放大上限。
+/// 陪辦頁面的字級放大上限。
 ///
 /// 基準字級本來就比 iOS 預設大一級（內文 19pt），因此放大到 iOS「AX3」倍率（約 2.35 倍）
 /// 時內文已約 45pt，相當於系統 AX4 的內文大小。再大會讓單一按鈕超過一個螢幕，反而找不到。

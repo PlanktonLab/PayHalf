@@ -75,7 +75,7 @@ export function createAssistServer(overrides = {}) {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const server = createAssistServer();
   const port = await server.listen();
-  console.log(`陪你辦 demo 後端已啟動：http://localhost:${port}`);
+  console.log(`陪辦 demo 後端已啟動：http://localhost:${port}`);
   console.log(`  協助者工作台：http://localhost:${port}/#/helper`);
   console.log(`  長輩手機模擬：http://localhost:${port}/#/elder`);
   console.log(`  承辦人表單後台：http://localhost:${port}/admin/`);

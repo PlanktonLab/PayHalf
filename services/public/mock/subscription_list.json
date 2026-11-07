@@ -89,7 +89,7 @@
       },
       {
         "id": "sub-related",
-        "name": "訂閱與我相關",
+        "name": "與我相關",
         "is_subscribed": false,
         "is_expand": false,
         "icon": "/images/subscription/icon_community_bulletin.svg",

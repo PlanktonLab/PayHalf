@@ -142,6 +142,17 @@ abstract final class TPColors {
   /// [Color(0xFF180505)]
   static const Color red950 = Color(0xFF180505);
 
+  // Green（成功、已同意、可申請。對比白字 ≥ 4.5:1）
+
+  /// [Color(0xFFEAF6EF)]
+  static const Color green50 = Color(0xFFEAF6EF);
+
+  /// [Color(0xFF3E9E6E)]
+  static const Color green500 = Color(0xFF3E9E6E);
+
+  /// [Color(0xFF2A6E4C)]
+  static const Color green700 = Color(0xFF2A6E4C);
+
   // Orange
 
   /// [Color(0xFFFDF3EC)]

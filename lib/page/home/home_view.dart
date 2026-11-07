@@ -30,7 +30,7 @@ class HomeView extends StatelessWidget {
       ),
       body: const CustomScrollView(
         slivers: [
-          // 陪你辦：有人想協助時，首頁最上方出現持續性徽章
+          // 陪辦：有人想協助時，首頁最上方出現持續性徽章
           SliverToBoxAdapter(child: AssistHomeBadge()),
           _SliverGap(20),
           SliverToBoxAdapter(child: NewsBannerWidget()),

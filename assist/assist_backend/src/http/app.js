@@ -84,7 +84,7 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
     '/auth/townpass-login',
     wrap((req) => {
       const elder = findElderByTownpassAccount(req.body?.accountId);
-      if (!elder) throw unauthorized('這個台北通帳號尚未開通陪你辦', 'ACCOUNT_NOT_LINKED');
+      if (!elder) throw unauthorized('這個台北通帳號尚未開通陪辦', 'ACCOUNT_NOT_LINKED');
       const token = tokens.issue({ sub: elder.id, role: 'elder' });
       return { token, user: { role: 'elder', ...publicElder(elder) } };
     }),

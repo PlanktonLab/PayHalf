@@ -58,7 +58,7 @@ class _AssistRecordsViewState extends State<AssistRecordsView> {
                   text: ok ? '紀錄完整，沒有被修改過' : '正在檢查紀錄…',
                 ),
                 const SizedBox(height: 22),
-                Semantics(header: true, child: const Text('陪你辦送出的申請', style: AssistText.title)),
+                Semantics(header: true, child: const Text('陪辦送出的申請', style: AssistText.title)),
                 const SizedBox(height: 10),
                 if (service.applications.isEmpty)
                   const AssistCard(child: Text('還沒有送出的申請', style: AssistText.callout))

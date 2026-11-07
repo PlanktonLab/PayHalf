@@ -1,6 +1,6 @@
 # assist_web
 
-台北通 陪你辦 協辦 Demo
+台北通 陪辦 協辦 Demo
 
 ## Getting Started
 

@@ -49,7 +49,7 @@ class AssistSessionView extends StatelessWidget {
             children: [
               Scaffold(
                 backgroundColor: TPColors.grayscale50,
-                appBar: TPAppBar(title: s?.serviceTitle ?? '陪你辦'),
+                appBar: TPAppBar(title: s?.serviceTitle ?? '陪辦'),
                 body: body,
               ),
               Positioned.fill(

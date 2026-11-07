@@ -30,7 +30,7 @@ class PairingCode {
   final DateTime expiresAt;
 }
 
-/// 陪你辦（協辦）服務。
+/// 陪辦（協辦）服務。
 ///
 /// 長輩的台北通 App 已完成實名驗證，啟動時以帳號向協辦後端換取 token，
 /// 再透過 Socket 接收「有人想協助您」等即時事件。正式版的即時事件應改走 APNs／FCM 推播。

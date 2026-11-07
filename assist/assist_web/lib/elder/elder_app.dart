@@ -385,7 +385,7 @@ class _ElderHomeState extends State<_ElderHome> {
   @override
   Widget build(BuildContext context) {
     final c = widget.c;
-    final titles = ['首頁', '陪你辦紀錄', '法規與說明'];
+    final titles = ['首頁', '陪辦紀錄', '法規與說明'];
     return Scaffold(
       backgroundColor: TPColors.grayscale50,
       appBar: AppBar(
@@ -440,7 +440,7 @@ class _ElderHomeState extends State<_ElderHome> {
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined, size: 28),
             selectedIcon: Icon(Icons.receipt_long_rounded, size: 28, color: TPColors.primary600),
-            label: '陪你辦紀錄',
+            label: '陪辦紀錄',
           ),
           NavigationDestination(
             icon: Icon(Icons.gavel_outlined, size: 28),
@@ -1486,7 +1486,7 @@ class _ResultScreen extends StatelessWidget {
             ],
             const SizedBox(height: 18),
             const Text(
-              '這次是誰陪您、您提供了哪些資料，\n都可以在「陪你辦紀錄」查看。',
+              '這次是誰陪您、您提供了哪些資料，\n都可以在「陪辦紀錄」查看。',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 18, color: TPColors.grayscale600, height: 1.6),
             ),

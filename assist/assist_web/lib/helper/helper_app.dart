@@ -72,7 +72,7 @@ class _HelperLogin extends StatelessWidget {
                     children: [
                       TownPassLogo(size: 28),
                       SizedBox(width: 12),
-                      Text('台北通　陪你辦｜協辦工作台', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+                      Text('台北通　陪辦｜協辦工作台', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -279,7 +279,7 @@ class _Sidebar extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '陪你辦',
+                              '陪辦',
                               style: TextStyle(color: TPColors.white, fontSize: 20, fontWeight: FontWeight.w600),
                             ),
                             Text('台北通協辦工作台', style: TextStyle(color: TPColors.primary200, fontSize: 12)),
