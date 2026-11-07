@@ -23,6 +23,7 @@ function commonView(s) {
     currentStep: s.currentStep,
     stepCount: service.steps.length,
     focusField: s.focusField,
+    elderNav: s.elderNav !== false,
     pendingAuth: s.pendingAuth,
     caseNo: s.caseNo,
     undoUntil: s.undoUntil ?? null,
@@ -41,6 +42,8 @@ export function helperView(s, { maxFieldRequests }) {
       // 只有非敏感欄位（長輩自己點選的選項）才讓協助者看到值
       value: f.sensitive ? null : st.value,
       requestCount: st.requestCount,
+      // 只告訴協助者「長輩改過」，不給內容
+      edited: Boolean(st.edited),
       remainingRequests: f.sensitive ? Math.max(0, maxFieldRequests - st.requestCount) : null,
     };
   }
@@ -58,7 +61,7 @@ export function elderView(s) {
   const fields = {};
   for (const f of allFields(service)) {
     const st = s.fields[f.key];
-    fields[f.key] = { status: st.status, value: st.value, requestCount: st.requestCount };
+    fields[f.key] = { status: st.status, value: st.value, requestCount: st.requestCount, edited: Boolean(st.edited) };
   }
   const pendingField = s.pendingAuth ? allFields(service).find((f) => f.key === s.pendingAuth) : null;
   return {

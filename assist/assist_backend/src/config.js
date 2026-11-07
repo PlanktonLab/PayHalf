@@ -7,6 +7,8 @@ import crypto from 'node:crypto';
 export function buildConfig(overrides = {}) {
   return {
     port: Number(process.env.PORT ?? 3000),
+    // 部署在 nginx 後面時設 HOST=127.0.0.1，只讓本機的 nginx 連得到
+    host: process.env.HOST || undefined,
     // 正式環境必須由環境變數提供，這裡每次啟動隨機產生，重啟後舊 token 全部失效。
     tokenSecret: process.env.TOKEN_SECRET ?? crypto.randomBytes(32).toString('hex'),
     tokenTtlMs: 8 * 60 * 60 * 1000,

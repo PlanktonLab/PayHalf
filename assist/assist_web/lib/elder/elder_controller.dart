@@ -92,9 +92,20 @@ class ElderController extends ChangeNotifier {
     return def;
   }
 
+  /// 協助者換步驟、請授權、請確認送出時呼叫：把長輩從法規說明等頁面帶回協辦畫面
+  VoidCallback? onNeedsAttention;
+
   void _onSession(Map<String, dynamic> raw) {
     final s = AssistSession(raw);
+    final prev = sessions[s.id];
     sessions[s.id] = s;
+    if (prev != null &&
+        s.isActive &&
+        (prev.currentStep != s.currentStep ||
+            (s.pendingAuth != null && prev.pendingAuth != s.pendingAuth) ||
+            (s.phase == 'reviewing' && prev.phase != 'reviewing'))) {
+      onNeedsAttention?.call();
+    }
     service(s.serviceId);
     if (s.isActive) {
       _watchingId = s.id;
@@ -149,8 +160,13 @@ class ElderController extends ChangeNotifier {
     refreshRecords();
   }
 
-  Future<void> authorize(String id, String key, bool approve) =>
-      _apply(api.post('/elder/sessions/$id/fields/$key/authorize', {'approve': approve}));
+  Future<void> authorize(String id, String key, bool approve, {String? value}) =>
+      _apply(api.post('/elder/sessions/$id/fields/$key/authorize', {'approve': approve, 'value': ?value}));
+
+  Future<void> editField(String id, String key, String value) =>
+      _apply(api.post('/elder/sessions/$id/fields/$key/edit', {'value': value}));
+
+  Future<void> gotoStep(String id, int step) => _apply(api.post('/elder/sessions/$id/step', {'step': step}));
 
   Future<void> revoke(String id, String key) => _apply(api.post('/elder/sessions/$id/fields/$key/revoke'));
 

@@ -131,8 +131,15 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
   );
   elder.post(
     '/sessions/:id/fields/:key/authorize',
-    wrap((req) => assist.authorizeField(req.user, req.params.id, req.params.key, req.body?.approve === true)),
+    wrap((req) =>
+      assist.authorizeField(req.user, req.params.id, req.params.key, req.body?.approve === true, req.body?.value),
+    ),
   );
+  elder.post(
+    '/sessions/:id/fields/:key/edit',
+    wrap((req) => assist.editField(req.user, req.params.id, req.params.key, req.body?.value)),
+  );
+  elder.post('/sessions/:id/step', wrap((req) => assist.elderStep(req.user, req.params.id, req.body?.step)));
   elder.post(
     '/sessions/:id/fields/:key/revoke',
     wrap((req) => assist.revokeField(req.user, req.params.id, req.params.key)),
@@ -171,6 +178,10 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
     wrap((req) => assist.gotoStep(req.user, req.params.id, req.body?.step)),
   );
   helper.post(
+    '/sessions/:id/elder-nav',
+    wrap((req) => assist.setElderNav(req.user, req.params.id, req.body?.enabled)),
+  );
+  helper.post(
     '/sessions/:id/focus',
     wrap((req) => assist.focusField(req.user, req.params.id, req.body?.fieldKey ?? null)),
   );
@@ -186,9 +197,15 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
 
   app.use('/api', api);
 
-  // ── 承辦人表單後台
+  // ── 承辦人表單後台：已整合進承辦工作台的「表單」（/#/forms）。
+  //    舊版單檔原型保留在 /admin/legacy/ 供對照。
   if (config.adminDir && fs.existsSync(config.adminDir)) {
-    app.use('/admin', express.static(config.adminDir, { index: 'index.html' }));
+    app.use('/admin/legacy', express.static(config.adminDir, { index: 'index.html' }));
+  }
+  if (config.staticDir && fs.existsSync(config.staticDir)) {
+    app.get(['/admin', '/admin/'], (_req, res) => res.redirect('/#/forms'));
+  } else if (config.adminDir && fs.existsSync(config.adminDir)) {
+    app.get(['/admin', '/admin/'], (_req, res) => res.redirect('/admin/legacy/'));
   }
 
   // ── 前端靜態檔（Flutter Web build）

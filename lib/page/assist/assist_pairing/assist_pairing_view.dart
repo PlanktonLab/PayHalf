@@ -17,13 +17,20 @@ class AssistPairingView extends StatefulWidget {
 
 class _AssistPairingViewState extends State<AssistPairingView> {
   final service = Get.find<AssistService>();
+  bool failed = false;
 
   @override
   void initState() {
     super.initState();
     if (service.pairing.value == null || service.pairing.value!.expiresAt.isBefore(DateTime.now())) {
-      assistRun(service.createPairingCode);
+      _create();
     }
+  }
+
+  Future<void> _create() async {
+    setState(() => failed = false);
+    final ok = await assistRun(service.createPairingCode);
+    if (mounted && !ok) setState(() => failed = true);
   }
 
   @override
@@ -48,10 +55,18 @@ class _AssistPairingViewState extends State<AssistPairingView> {
               AssistCard(
                 padding: const EdgeInsets.all(22),
                 child: p == null
-                    ? const Padding(
-                        padding: EdgeInsets.all(40),
-                        child: Center(child: CircularProgressIndicator()),
-                      )
+                    ? failed
+                        ? Column(
+                            children: [
+                              const Text('暫時拿不到號碼，請再試一次。', style: AssistText.body, textAlign: TextAlign.center),
+                              const SizedBox(height: 16),
+                              AssistButton('再試一次', icon: Icons.refresh_rounded, onPressed: _create),
+                            ],
+                          )
+                        : const Padding(
+                            padding: EdgeInsets.all(40),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
                     : AssistTicker(
                         builder: (context, now) {
                           final left = p.expiresAt.difference(now);

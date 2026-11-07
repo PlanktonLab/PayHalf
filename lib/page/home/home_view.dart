@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/page/assist/widget/assist_home_section.dart';
+import 'package:town_pass/page/assist/widget/assist_scan.dart';
 import 'package:town_pass/gen/assets.gen.dart';
 import 'package:town_pass/page/home/widget/activity_info/activity_info_widget.dart';
 import 'package:town_pass/page/home/widget/city_news/city_news_widget.dart';
@@ -28,6 +29,7 @@ class HomeView extends StatelessWidget {
         ),
         backgroundColor: TPColors.white,
       ),
+      floatingActionButton: const AssistScanButton(),
       body: const CustomScrollView(
         slivers: [
           // 陪辦：有人想協助時，首頁最上方出現持續性徽章
@@ -42,7 +44,8 @@ class HomeView extends StatelessWidget {
           SliverToBoxAdapter(child: AssistEntryCard()),
           _SliverGap(16),
           SliverToBoxAdapter(child: SubscriptionWidget()),
-          _SliverGap(32),
+          // 留空間給右下角的「掃描」按鈕，最下面的內容才不會被擋住
+          _SliverGap(96),
         ],
       ),
     );

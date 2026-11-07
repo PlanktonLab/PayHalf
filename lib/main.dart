@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/gen/assets.gen.dart';
+import 'package:town_pass/page/assist/widget/assist_remote_frame.dart';
 import 'package:town_pass/service/account_service.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/service/device_service.dart';
@@ -22,6 +23,9 @@ void main() async {
   // FlutterNativeSplash.preserve(
   //   widgetsBinding: WidgetsFlutterBinding.ensureInitialized(),
   // );
+
+  // 介面沒有做橫向版面：鎖定直式
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   await initServices();
 
@@ -76,6 +80,8 @@ class MyApp extends StatelessWidget {
         NotificationService.requestPermission();
       },
       getPages: TPRoute.page,
+      // 陪辦進行中：整個畫面加上光框與「某某 正在陪您操作」提示
+      builder: (context, child) => AssistRemoteFrame(child: child ?? const SizedBox.shrink()),
     );
   }
 }

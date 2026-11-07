@@ -66,6 +66,8 @@ class FieldState {
   int get requestCount => (raw['requestCount'] as num?)?.toInt() ?? 0;
   int? get remainingRequests => (raw['remainingRequests'] as num?)?.toInt();
   bool get done => status == 'authorized' || status == 'filled';
+  /// 長輩改過帳號帶入的內容
+  bool get edited => raw['edited'] == true;
 }
 
 class TimelineItem {
@@ -101,6 +103,8 @@ class AssistSession {
   int get currentStep => (raw['currentStep'] as num?)?.toInt() ?? 0;
   int get stepCount => (raw['stepCount'] as num?)?.toInt() ?? 1;
   String? get focusField => raw['focusField'] as String?;
+  /// 長輩可以自己換頁（陪辦人員可關閉）
+  bool get elderNav => raw['elderNav'] != false;
   String? get pendingAuth => raw['pendingAuth'] as String?;
   String? get caseNo => raw['caseNo'] as String?;
   DateTime? get undoUntil => _dt(raw['undoUntil']);

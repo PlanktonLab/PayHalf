@@ -541,3 +541,109 @@ Future<bool> assistRun(Future<void> Function() action) async {
     return false;
   }
 }
+
+/// 讓長輩修改一項要送出的資料。回傳新內容；按取消回傳 null。
+Future<String?> assistEditValue({required String label, required String initial}) async {
+  final service = Get.find<AssistService>();
+  service.editingValue = true;
+  try {
+    return await _showEditSheet(label, initial);
+  } finally {
+    service.editingValue = false;
+  }
+}
+
+Future<String?> _showEditSheet(String label, String initial) {
+  return showModalBottomSheet<String>(
+    context: Get.context!,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: TPColors.white,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    builder: (ctx) => _EditValueSheet(label: label, initial: initial),
+  );
+}
+
+class _EditValueSheet extends StatefulWidget {
+  const _EditValueSheet({required this.label, required this.initial});
+  final String label;
+  final String initial;
+  @override
+  State<_EditValueSheet> createState() => _EditValueSheetState();
+}
+
+class _EditValueSheetState extends State<_EditValueSheet> {
+  late final TextEditingController text = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    text.dispose();
+    super.dispose();
+  }
+
+  void save() {
+    final v = text.text.trim();
+    if (v.isEmpty) return;
+    Navigator.of(context).pop(v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AssistTextScaleCap(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(header: true, child: Text('修改「${widget.label}」', style: AssistText.title)),
+            const SizedBox(height: 6),
+            const Text('改成正確的內容。送出前，您還會再看到一次全部的資料。', style: AssistText.callout),
+            const SizedBox(height: 16),
+            ValueListenableBuilder(
+              valueListenable: text,
+              builder: (context, value, _) => TextField(
+                controller: text,
+                autofocus: true,
+                maxLength: 100,
+                minLines: 1,
+                maxLines: 3,
+                style: AssistText.headline,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => save(),
+                decoration: InputDecoration(
+                  labelText: widget.label,
+                  counterText: '',
+                  errorText: value.text.trim().isEmpty ? '不能是空白' : null,
+                  filled: true,
+                  fillColor: TPColors.grayscale50,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                  suffixIcon: value.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: '清除',
+                          onPressed: text.clear,
+                          icon: const Icon(Icons.cancel_rounded, color: TPColors.grayscale400),
+                        ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ValueListenableBuilder(
+              valueListenable: text,
+              builder: (context, value, _) =>
+                  AssistButton('改好了', icon: Icons.check_rounded, onPressed: value.text.trim().isEmpty ? null : save),
+            ),
+            const SizedBox(height: 10),
+            AssistButton('取消', style: AssistButtonStyle.secondary, onPressed: () => Navigator.of(context).pop()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 說明資料去哪裡：陪辦的人看不到，但會直接填進申請表交給承辦機關
+String assistWhereDataGoes(String helperName, String? recipient) =>
+    '$helperName 看不到內容。這項資料會直接填進申請表，交給${recipient ?? '承辦機關'}。';

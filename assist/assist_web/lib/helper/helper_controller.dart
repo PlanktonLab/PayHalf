@@ -21,6 +21,8 @@ class HelperController extends ChangeNotifier {
   bool accountsLoading = true;
   bool accountsFailed = false;
   Map<String, dynamic>? auditStatus;
+  /// 從台北通 App 掃 QR Code 進來時帶的配對碼，新陪辦畫面會自動填入
+  String? pendingCode;
   List<Map<String, dynamic>> auditEntries = [];
 
   bool get loggedIn => me != null;
@@ -46,6 +48,9 @@ class HelperController extends ChangeNotifier {
   Future<void> login(String userId) async {
     final res = await api.post('/auth/demo-login', {'userId': userId}) as Map;
     api.token = res['token'] as String;
+    // 先載好業務清單再切到工作台，新陪辦畫面才會有預設業務
+    final list = await api.get('/services') as List;
+    serviceSummaries = list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     me = Map<String, dynamic>.from(res['user'] as Map);
     _rt.connect(
       base: api.base,
@@ -57,8 +62,6 @@ class HelperController extends ChangeNotifier {
         notifyListeners();
       },
     );
-    final list = await api.get('/services') as List;
-    serviceSummaries = list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     for (final s in serviceSummaries) {
       await service(s['id'] as String);
     }
@@ -138,6 +141,8 @@ class HelperController extends ChangeNotifier {
     return s;
   }
 
+  Future<void> setElderNav(bool enabled) =>
+      _apply(api.post('/helper/sessions/$focusedSessionId/elder-nav', {'enabled': enabled}));
   Future<void> gotoStep(int step) => _apply(api.post('/helper/sessions/$focusedSessionId/step', {'step': step}));
   Future<void> focusField(String? key) =>
       _apply(api.post('/helper/sessions/$focusedSessionId/focus', {'fieldKey': key}));

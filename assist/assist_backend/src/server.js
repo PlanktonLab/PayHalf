@@ -11,7 +11,7 @@ import { findUser } from './data/users.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_WEB = path.resolve(here, '../../assist_web/build/web');
-// 承辦人表單後台（repo 根目錄的 admin-form-builder），由同一個伺服器提供在 /admin/
+// 舊版承辦人表單後台（repo 根目錄的 admin-form-builder），保留在 /admin/legacy/ 供對照
 const DEFAULT_ADMIN = path.resolve(here, '../../../admin-form-builder');
 
 /**
@@ -62,7 +62,7 @@ export function createAssistServer(overrides = {}) {
     tokens,
     httpServer,
     listen(port = config.port) {
-      return new Promise((resolve) => httpServer.listen(port, () => resolve(httpServer.address().port)));
+      return new Promise((resolve) => httpServer.listen(port, config.host, () => resolve(httpServer.address().port)));
     },
     async close() {
       clearInterval(timer);
@@ -76,7 +76,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const server = createAssistServer();
   const port = await server.listen();
   console.log(`陪辦 demo 後端已啟動：http://localhost:${port}`);
-  console.log(`  協助者工作台：http://localhost:${port}/#/helper`);
+  console.log(`  承辦工作台（陪辦＋表單）：http://localhost:${port}/#/console`);
   console.log(`  長輩手機模擬：http://localhost:${port}/#/elder`);
-  console.log(`  承辦人表單後台：http://localhost:${port}/admin/`);
+  console.log(`  並排示範：http://localhost:${port}/#/demo`);
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'elder/elder_app.dart';
-import 'helper/helper_app.dart';
+import 'console/console_app.dart';
 import 'landing/landing_page.dart';
 import 'shared/theme.dart';
 import 'shared/tp_colors.dart';
@@ -19,7 +19,8 @@ class AssistDemoApp extends StatelessWidget {
       theme: buildTheme(),
       onGenerateRoute: (settings) {
         final Widget page = switch (settings.name) {
-          '/helper' => const HelperApp(),
+          '/helper' || '/console' => const ConsoleApp(),
+          '/forms' => const ConsoleApp(initial: Section.forms),
           '/elder' => const ElderApp(),
           '/demo' => const SplitDemo(),
           _ => const LandingPage(),
@@ -43,8 +44,8 @@ class SplitDemo extends StatelessWidget {
     return Scaffold(
       body: Row(
         children: [
-          const Expanded(child: HelperApp(compact: true)),
-          Container(width: 1, color: TPColors.grayscale200),
+          const Expanded(child: ConsoleApp(compact: true)),
+          Container(width: 1, color: TPColors.grayscale100),
           const SizedBox(width: 500, child: ElderApp()),
         ],
       ),
