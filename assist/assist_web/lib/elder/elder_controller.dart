@@ -92,9 +92,20 @@ class ElderController extends ChangeNotifier {
     return def;
   }
 
+  /// 協助者換步驟、請授權、請確認送出時呼叫：把長輩從法規說明等頁面帶回協辦畫面
+  VoidCallback? onNeedsAttention;
+
   void _onSession(Map<String, dynamic> raw) {
     final s = AssistSession(raw);
+    final prev = sessions[s.id];
     sessions[s.id] = s;
+    if (prev != null &&
+        s.isActive &&
+        (prev.currentStep != s.currentStep ||
+            (s.pendingAuth != null && prev.pendingAuth != s.pendingAuth) ||
+            (s.phase == 'reviewing' && prev.phase != 'reviewing'))) {
+      onNeedsAttention?.call();
+    }
     service(s.serviceId);
     if (s.isActive) {
       _watchingId = s.id;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/bean/assist.dart';
+import 'package:town_pass/page/assist/widget/assist_celebration.dart';
 import 'package:town_pass/page/assist/widget/assist_speaker.dart';
 import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/service/assist_service.dart';
@@ -10,8 +11,28 @@ import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_route.dart';
 
 /// 協辦進行中：跟著協助者的步驟走，個資逐項授權，最後由長輩自己送出。
-class AssistSessionView extends StatelessWidget {
+class AssistSessionView extends StatefulWidget {
   const AssistSessionView({super.key});
+
+  @override
+  State<AssistSessionView> createState() => _AssistSessionViewState();
+}
+
+class _AssistSessionViewState extends State<AssistSessionView> {
+  // 讓服務知道協辦畫面還在，協助者換步驟時才能把長輩從其他頁面帶回來
+  final _service = Get.find<AssistService>();
+
+  @override
+  void initState() {
+    super.initState();
+    _service.sessionScreenAttached(true);
+  }
+
+  @override
+  void dispose() {
+    _service.sessionScreenAttached(false);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -722,7 +743,7 @@ class _Result extends StatelessWidget {
     final undoLeft = ok && s.undoUntil != null ? s.undoUntil!.difference(now) : Duration.zero;
     final canUndo = undoLeft > Duration.zero;
     final message = switch ((s.endedBy, s.endReason)) {
-      (_, 'submitted') => '申請已經送出了！',
+      (_, 'submitted') => '辦好了！',
       (_, 'timeout') => '太久沒有動作，協助已自動結束',
       (_, 'blocked') => '已封鎖對方，協助已結束',
       ('elder', _) => '您已經結束這次協助',
@@ -730,27 +751,37 @@ class _Result extends StatelessWidget {
     };
     return AssistActionLayout(
       content: [
-        const SizedBox(height: 24),
-        Center(
-          child: Container(
-            width: 112,
-            height: 112,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: ok ? AssistColors.green50 : TPColors.grayscale100),
-            child: Icon(
-              ok ? Icons.check_rounded : Icons.info_outline_rounded,
-              size: 64,
-              color: ok ? AssistColors.green500 : TPColors.grayscale500,
+        if (ok)
+          const Center(child: AssistCelebration())
+        else ...[
+          const SizedBox(height: 24),
+          Center(
+            child: Container(
+              width: 112,
+              height: 112,
+              decoration: const BoxDecoration(shape: BoxShape.circle, color: TPColors.grayscale100),
+              child: const Icon(Icons.info_outline_rounded, size: 64, color: TPColors.grayscale500),
             ),
           ),
-        ),
-        const SizedBox(height: 20),
+          const SizedBox(height: 20),
+        ],
         Semantics(
           header: true,
           liveRegion: true,
-          child: Text(message, textAlign: TextAlign.center, style: AssistText.largeTitle),
+          child: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: AssistText.largeTitle,
+          ),
         ),
-        const SizedBox(height: 6),
-        Text('「${s.serviceTitle}」', textAlign: TextAlign.center, style: AssistText.callout),
+        const SizedBox(height: 8),
+        Text(
+          ok
+              ? '「${s.serviceTitle}」已經送出。\n${s.helper?.name ?? '陪辦的人'} 陪您一起完成，辛苦了！'
+              : '「${s.serviceTitle}」',
+          textAlign: TextAlign.center,
+          style: ok ? AssistText.body : AssistText.callout,
+        ),
         if (ok) ...[
           const SizedBox(height: 20),
           AssistCard(

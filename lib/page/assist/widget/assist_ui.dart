@@ -543,7 +543,17 @@ Future<bool> assistRun(Future<void> Function() action) async {
 }
 
 /// 讓長輩修改一項要送出的資料。回傳新內容；按取消回傳 null。
-Future<String?> assistEditValue({required String label, required String initial}) {
+Future<String?> assistEditValue({required String label, required String initial}) async {
+  final service = Get.find<AssistService>();
+  service.editingValue = true;
+  try {
+    return await _showEditSheet(label, initial);
+  } finally {
+    service.editingValue = false;
+  }
+}
+
+Future<String?> _showEditSheet(String label, String initial) {
   return showModalBottomSheet<String>(
     context: Get.context!,
     isScrollControlled: true,

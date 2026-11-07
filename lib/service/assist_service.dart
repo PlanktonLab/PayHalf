@@ -296,9 +296,32 @@ class AssistService extends GetxService {
 
   // ───────────────────────── 推播事件
 
+  /// 協辦畫面是否在導覽堆疊裡（長輩可能從協辦畫面點進法規說明等頁面）
+  int _sessionScreens = 0;
+  void sessionScreenAttached(bool attached) => _sessionScreens += attached ? 1 : -1;
+
+  /// 長輩正在修改資料（底部面板開著）時不要把畫面拉走
+  bool editingValue = false;
+
+  /// 協助者帶到下一步、請長輩授權、請長輩確認送出時，
+  /// 長輩若停在別的頁面（例如點進法規說明），把畫面帶回協辦畫面，不然會卡住
+  static bool needsElderAttention(AssistSession prev, AssistSession s) =>
+      s.isActive &&
+      (prev.currentStep != s.currentStep ||
+          (s.pendingAuth != null && prev.pendingAuth != s.pendingAuth) ||
+          (s.isReviewing && !prev.isReviewing));
+
+  void _bringBackToSession() {
+    if (_sessionScreens <= 0 || editingValue) return;
+    if (Get.currentRoute == TPRoute.assistSession) return;
+    Get.until((route) => route.settings.name == TPRoute.assistSession);
+  }
+
   void _onSession(Map<String, dynamic> raw) {
     final s = AssistSession(raw);
+    final prev = sessions[s.id];
     sessions[s.id] = s;
+    if (prev != null && needsElderAttention(prev, s)) _bringBackToSession();
     service(s.serviceId);
 
     if (s.isPending && !_notifiedRequests.contains(s.id) && (s.expiresAt?.isAfter(DateTime.now()) ?? false)) {

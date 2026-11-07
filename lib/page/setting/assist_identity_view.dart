@@ -44,7 +44,7 @@ class AssistIdentityView extends StatelessWidget {
               const SizedBox(height: 8),
             ],
             const SizedBox(height: 16),
-            const _Title('掃 QR Code 時以誰協助', '在首頁按「掃描」掃長輩的配對 QR Code，會用這個身分打開陪辦工作台。'),
+            const _Title('掃 QR Code 時以誰協助', '在首頁按「掃描」掃長輩的配對 QR Code，會用這個身分開始陪辦。'),
             for (final a in AssistService.helperAccounts) ...[
               _Option(
                 title: a.name,
@@ -70,7 +70,7 @@ class AssistIdentityView extends StatelessWidget {
                   child: FilledButton.icon(
                     onPressed: () => openHelperConsole(),
                     icon: const Icon(Icons.open_in_new_rounded),
-                    label: const Text('打開陪辦工作台'),
+                    label: const Text('開始陪辦'),
                     style: FilledButton.styleFrom(
                       backgroundColor: TPColors.primary600,
                       minimumSize: const Size.fromHeight(46),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:town_pass/page/assist/assist_helper/assist_helper_view.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_dialog.dart';
@@ -26,11 +27,8 @@ Future<void> assistScan() async {
   );
 }
 
-/// 以選定的協助者在 App 內打開陪辦工作台（有配對碼就先填好）
-Future<void> openHelperConsole([String? code]) => Get.toNamed(
-  TPRoute.webView,
-  arguments: WebViewArgument(url: Get.find<AssistService>().helperConsoleUrl(code), forceTitle: '陪辦工作台'),
-) ?? Future.value();
+/// 以選定的協助者打開手機版陪辦畫面（有配對碼就先填好）
+Future<void> openHelperConsole([String? code]) => AssistHelperView.open(code);
 
 /// 首頁右下角的懸浮「掃描」按鈕
 class AssistScanButton extends StatelessWidget {

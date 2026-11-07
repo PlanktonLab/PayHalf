@@ -26,6 +26,7 @@ class _ElderAppState extends State<ElderApp> {
   void initState() {
     super.initState();
     c.loadDemoAccounts();
+    c.onNeedsAttention = () => navKey.currentState?.popUntil((r) => r.isFirst);
   }
 
   @override
