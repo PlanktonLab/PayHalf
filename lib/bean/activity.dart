@@ -15,6 +15,8 @@ class ActivityList {
   Map<String, dynamic> toJson() => _$ActivityListToJson(this);
 }
 
+enum ActivityAudience { taipei, daan, zhongzheng, wanhua, olderDriver, personalLibraryCard }
+
 @JsonSerializable(explicitToJson: true)
 class ActivityItem {
   final String title;
@@ -33,9 +35,13 @@ class ActivityItem {
   @JsonKey(name: 'end_datetime')
   final DateTime? endDateTime;
 
+  @JsonKey(unknownEnumValue: JsonKey.nullForUndefinedEnumValue)
+  final ActivityAudience? audience;
+
   final String content;
 
   const ActivityItem({
+    this.audience,
     required this.webUrl,
     required this.startDateTime,
     this.endDateTime,

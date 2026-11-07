@@ -86,6 +86,14 @@
         "is_expand": false,
         "icon": "/images/subscription/icon_flood_info.svg",
         "description": "於颱風期間提供水情、災情、紅黃線停車、淹水警示、水閘門啟閉等資訊。"
+      },
+      {
+        "id": "sub-related",
+        "name": "訂閱與我相關",
+        "is_subscribed": false,
+        "is_expand": false,
+        "icon": "/images/subscription/icon_community_bulletin.svg",
+        "description": "在首頁「訂閱」查看與你相關及可申請的活動。"
       }
     ]
   }

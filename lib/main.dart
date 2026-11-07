@@ -38,7 +38,7 @@ Future<void> initServices() async {
   await Get.putAsync<GeoLocatorService>(() async => await GeoLocatorService().init());
   await Get.putAsync<NotificationService>(() async => await NotificationService().init());
 
-  Get.put<SubscriptionService>(SubscriptionService());
+  await Get.putAsync<SubscriptionService>(() => SubscriptionService().init());
   // 陪你辦：背景連線，不阻塞啟動
   Get.put<AssistService>(AssistService().init());
 }

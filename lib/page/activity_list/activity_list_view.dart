@@ -1,3 +1,4 @@
+import 'package:town_pass/page/activity_list/activity_tag.dart';
 import 'package:town_pass/bean/activity.dart';
 import 'package:town_pass/gen/fonts.gen.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
@@ -68,6 +69,7 @@ class _ActivityItemWidget extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  ActivityTag(item),
                   const SizedBox(height: 8),
                   TPText(
                     item.duration.format(),

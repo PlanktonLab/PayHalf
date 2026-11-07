@@ -1,6 +1,7 @@
+import 'package:shimmer/shimmer.dart';
+import 'package:town_pass/page/activity_list/activity_tag.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:town_pass/bean/activity.dart';
 import 'package:town_pass/page/home/widget/activity_info/activity_banner_widget_controller.dart';
 import 'package:town_pass/util/tp_cached_network_image.dart';
@@ -60,29 +61,42 @@ class _Banner extends StatelessWidget {
         child: switch (activity == null) {
           true => _placeHolder(),
           false => Column(
-              children: [
-                TPCachedNetworkImage(
-                  height: 88,
-                  width: 132,
-                  fit: BoxFit.fitHeight,
-                  imageUrl: activity!.imageUrl,
-                ),
-                const SizedBox(height: 8),
-                Flexible(
-                  child: TPText(
-                    activity!.title,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
-                    style: const TextStyle(
-                      color: Color(0xFF666666),
-                      fontSize: 16,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w400,
+            children: [
+              Stack(
+                children: [
+                  TPCachedNetworkImage(
+                    height: 88,
+                    width: 132,
+                    fit: BoxFit.fitHeight,
+                    imageUrl: activity!.imageUrl,
+                  ),
+                  Positioned(
+                    left: 4,
+                    top: 0,
+                    right: 4,
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: ActivityTag(activity!),
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Flexible(
+                child: TPText(
+                  activity!.title,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                  style: const TextStyle(
+                    color: Color(0xFF666666),
+                    fontSize: 16,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
         },
       ),
     );
