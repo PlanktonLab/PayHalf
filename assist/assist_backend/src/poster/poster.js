@@ -118,8 +118,8 @@ async function qr(url, x, y, size) {
 
 const deadlineText = (d) => {
   if (!d) return '';
-  const [, m, day] = d.split('-').map(Number);
-  return `${m} 月 ${day} 日前填好`;
+  const [y, m, day] = d.split('-').map(Number);
+  return `截止日期：${y} 年 ${m} 月 ${day} 日`;
 };
 
 const INK = '#1D1D1F';
@@ -186,7 +186,6 @@ export async function posterSvg(form, { layout = 'a4', url }) {
   const { w, h } = L;
   const parts = [`<rect width="${w}" height="${h}" fill="#FFFFFF"/>`];
   const deadline = deadlineText(form.deadline);
-  const sub = [deadline, '不會填？按「找人幫我」'].filter(Boolean).join('　·　');
 
   if (layout === 'postcard') {
     // ── 橫式：左邊文字，右邊 QR
@@ -196,9 +195,9 @@ export async function posterSvg(form, { layout = 'a4', url }) {
     const title = wrap(form.title, 8, 2);
     parts.push(textBlock(title, left, 420, 78, { weight: 800, color: INK, lh: 1.18 }));
     let y = 420 + (title.length - 1) * 78 * 1.18 + 76;
-    parts.push(textBlock(['打開台北通，掃描右邊的 QR Code'], left, y, 28, { weight: 500, color: GRAY }));
+    parts.push(textBlock(['使用台北通來填寫表單'], left, y, 28, { weight: 500, color: GRAY }));
     y += 46;
-    parts.push(textBlock([sub], left, y, 26, { weight: 500, color: GRAY }));
+    if (deadline) parts.push(textBlock([deadline], left, y, 26, { weight: 500, color: GRAY }));
     parts.push(textBlock([form.dept || '臺北市政府'], left, h - 120, 24, { weight: 500, color: GRAY }));
     parts.push(await qr(url, 880, 250, 480));
   } else {
@@ -212,12 +211,12 @@ export async function posterSvg(form, { layout = 'a4', url }) {
     const tSize = S(104);
     parts.push(textBlock(title, cx, S(420), tSize, { weight: 800, color: INK, anchor: 'middle', lh: 1.16 }));
     let y = S(420) + (title.length - 1) * tSize * 1.16 + S(84);
-    parts.push(textBlock(['打開台北通，掃一掃就能填'], cx, y, S(38), { weight: 500, color: GRAY, anchor: 'middle' }));
+    parts.push(textBlock(['使用台北通來填寫表單'], cx, y, S(38), { weight: 500, color: GRAY, anchor: 'middle' }));
     y += S(90);
     const q = S(600);
     parts.push(await qr(url, cx - q / 2, y, q));
     y += q + S(80);
-    parts.push(textBlock([sub], cx, y, S(32), { weight: 500, color: GRAY, anchor: 'middle' }));
+    if (deadline) parts.push(textBlock([deadline], cx, y, S(32), { weight: 500, color: GRAY, anchor: 'middle' }));
     parts.push(textBlock([form.dept || '臺北市政府'], cx, h - S(150), S(28), { weight: 500, color: GRAY, anchor: 'middle' }));
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${L.mm[0]}mm" height="${L.mm[1]}mm">${parts.join('')}</svg>`;
@@ -252,19 +251,32 @@ img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(x)}
 </script></body></html>`;
 }
 
-/** 一般相機掃到 QR（沒有用台北通）時看到的頁面 */
-export function landingPage(form, url) {
+/**
+ * QR Code 指向的網址（/f/<表單代號>）。
+ * 已安裝台北通的 iPhone 會透過 Universal Link 直接打開 App，不會看到這頁；
+ * 沒有安裝、或連結還沒生效時，才會在 Safari 看到這頁，按按鈕用 townpass:// 開 App。
+ */
+export function landingPage(form, url, id) {
+  const appLink = `townpass://f/${encodeURIComponent(id ?? '')}`;
   return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(form?.title ?? '找不到表單')}｜台北通</title>
-<style>body{margin:0;font-family:${FONT};background:${C.cream};color:${C.ink};display:flex;min-height:100vh;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
-.card{background:#fff;border-radius:24px;padding:32px 24px;max-width:420px;width:100%;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.08)}
-h1{font-size:28px;margin:8px 0 4px}p{font-size:19px;line-height:1.6;color:${C.gray}}.dept{font-size:16px;color:${C.tealDark}}
-.step{background:${C.tealLight};border-radius:16px;padding:16px;margin:20px 0;font-size:20px;font-weight:700;color:${C.tealDark}}</style></head>
-<body><div class="card">${
+<style>body{margin:0;font-family:${FONT};background:#fff;color:#1D1D1F;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;text-align:center}
+.card{max-width:420px;width:100%}.brand{font-size:17px;font-weight:700;color:#2EB6C7;margin-bottom:28px}
+h1{font-size:30px;margin:0 0 8px}.dept{font-size:16px;color:#6E6E73}p{font-size:17px;line-height:1.6;color:#6E6E73}
+a.btn{display:block;margin:28px 0 12px;padding:16px;border-radius:14px;background:#2EB6C7;color:#fff;font-size:19px;font-weight:700;text-decoration:none}
+.small{font-size:13px;color:#91A0A8;word-break:break-all}</style></head>
+<body><div class="card"><div class="brand">台北通</div>${
     form
-      ? `<div class="dept">${esc(form.dept)}</div><h1>${esc(form.title)}</h1><p>${esc(form.desc)}</p>
-<div class="step">請打開「台北通」App<br>按右下角「掃描」，再掃一次這個 QR Code</div>
-<p>用台北通填寫，可以一鍵帶入你的資料。<br>不會填的時候，也可以按「找人幫我」。</p>`
-      : `<h1>找不到這份表單</h1><p>這份表單可能已經停止收件了。</p>`
-  }<p style="font-size:13px;color:#91A0A8;word-break:break-all">${esc(url)}</p></div></body></html>`;
+      ? `<h1>${esc(form.title)}</h1><div class="dept">${esc(form.dept)}</div>
+<a class="btn" href="${esc(appLink)}">使用台北通開啟</a>
+<p>請先安裝並登入台北通 App。<br>也可以打開台北通，點選「掃描」再掃一次 QR Code。</p>`
+      : `<h1>找不到這份表單</h1><p>這份表單可能已經停止收件。</p>`
+  }<p class="small">${esc(url)}</p></div>${
+    form
+      ? `<script>
+// 手機掃到 QR Code：直接請系統用台北通打開（iOS 會問一次「要在台北通中打開嗎？」）
+if (/iPhone|iPad|Android/i.test(navigator.userAgent)) setTimeout(function () { location.href = ${JSON.stringify(appLink)}; }, 300);
+</script>`
+      : ''
+  }</body></html>`;
 }

@@ -48,6 +48,8 @@ export function buildConfig(overrides = {}) {
     // QR Code 裡的網址開頭；沒設就用請求的 Host
     publicUrl: process.env.PUBLIC_URL ?? null,
     dataDir: null,
+    // Universal Links 允許的 iOS App（Team ID.Bundle ID），逗號分隔
+    iosAppIds: (process.env.IOS_APP_IDS ?? 'GM583TGZB5.com.samjiang.townpass').split(',').map((x) => x.trim()).filter(Boolean),
     adminDir: null,
     ...overrides,
   };

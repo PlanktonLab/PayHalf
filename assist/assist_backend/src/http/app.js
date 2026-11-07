@@ -292,6 +292,23 @@ export function buildHttpApp({ config, tokens, assist, audit, forms }) {
 
   app.use('/api', api);
 
+  // ── iOS Universal Links：iPhone 相機掃 https://<網域>/f/<表單> 時，已安裝台北通就直接開 App
+  const aasa = {
+    applinks: {
+      details: [
+        {
+          appIDs: config.iosAppIds,
+          components: [{ '/': '/f/*', comment: '靜態 QR Code 表單' }],
+        },
+      ],
+    },
+  };
+  app.get(['/.well-known/apple-app-site-association', '/apple-app-site-association'], (_req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.send(JSON.stringify(aasa));
+  });
+
   // ── 靜態 QR Code 指向的網址（一般相機掃到時的說明頁）與可列印的海報頁
   app.get('/f/:id', (req, res) => {
     let form = null;
@@ -301,7 +318,7 @@ export function buildHttpApp({ config, tokens, assist, audit, forms }) {
       res.status(404);
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(landingPage(form, formUrl(req, req.params.id)));
+    res.send(landingPage(form, formUrl(req, req.params.id), req.params.id));
   });
   app.get(
     '/poster/:id',

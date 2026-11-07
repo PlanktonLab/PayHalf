@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/gen/assets.gen.dart';
+import 'package:town_pass/page/assist/widget/assist_deep_link.dart';
 import 'package:town_pass/page/assist/widget/assist_remote_frame.dart';
 import 'package:town_pass/service/account_service.dart';
 import 'package:town_pass/service/assist_service.dart';
@@ -78,6 +79,8 @@ class MyApp extends StatelessWidget {
       initialRoute: TPRoute.main,
       onInit: () {
         NotificationService.requestPermission();
+        // 相機掃海報 QR Code → 直接打開表單
+        assistListenDeepLinks();
       },
       getPages: TPRoute.page,
       // 讓陪辦提示膠囊知道目前在哪一頁（在協辦畫面本身就不顯示，避免重複）

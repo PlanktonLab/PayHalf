@@ -316,10 +316,11 @@ class AssistService extends GetxService {
 
   /// 從 QR Code 內容取出配對碼（townpass-assist:123456）
   /// 從 QR Code 內容取出加好友邀請碼（townpass-trust:123456）
-  /// 靜態 QR Code 表單：https://<任何主機>/f/<表單代號> 或 townpass-form:<表單代號>
+  /// 靜態 QR Code 表單：https://<任何主機>/f/<表單代號>、townpass://f/<表單代號> 或 townpass-form:<表單代號>
   static String? formIdFrom(String? raw) {
     final v = (raw ?? '').trim();
     final m = RegExp(r'^townpass-form:([\w-]{3,40})$').firstMatch(v) ??
+        RegExp(r'^townpass://f/([\w-]{3,40})/?(?:[?#].*)?$').firstMatch(v) ??
         RegExp(r'^https?://[^/\s]+/f/([\w-]{3,40})/?(?:[?#].*)?$').firstMatch(v);
     return m?.group(1);
   }
@@ -715,6 +716,10 @@ class AssistService extends GetxService {
   }
 
   Future<StaticForm> openForm(String id) async {
+    // 從相機掃 QR 冷啟動時，App 可能還在登入：先等一下背景連線
+    for (var i = 0; i < 50 && _token == null; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
     if (_token == null) await _link();
     return StaticForm(Map<String, dynamic>.from(await _request('GET', '/elder/forms/$id') as Map));
   }
