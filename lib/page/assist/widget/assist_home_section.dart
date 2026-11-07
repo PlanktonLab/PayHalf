@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/bean/assist.dart';
+import 'package:town_pass/gen/assets.gen.dart';
 import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
@@ -262,14 +263,8 @@ class AssistEntryCard extends StatelessWidget {
               child: ExcludeSemantics(
                 child: Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        gradient: AssistColors.brandGradient,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Icon(Icons.handshake_rounded, color: TPColors.white, size: context.iconSize(28)),
-                    ),
+                    // 與服務頁「陪你辦」使用同一個台北通風格圖示
+                    Assets.svg.iconAccompany.svg(width: context.iconSize(52), height: context.iconSize(52)),
                     const SizedBox(width: 14),
                     const Expanded(
                       child: Column(

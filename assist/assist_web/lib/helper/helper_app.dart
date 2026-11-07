@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/format.dart';
 import '../core/models.dart';
@@ -217,7 +218,7 @@ class _Sidebar extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
-            onTap: () => onTab(i),
+            onTap: () => i < 0 ? launchUrl(Uri.parse('${Uri.base.origin}/admin/'), webOnlyWindowName: '_blank') : onTab(i),
             child: Tooltip(
               message: rail ? label : '',
               child: Padding(
@@ -335,6 +336,9 @@ class _Sidebar extends StatelessWidget {
             nav(0, Icons.handshake_rounded, '協辦工作台', badge: open),
             nav(1, Icons.history_rounded, '協辦紀錄'),
             nav(2, Icons.verified_user_rounded, '稽核紀錄'),
+            const SizedBox(height: 8),
+            // 同一組承辦工具：表單後台（由同一個伺服器提供在 /admin/）
+            nav(-1, Icons.dynamic_form_rounded, '表單後台 ↗'),
             const Spacer(),
             if (!rail && audit != null)
               Container(

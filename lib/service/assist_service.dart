@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -34,8 +35,14 @@ class PairingCode {
 /// 長輩的台北通 App 已完成實名驗證，啟動時以帳號向協辦後端換取 token，
 /// 再透過 Socket 接收「有人想協助您」等即時事件。正式版的即時事件應改走 APNs／FCM 推播。
 class AssistService extends GetxService {
-  /// 模擬器可直接連本機；實機請用 --dart-define=ASSIST_API=http://<電腦區網 IP>:3000
-  static const String apiBase = String.fromEnvironment('ASSIST_API', defaultValue: 'http://localhost:3000');
+  /// iOS 模擬器連 localhost、Android 模擬器連 10.0.2.2（都指向電腦本機）；
+  /// 實機請用 --dart-define=ASSIST_API=http://<電腦區網 IP>:3000
+  static const String _apiOverride = String.fromEnvironment('ASSIST_API');
+  static String get apiBase => _apiOverride.isNotEmpty
+      ? _apiOverride
+      : Platform.isAndroid
+      ? 'http://10.0.2.2:3000'
+      : 'http://localhost:3000';
 
   final RxMap<String, AssistSession> sessions = <String, AssistSession>{}.obs;
   final Rxn<PairingCode> pairing = Rxn<PairingCode>();
@@ -229,6 +236,12 @@ class AssistService extends GetxService {
 
   Future<void> submit(String id, bool confirm) =>
       _apply(_request('POST', '/elder/sessions/$id/submit', {'confirm': confirm}));
+
+  /// 送出後 10 秒內撤回：案件收回，回到確認畫面
+  Future<void> undoSubmit(String id) async {
+    resultId.value = null;
+    await _apply(_request('POST', '/elder/sessions/$id/undo'));
+  }
 
   Future<void> end(String id) => _apply(_request('POST', '/sessions/$id/end'));
 

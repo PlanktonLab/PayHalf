@@ -145,6 +145,7 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
     '/sessions/:id/submit',
     wrap((req) => assist.submit(req.user, req.params.id, req.body?.confirm === true)),
   );
+  elder.post('/sessions/:id/undo', wrap((req) => assist.undoSubmit(req.user, req.params.id)));
   elder.post('/sessions/:id/block', wrap((req) => assist.blockHelper(req.user, req.params.id)));
   api.use('/elder', elder);
 
@@ -184,6 +185,11 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
   api.use('/helper', helper);
 
   app.use('/api', api);
+
+  // ── 承辦人表單後台
+  if (config.adminDir && fs.existsSync(config.adminDir)) {
+    app.use('/admin', express.static(config.adminDir, { index: 'index.html' }));
+  }
 
   // ── 前端靜態檔（Flutter Web build）
   if (config.staticDir && fs.existsSync(config.staticDir)) {

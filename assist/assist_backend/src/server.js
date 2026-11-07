@@ -11,13 +11,15 @@ import { findUser } from './data/users.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_WEB = path.resolve(here, '../../assist_web/build/web');
+// 承辦人表單後台（repo 根目錄的 admin-form-builder），由同一個伺服器提供在 /admin/
+const DEFAULT_ADMIN = path.resolve(here, '../../../admin-form-builder');
 
 /**
  * 建立完整服務（HTTP API + Socket.IO 即時推播）。
  * Socket 只負責「伺服器推送」，所有動作都走 REST，方便授權檢查與測試。
  */
 export function createAssistServer(overrides = {}) {
-  const config = buildConfig({ staticDir: DEFAULT_WEB, ...overrides });
+  const config = buildConfig({ staticDir: DEFAULT_WEB, adminDir: DEFAULT_ADMIN, ...overrides });
   const now = overrides.now ?? (() => Date.now());
   const tokens = createTokenService({ secret: config.tokenSecret, ttlMs: config.tokenTtlMs, now });
   const audit = createAuditLog({ now });
@@ -76,4 +78,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   console.log(`陪你辦 demo 後端已啟動：http://localhost:${port}`);
   console.log(`  協助者工作台：http://localhost:${port}/#/helper`);
   console.log(`  長輩手機模擬：http://localhost:${port}/#/elder`);
+  console.log(`  承辦人表單後台：http://localhost:${port}/admin/`);
 }

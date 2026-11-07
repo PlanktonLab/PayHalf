@@ -212,7 +212,8 @@ abstract class TPRoute {
     return switch (Uri.tryParse(uri)) {
       null => Future.value(null),
       Uri uri => switch (uri.scheme) {
-          'local' => Get.toNamed(uri.host),
+          // local://assist_pairing → /assist_pairing（路由名稱都以 / 開頭）
+          'local' => Get.toNamed('/${uri.host}'),
           _ => Get.toNamed(
               TPRoute.webView,
               arguments: WebViewArgument(

@@ -148,6 +148,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       focusField: null,
       pendingAuth: null,
       caseNo: null,
+      undoUntil: null,
       fields,
       timeline: [],
     };
@@ -554,6 +555,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     s.endedAt = now();
     s.endedBy = 'elder';
     s.endReason = 'submitted';
+    s.undoUntil = now() + config.undoWindowMs;
     wipeValues(s);
     timeline(s, 'elder', `長輩已送出申請，案件編號 ${s.caseNo}`);
     audit.append({
@@ -564,6 +566,39 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       helperId: s.helperId,
       summary: `您送出了「${service.title}」，案件編號 ${s.caseNo}`,
       detail: { caseNo: s.caseNo },
+    });
+    publish(s);
+    return eView(s);
+  }
+
+  /** 送出後短時間內可撤回：收回案件，資料回到確認畫面。 */
+  function undoSubmit(elder, id) {
+    const s = ownedByElder(elder, id);
+    if (s.status !== 'completed' || !s.undoUntil) throw conflict('這個申請不能撤回', 'NOT_UNDOABLE');
+    if (now() > s.undoUntil) throw conflict('已經超過可以撤回的時間', 'TOO_LATE');
+    const idx = applications.findIndex((a) => a.caseNo === s.caseNo && a.elderId === elder.id);
+    if (idx < 0) throw conflict('這個申請不能撤回', 'NOT_UNDOABLE');
+    const [app] = applications.splice(idx, 1);
+    for (const [k, v] of Object.entries(app.data)) s.fields[k].value = v;
+    const caseNo = s.caseNo;
+    s.status = 'active';
+    s.phase = 'reviewing';
+    s.caseNo = null;
+    s.undoUntil = null;
+    s.endedAt = null;
+    s.endedBy = null;
+    s.endReason = null;
+    touch(s);
+    timeline(s, 'elder', '長輩撤回了送出，回到確認畫面');
+    audit.append({
+      type: 'application.undone',
+      actor: ROLE_ACTOR(elder),
+      sessionId: s.id,
+      elderId: elder.id,
+      helperId: s.helperId,
+      summary: `您撤回了案件 ${caseNo}`,
+      helperSummary: null,
+      detail: { caseNo },
     });
     publish(s);
     return eView(s);
@@ -725,6 +760,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     inputChoice,
     requestSubmit,
     submit,
+    undoSubmit,
     end,
     blockHelper,
     getSession,

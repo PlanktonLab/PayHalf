@@ -25,6 +25,7 @@ function commonView(s) {
     focusField: s.focusField,
     pendingAuth: s.pendingAuth,
     caseNo: s.caseNo,
+    undoUntil: s.undoUntil ?? null,
     lastActivityAt: s.lastActivityAt,
     timeline: s.timeline.map((t) => ({ ...t })),
   };

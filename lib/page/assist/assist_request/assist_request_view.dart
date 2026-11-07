@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/bean/assist.dart';
+import 'package:town_pass/page/assist/widget/assist_speaker.dart';
 import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
@@ -63,6 +64,18 @@ class _Body extends StatelessWidget {
           const SizedBox(height: 6),
           Text(h.org!, textAlign: TextAlign.center, style: AssistText.callout),
         ],
+        const SizedBox(height: 12),
+        Center(
+          child: AssistReadButton(
+            id: 'request-${s.id}',
+            text: () =>
+                '${assistHelperDisplayName(h)}想陪您辦理${s.serviceTitle}。'
+                '${h.verified ? '這是市府認證的身分。' : '對方不是公務人員，請確認您認識他。'}'
+                '對方看不到您的身分證、地址、電話。每一項資料都會先問過您，最後也只有您能按送出。'
+                '市府、里長、一九九九都不會要您轉帳、給密碼或簡訊驗證碼。'
+                '要接受協助，請按好，請他幫我。不要的話，請按不要。',
+          ),
+        ),
         const SizedBox(height: 20),
         AssistCard(
           child: Column(

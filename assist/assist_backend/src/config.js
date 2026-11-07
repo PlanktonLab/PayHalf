@@ -26,7 +26,10 @@ export function buildConfig(overrides = {}) {
     // 同一協助者在 24 小時內被同一長輩拒絕幾次後自動封鎖
     autoBlockAfterRejects: 3,
     autoBlockWindowMs: 24 * 60 * 60 * 1000,
+    // 送出後可撤回的時間（降低誤觸送出的風險）。陪辦原設 5 秒，長輩反應較慢，放寬為 10 秒
+    undoWindowMs: 10 * 1000,
     staticDir: process.env.STATIC_DIR ?? null,
+    adminDir: null,
     ...overrides,
   };
 }

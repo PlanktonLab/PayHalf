@@ -103,6 +103,7 @@ class AssistSession {
   String? get focusField => raw['focusField'] as String?;
   String? get pendingAuth => raw['pendingAuth'] as String?;
   String? get caseNo => raw['caseNo'] as String?;
+  DateTime? get undoUntil => _dt(raw['undoUntil']);
   String? get endReason => raw['endReason'] as String?;
   String? get endedBy => raw['endedBy'] as String?;
   DateTime get createdAt => _dt(raw['createdAt'])!;

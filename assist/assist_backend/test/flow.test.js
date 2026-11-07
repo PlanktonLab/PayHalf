@@ -409,3 +409,29 @@ test('台北通 App 登入：以帳號換取長輩 token，未開通帳號會被
     await h.close();
   }
 });
+
+test('送出後 10 秒內可撤回：案件收回、資料回到確認畫面；超過時間就不能撤回', async () => {
+  const h = await startTestServer();
+  try {
+    const { elder, helper, id, done } = await runSeniorCardFlow(h);
+    assert.ok(done.body.undoUntil > 0);
+    const undone = await elder.post(`/elder/sessions/${id}/undo`);
+    assert.equal(undone.status, 200, JSON.stringify(undone.body));
+    assert.equal(undone.body.status, 'active');
+    assert.equal(undone.body.phase, 'reviewing');
+    assert.equal(undone.body.fields.idNo.value, 'A102837499', '資料回到長輩的確認畫面');
+    assert.equal((await elder.get('/elder/applications')).body.length, 0, '案件被收回');
+    const hv = await helper.get(`/sessions/${id}`);
+    assert.equal(hv.body.fields.idNo.value, null, '撤回後協助者仍看不到個資');
+    assert.equal((await helper.post(`/elder/sessions/${id}/undo`)).status, 403, '協助者不能替長輩撤回');
+
+    const again = await elder.post(`/elder/sessions/${id}/submit`, { confirm: true });
+    assert.equal(again.body.status, 'completed');
+    h.advance(h.server.config.undoWindowMs + 1);
+    const late = await elder.post(`/elder/sessions/${id}/undo`);
+    assert.equal(late.status, 409);
+    assert.equal(late.body.error.code, 'TOO_LATE');
+  } finally {
+    await h.close();
+  }
+});

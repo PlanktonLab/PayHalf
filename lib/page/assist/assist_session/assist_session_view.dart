@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/bean/assist.dart';
+import 'package:town_pass/page/assist/widget/assist_speaker.dart';
 import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
@@ -179,6 +180,11 @@ class _Steps extends StatelessWidget {
         Semantics(header: true, child: Text(step.title, style: AssistText.largeTitle)),
         const SizedBox(height: 10),
         Text(step.elderGuide, style: AssistText.body.copyWith(fontSize: 21)),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: AssistReadButton(id: 'step-${s.id}-${s.currentStep}', text: () => '${step.title}。${step.elderGuide}'),
+        ),
         const SizedBox(height: 18),
         for (final f in step.fields) ...[_FieldCard(s: s, f: f), const SizedBox(height: 14)],
         if (step.fields.isEmpty)
@@ -471,6 +477,15 @@ class _AuthSheetState extends State<_AuthSheet> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  AssistReadButton(
+                    id: 'auth-${s.id}-${f.key}',
+                    text: () =>
+                        '${s.helper!.name}請您確認，要提供您的${f.label}嗎？'
+                        '給${f.recipient ?? s.agency ?? ''}使用。用途是${f.purpose ?? ''}。保存期限：${f.retention ?? ''}。'
+                        '請注意：${f.risks.join('。')}。${s.helper!.name}看不到這項資料的內容。'
+                        '不想提供，可以按先不要，不會有任何處罰。',
+                  ),
                 ],
               ),
             ),
@@ -573,6 +588,16 @@ class _ReviewState extends State<_Review> {
     return AssistActionLayout(
       content: [
         Semantics(header: true, child: const Text('請確認您的資料', style: AssistText.largeTitle)),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: AssistReadButton(
+            id: 'review-${s.id}',
+            text: () =>
+                '請確認您的資料。您要申請${s.serviceTitle}。'
+                '按下確認送出後，資料會交給${s.agency ?? ''}。送出鍵只有您能按。',
+          ),
+        ),
         const SizedBox(height: 4),
         Text('「${s.serviceTitle}」', style: AssistText.callout),
         const SizedBox(height: 16),
@@ -650,8 +675,13 @@ class _Result extends StatelessWidget {
   final AssistSession s;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AssistTicker(builder: (context, now) => _build(context, now));
+
+  Widget _build(BuildContext context, DateTime now) {
     final ok = s.status == 'completed';
+    // 送出後 10 秒內可撤回（降低誤觸送出的風險）
+    final undoLeft = ok && s.undoUntil != null ? s.undoUntil!.difference(now) : Duration.zero;
+    final canUndo = undoLeft > Duration.zero;
     final message = switch ((s.endedBy, s.endReason)) {
       (_, 'submitted') => '申請已經送出了！',
       (_, 'timeout') => '太久沒有動作，協助已自動結束',
@@ -705,6 +735,13 @@ class _Result extends StatelessWidget {
             ),
           ),
         ],
+        const SizedBox(height: 12),
+        Center(
+          child: AssistReadButton(
+            id: 'result-${s.id}',
+            text: () => ok ? '$message案件編號：${(s.caseNo ?? '').split('').join(' ')}。' : message,
+          ),
+        ),
         const SizedBox(height: 18),
         const Text('這次是誰陪您、您提供了哪些資料，都可以在「我的帳戶 › 歷程與授權管理」查看。', textAlign: TextAlign.center, style: AssistText.callout),
       ],
@@ -716,6 +753,14 @@ class _Result extends StatelessWidget {
             Get.until((route) => route.settings.name == TPRoute.main || route.isFirst);
           },
         ),
+        if (canUndo)
+          AssistButton(
+            '撤回送出（${undoLeft.inSeconds + 1} 秒）',
+            style: AssistButtonStyle.destructive,
+            icon: Icons.undo_rounded,
+            semanticsHint: '按錯了可以撤回，撤回後會回到確認畫面',
+            onPressed: () => assistRun(() => Get.find<AssistService>().undoSubmit(s.id)),
+          ),
       ],
     );
   }

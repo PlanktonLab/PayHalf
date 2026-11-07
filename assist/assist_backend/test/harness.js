@@ -4,7 +4,7 @@ import { createAssistServer } from '../src/server.js';
 /** 啟動一個使用假時鐘的測試伺服器。 */
 export async function startTestServer(overrides = {}) {
   const clock = { t: Date.UTC(2026, 10, 7, 2, 0, 0) };
-  const server = createAssistServer({ staticDir: null, quiet: true, now: () => clock.t, ...overrides });
+  const server = createAssistServer({ staticDir: null, adminDir: null, quiet: true, now: () => clock.t, ...overrides });
   const port = await server.listen(0);
   const base = `http://localhost:${port}`;
   const sockets = [];
