@@ -13,11 +13,15 @@ import 'package:town_pass/service/package_service.dart';
 import 'package:town_pass/service/shared_preferences_service.dart';
 import 'package:town_pass/service/subscription_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 import 'package:town_pass/util/tp_route.dart';
 
 const _transparentStatusBar = SystemUiOverlayStyle(
   statusBarColor: Colors.transparent,
 );
+
+/// 上次選的語言（多國語系）
+Locale _initialLocale = TPLanguage.zhTW.locale;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +33,7 @@ void main() async {
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   await initServices();
+  _initialLocale = await TPLanguage.initial();
 
   SystemChrome.setSystemUIOverlayStyle(_transparentStatusBar);
 
@@ -55,6 +60,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return GetMaterialApp(
       title: 'Town Pass',
+      translations: TPTranslations(),
+      locale: _initialLocale,
+      fallbackLocale: TPLanguage.zhTW.locale,
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: TPColors.grayscale50,

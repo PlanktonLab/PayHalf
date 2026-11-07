@@ -5,6 +5,7 @@ import 'package:town_pass/gen/fonts.gen.dart';
 import 'package:town_pass/service/account_service.dart';
 import 'package:town_pass/service/activity_match.dart';
 import 'package:town_pass/util/tp_colors.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 依帳戶資料顯示「與你相關／可申請」標籤。
 ///
@@ -59,7 +60,7 @@ class ActivityTag extends StatelessWidget {
 
       return Semantics(
         // VoiceOver 會念出「與你相關，原因…」
-        label: explain ? match.label : '${match.label}。${match.reason}',
+        label: explain ? match.label : trf('{0}。{1}', [match.label, match.reason]),
         excludeSemantics: !explain,
         child: Padding(
           padding: const EdgeInsets.only(top: 4),

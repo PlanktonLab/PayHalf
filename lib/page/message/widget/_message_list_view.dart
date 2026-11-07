@@ -23,8 +23,8 @@ class MessageListView extends GetView<MessageViewController> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
             child: Row(
               children: [
-                const TPText(
-                  '最新消息',
+                TPText(
+                  '最新消息'.tr,
                   style: TPTextStyles.h3SemiBold,
                   color: TPColors.grayscale700,
                 ),
@@ -33,7 +33,7 @@ class MessageListView extends GetView<MessageViewController> {
                     builder: (context) {
                       final int unreadCount = controller.unreadCount(type: messageType);
                       return TPText(
-                        '全部已讀($unreadCount)',
+                        trf('全部已讀({0})', [unreadCount]),
                         style: TPTextStyles.h3Regular,
                         color: switch (unreadCount) {
                           0 => TPColors.grayscale700,

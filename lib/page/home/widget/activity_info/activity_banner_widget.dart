@@ -84,7 +84,7 @@ class _Banner extends StatelessWidget {
               const SizedBox(height: 8),
               Flexible(
                 child: TPText(
-                  activity!.title,
+                  activity!.title.tr,
                   overflow: TextOverflow.ellipsis,
                   maxLines: 2,
                   style: const TextStyle(

@@ -121,6 +121,10 @@ class HelperController extends ChangeNotifier {
   Future<void> refresh() async {
     if (!loggedIn) return;
     final list = await api.get('/helper/sessions') as List;
+    // 伺服器重啟後已不存在的陪辦：清掉，避免工作台停在按什麼都 404 的案件
+    final ids = {for (final e in list) (e as Map)['id'] as String};
+    sessions.removeWhere((id, _) => !ids.contains(id));
+    if (focusedSessionId != null && !ids.contains(focusedSessionId)) focusedSessionId = null;
     for (final e in list) {
       _onSession(Map<String, dynamic>.from(e as Map));
     }

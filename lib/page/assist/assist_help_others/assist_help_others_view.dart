@@ -8,6 +8,7 @@ import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 「幫別人辦」：協助者的入口。
 ///
@@ -49,7 +50,7 @@ class _AssistHelpOthersViewState extends State<AssistHelpOthersView> {
       final list = await service.serviceCatalog();
       if (mounted) setState(() => catalog = list);
     } catch (_) {
-      if (mounted) setState(() => loadError = '連不上伺服器，請稍後再試');
+      if (mounted) setState(() => loadError = '連不上伺服器，請稍後再試'.tr);
     }
   }
 
@@ -68,18 +69,18 @@ class _AssistHelpOthersViewState extends State<AssistHelpOthersView> {
 
   Future<void> enterAssistCode() async {
     final code = await _askCode(
-      title: '輸入協助代碼',
-      message: '請對方打開台北通「請人陪我辦」或表單裡的「找人幫我」，把畫面上的 6 位數號碼告訴您。',
-      confirm: '開始協助',
+      title: '輸入協助代碼'.tr,
+      message: '請對方打開台北通「請人陪我辦」或表單裡的「找人幫我」，把畫面上的 6 位數號碼告訴您。'.tr,
+      confirm: '開始協助'.tr,
     );
     if (code != null) await AssistHelperView.open(code: code);
   }
 
   Future<void> addFriend() async {
     final code = await _askCode(
-      title: '加好友',
-      message: '請對方打開台北通「信任的人」→「加信任的人」，把邀請碼告訴您，或直接用「掃描」掃他的 QR Code。',
-      confirm: '送出好友邀請',
+      title: '加好友'.tr,
+      message: '請對方打開台北通「信任的人」→「加信任的人」，把邀請碼告訴您，或直接用「掃描」掃他的 QR Code。'.tr,
+      confirm: '送出好友邀請'.tr,
     );
     if (code != null) await assistAcceptTrustInvite(code);
   }
@@ -87,7 +88,7 @@ class _AssistHelpOthersViewState extends State<AssistHelpOthersView> {
   /// 選了好友 → 選要幫他辦什麼 → 直接通知對方確認
   Future<void> helpFriend(TrustingElder e) async {
     final picked = await _pickSheet<Map<String, dynamic>>(
-      title: '要幫 ${e.name} 辦什麼？',
+      title: trf('要幫 {0} 辦什麼？', [e.name]),
       builder: (ctx) => _CatalogPicker(catalog: catalog ?? const [], onPick: (s) => Navigator.of(ctx).pop(s)),
     );
     if (picked != null) await AssistHelperView.open(elderId: e.elderId, serviceId: picked['id'] as String, autoSend: true);
@@ -97,7 +98,7 @@ class _AssistHelpOthersViewState extends State<AssistHelpOthersView> {
   Future<void> helpWith(Map<String, dynamic> s) async {
     final id = s['id'] as String;
     final choice = await _pickSheet<String>(
-      title: '要幫誰辦「${s['title']}」？',
+      title: trf('要幫誰辦「{0}」？', [s['title']]),
       builder: (ctx) => _PersonPicker(onPick: (v) => Navigator.of(ctx).pop(v)),
     );
     if (choice == null) return;
@@ -105,9 +106,9 @@ class _AssistHelpOthersViewState extends State<AssistHelpOthersView> {
       await assistScan();
     } else if (choice == _PersonPicker.code) {
       final code = await _askCode(
-        title: '輸入協助代碼',
-        message: '請對方打開台北通「請人陪我辦」，把畫面上的 6 位數號碼告訴您。',
-        confirm: '開始協助',
+        title: '輸入協助代碼'.tr,
+        message: '請對方打開台北通「請人陪我辦」，把畫面上的 6 位數號碼告訴您。'.tr,
+        confirm: '開始協助'.tr,
       );
       if (code != null) await AssistHelperView.open(code: code, serviceId: id);
     } else {
@@ -140,7 +141,7 @@ class _AssistHelpOthersViewState extends State<AssistHelpOthersView> {
     return AssistTextScaleCap(
       child: Scaffold(
         backgroundColor: TPColors.grayscale50,
-        appBar: const TPAppBar(title: '幫別人辦'),
+        appBar: TPAppBar(title: '幫別人辦'.tr),
         body: GestureDetector(
           behavior: HitTestBehavior.translucent,
           onTap: () => FocusScope.of(context).unfocus(),
@@ -162,7 +163,7 @@ class _AssistHelpOthersViewState extends State<AssistHelpOthersView> {
                             children: [
                               Icon(Icons.badge_outlined, size: context.iconSize(18), color: TPColors.grayscale500),
                               const SizedBox(width: 6),
-                              Expanded(child: Text('以「${me.name}」（${me.note}）的身分幫忙', style: AssistText.footnote)),
+                              Expanded(child: Text(trf('以「{0}」（{1}）的身分幫忙', [me.name, me.note]), style: AssistText.footnote)),
                             ],
                           ),
                         ),
@@ -185,18 +186,18 @@ class _AssistHelpOthersViewState extends State<AssistHelpOthersView> {
                         );
                       }),
                       const SizedBox(height: 20),
-                      Obx(() => _Header('我的好友', count: service.helperTrusting.length)),
-                      const Padding(
+                      Obx(() => _Header('我的好友'.tr, count: service.helperTrusting.length)),
+                      Padding(
                         padding: EdgeInsets.only(bottom: 10),
-                        child: Text('這些人把您加為「信任的人」，可以直接幫他們辦，不用再要代碼。', style: AssistText.footnote),
+                        child: Text('這些人把您加為「信任的人」，可以直接幫他們辦，不用再要代碼。'.tr, style: AssistText.footnote),
                       ),
                       Obx(() {
                         final friends = service.helperTrusting.toList();
                         if (friends.isEmpty) {
                           return _Empty(
                             icon: Icons.group_add_rounded,
-                            text: '還沒有好友。請對方在台北通「信任的人」產生邀請碼，再按上面「加好友」。',
-                            action: '加好友',
+                            text: '還沒有好友。請對方在台北通「信任的人」產生邀請碼，再按上面「加好友」。'.tr,
+                            action: '加好友'.tr,
                             onAction: addFriend,
                           );
                         }
@@ -205,7 +206,7 @@ class _AssistHelpOthersViewState extends State<AssistHelpOthersView> {
                         );
                       }),
                       const SizedBox(height: 24),
-                      _Header('可以幫忙辦的項目', count: catalog?.length),
+                      _Header('可以幫忙辦的項目'.tr, count: catalog?.length),
                       const SizedBox(height: 4),
                       _SearchField(controller: query, onChanged: (_) => setState(() {})),
                       const SizedBox(height: 10),
@@ -231,7 +232,7 @@ class _AssistHelpOthersViewState extends State<AssistHelpOthersView> {
                             : Column(
                                 children: [
                                   Text(loadError!, style: AssistText.callout),
-                                  TextButton(onPressed: load, child: const Text('再試一次')),
+                                  TextButton(onPressed: load, child: Text('再試一次'.tr)),
                                 ],
                               ),
                       ),
@@ -241,7 +242,7 @@ class _AssistHelpOthersViewState extends State<AssistHelpOthersView> {
                   SliverPadding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     sliver: SliverToBoxAdapter(
-                      child: _Empty(icon: Icons.search_off_rounded, text: '找不到「${query.text.trim()}」，換個關鍵字試試看。'),
+                      child: _Empty(icon: Icons.search_off_rounded, text: trf('找不到「{0}」，換個關鍵字試試看。', [query.text.trim()])),
                     ),
                   )
                 else
@@ -318,7 +319,7 @@ class _CodeDialogState extends State<_CodeDialog> {
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('取消')),
+        TextButton(onPressed: () => Get.back(), child: Text('取消'.tr)),
         FilledButton(onPressed: ok ? () => Get.back(result: controller.text.trim()) : null, child: Text(widget.confirm)),
       ],
     );
@@ -336,9 +337,9 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tiles = [
-      _ActionTile(icon: Icons.qr_code_scanner_rounded, label: '掃描\nQR Code', onTap: onScan, primary: true),
-      _ActionTile(icon: Icons.pin_outlined, label: '輸入\n協助代碼', onTap: onCode),
-      _ActionTile(icon: Icons.person_add_alt_1_rounded, label: '加好友', onTap: onAddFriend),
+      _ActionTile(icon: Icons.qr_code_scanner_rounded, label: '掃描\nQR Code'.tr, onTap: onScan, primary: true),
+      _ActionTile(icon: Icons.pin_outlined, label: '輸入\n協助代碼'.tr, onTap: onCode),
+      _ActionTile(icon: Icons.person_add_alt_1_rounded, label: '加好友'.tr, onTap: onAddFriend),
     ];
     if (context.largeText) {
       return Column(
@@ -436,12 +437,12 @@ class _CallBanner extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('$name 正在找您幫忙', style: AssistText.headline.copyWith(fontSize: 18)),
+                  Text(trf('{0} 正在找您幫忙', [name]), style: AssistText.headline.copyWith(fontSize: 18)),
                   if (what != null) Text(what!, style: AssistText.footnote),
                 ],
               ),
             ),
-            const Text('去幫忙', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: TPColors.secondary700)),
+            Text('去幫忙'.tr, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: TPColors.secondary700)),
             const Icon(Icons.chevron_right_rounded, color: TPColors.secondary700),
           ],
         ),
@@ -536,8 +537,8 @@ class _FriendRow extends StatelessWidget {
                 Text(e.name, style: AssistText.headline.copyWith(fontSize: 19)),
                 Text(
                   [
-                    if (e.account != null) '台北通帳號 ${e.account}',
-                    if (e.since != null) '${_ymd(e.since!)} 加入',
+                    if (e.account != null) trf('台北通帳號 {0}', [e.account]),
+                    if (e.since != null) trf('{0} 加入', [_ymd(e.since!)]),
                   ].join('・'),
                   style: AssistText.footnote.copyWith(fontSize: 14),
                 ),
@@ -546,9 +547,9 @@ class _FriendRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(color: TPColors.primary50, borderRadius: BorderRadius.circular(99)),
-            child: const Text('幫他辦', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: TPColors.primary700)),
+            child: Text('幫他辦'.tr, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: TPColors.primary700)),
           ),
         ],
       ),
@@ -557,7 +558,7 @@ class _FriendRow extends StatelessWidget {
 }
 
 class _SearchField extends StatelessWidget {
-  const _SearchField({required this.controller, required this.onChanged});
+  _SearchField({required this.controller, required this.onChanged});
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
 
@@ -568,14 +569,14 @@ class _SearchField extends StatelessWidget {
     textInputAction: TextInputAction.search,
     style: AssistText.body.copyWith(fontSize: 18),
     decoration: InputDecoration(
-      hintText: '搜尋表單、業務或機關',
+      hintText: '搜尋表單、業務或機關'.tr,
       hintStyle: AssistText.body.copyWith(fontSize: 18, color: TPColors.grayscale400),
-      prefixIcon: const Icon(Icons.search_rounded, color: TPColors.grayscale400),
+      prefixIcon: Icon(Icons.search_rounded, color: TPColors.grayscale400),
       suffixIcon: controller.text.isEmpty
           ? null
           : IconButton(
-              tooltip: '清除',
-              icon: const Icon(Icons.cancel_rounded, color: TPColors.grayscale300),
+              tooltip: '清除'.tr,
+              icon: Icon(Icons.cancel_rounded, color: TPColors.grayscale300),
               onPressed: () {
                 controller.clear();
                 onChanged('');
@@ -584,23 +585,23 @@ class _SearchField extends StatelessWidget {
       filled: true,
       fillColor: TPColors.white,
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(vertical: 14),
+      contentPadding: EdgeInsets.symmetric(vertical: 14),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: TPColors.primary500, width: 2),
+        borderSide: BorderSide(color: TPColors.primary500, width: 2),
       ),
     ),
   );
 }
 
 class _KindTabs extends StatelessWidget {
-  const _KindTabs({required this.value, required this.counts, required this.onChanged});
+  _KindTabs({required this.value, required this.counts, required this.onChanged});
   final _Kind value;
   final Map<_Kind, int> counts;
   final ValueChanged<_Kind> onChanged;
 
-  static const _labels = {_Kind.all: '全部', _Kind.form: '表單', _Kind.service: '申辦業務'};
+  static Map<_Kind, String> get _labels => {_Kind.all: '全部'.tr, _Kind.form: '表單'.tr, _Kind.service: '申辦業務'.tr};
 
   @override
   Widget build(BuildContext context) => Wrap(
@@ -641,7 +642,7 @@ class _CatalogRow extends StatelessWidget {
     final form = _isForm(s);
     final sub = [
       if ('${s['agency'] ?? ''}'.isNotEmpty) s['agency'],
-      if (s['estMinutes'] != null) '約 ${s['estMinutes']} 分鐘',
+      if (s['estMinutes'] != null) trf('約 {0} 分鐘', [s['estMinutes']]),
     ].join('・');
     return Material(
       color: TPColors.white,
@@ -674,7 +675,7 @@ class _CatalogRow extends StatelessWidget {
                     Text('${s['title']}', style: AssistText.headline.copyWith(fontSize: 18)),
                     const SizedBox(height: 2),
                     Text(
-                      [form ? '表單' : '申辦業務', if (sub.isNotEmpty) sub].join('・'),
+                      [form ? '表單'.tr : '申辦業務'.tr, if (sub.isNotEmpty) sub].join('・'),
                       style: AssistText.footnote.copyWith(fontSize: 14),
                     ),
                   ],
@@ -740,7 +741,7 @@ class _SheetFrame extends StatelessWidget {
           child: Row(
             children: [
               Expanded(child: Text(title, style: AssistText.title.copyWith(fontSize: 22))),
-              IconButton(tooltip: '關閉', onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close_rounded)),
+              IconButton(tooltip: '關閉'.tr, onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close_rounded)),
             ],
           ),
         ),
@@ -783,7 +784,7 @@ class _CatalogPickerState extends State<_CatalogPicker> {
         ),
         Expanded(
           child: list.isEmpty
-              ? const Center(child: Text('找不到符合的項目', style: AssistText.callout))
+              ? Center(child: Text('找不到符合的項目'.tr, style: AssistText.callout))
               : ListView.separated(
                   primary: true,
                   padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.paddingOf(context).bottom),
@@ -815,15 +816,15 @@ class _PersonPicker extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.paddingOf(context).bottom),
         children: [
           if (friends.isNotEmpty) ...[
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(bottom: 8),
-              child: Text('好友・選了就會通知對方確認', style: AssistText.footnote),
+              child: Text('好友・選了就會通知對方確認'.tr, style: AssistText.footnote),
             ),
             _Group(children: [for (final e in friends) _FriendRow(e: e, onTap: () => onPick(e.elderId))]),
             const SizedBox(height: 20),
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(bottom: 8),
-              child: Text('對方不是好友', style: AssistText.footnote),
+              child: Text('對方不是好友'.tr, style: AssistText.footnote),
             ),
           ],
           _Group(
@@ -831,25 +832,25 @@ class _PersonPicker extends StatelessWidget {
               ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 leading: const Icon(Icons.pin_outlined, color: TPColors.primary600),
-                title: const Text('輸入對方的協助代碼', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                subtitle: const Text('對方在「請人陪我辦」看到的 6 位數號碼'),
+                title: Text('輸入對方的協助代碼'.tr, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                subtitle: Text('對方在「請人陪我辦」看到的 6 位數號碼'.tr),
                 onTap: () => onPick(code),
               ),
               ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 leading: const Icon(Icons.qr_code_scanner_rounded, color: TPColors.primary600),
-                title: const Text('掃描對方的 QR Code', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                subtitle: const Text('對方在旁邊時最快'),
+                title: Text('掃描對方的 QR Code'.tr, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                subtitle: Text('對方在旁邊時最快'.tr),
                 onTap: () => onPick(scan),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          const AssistNotice(
+          AssistNotice(
             icon: Icons.shield_outlined,
             color: TPColors.primary700,
             background: TPColors.primary50,
-            text: '您看不到對方的身分證、地址、電話。每一項資料都要對方自己同意，最後也只有對方能按送出。',
+            text: '您看不到對方的身分證、地址、電話。每一項資料都要對方自己同意，最後也只有對方能按送出。'.tr,
           ),
         ],
       );

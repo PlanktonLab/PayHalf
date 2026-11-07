@@ -12,6 +12,7 @@ import 'package:town_pass/util/tp_route.dart';
 import 'package:town_pass/util/tp_text.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 class SettingView extends GetView<SettingViewController> {
   const SettingView({super.key});
@@ -22,43 +23,43 @@ class SettingView extends GetView<SettingViewController> {
       init: Get.put<SettingViewController>(SettingViewController()),
       builder: (controller) {
         return Scaffold(
-          appBar: const TPAppBar(title: '設定'),
+          appBar: TPAppBar(title: '設定'.tr),
           body: TPSettingList(
             children: [
-              TPSettingListTile.header(title: '個人資料'),
+              TPSettingListTile.header(title: '個人資料'.tr),
               TPSettingListTile.navigate(
-                title: '基本資料',
+                title: '基本資料'.tr,
                 onTap: () => Get.toNamed(TPRoute.basicInfo),
               ),
               TPSettingListTile.line(),
               TPSettingListTile.navigate(
-                title: '語言',
+                title: '語言'.tr,
                 onTap: () => Get.toNamed(TPRoute.language),
               ),
-              TPSettingListTile.header(title: '偏好設定'),
+              TPSettingListTile.header(title: '偏好設定'.tr),
               TPSettingListTile.navigate(
-                title: 'APP起始頁面',
+                title: 'APP起始頁面'.tr,
                 onTap: () => Get.toNamed(TPRoute.settingStartPage),
               ),
-              TPSettingListTile.header(title: '通知'),
-              TPSettingListTile.switchButton(title: '訊息通知提醒'),
-              TPSettingListTile.header(title: '發票設定'),
+              TPSettingListTile.header(title: '通知'.tr),
+              TPSettingListTile.switchButton(title: '訊息通知提醒'.tr),
+              TPSettingListTile.header(title: '發票設定'.tr),
               TPSettingListTile.navigate(
-                title: '手機載具',
+                title: '手機載具'.tr,
                 onTap: () => Get.toNamed(TPRoute.invoiceReceipt),
               ),
-              TPSettingListTile.header(title: '安全性'),
-              TPSettingListTile.navigate(title: '歷程與授權管理'),
+              TPSettingListTile.header(title: '安全性'.tr),
+              TPSettingListTile.navigate(title: '歷程與授權管理'.tr),
               TPSettingListTile.line(),
-              TPSettingListTile.switchButton(title: '快速登入'),
+              TPSettingListTile.switchButton(title: '快速登入'.tr),
               TPSettingListTile.line(),
               TPSettingListTile.navigate(
-                title: '停用帳號',
+                title: '停用帳號'.tr,
                 onTap: () => Get.toNamed(TPRoute.suspendAccount),
               ),
-              TPSettingListTile.header(title: '開發測試'),
+              TPSettingListTile.header(title: '開發測試'.tr),
               TPSettingListTile.navigate(
-                title: '測試身分',
+                title: '測試身分'.tr,
                 content: AssistIdentityView.summary(Get.find<AssistService>()),
                 onTap: () async {
                   await Get.to(() => const AssistIdentityView());
@@ -67,7 +68,7 @@ class SettingView extends GetView<SettingViewController> {
               ),
               TPSettingListTile.line(),
               TPSettingListTile.navigate(
-                title: '陪辦伺服器',
+                title: '陪辦伺服器'.tr,
                 content: AssistServerView.labelFor(Get.find<AssistService>().server.value),
                 onTap: () async {
                   await Get.to(() => const AssistServerView());
@@ -80,12 +81,12 @@ class SettingView extends GetView<SettingViewController> {
             child: Column(
               children: [
                 TPText(
-                  '最後登入時間：${controller.lastLoginDateTime.format('yyyy/MM/dd HH:mm:ss')}',
+                  trf('最後登入時間：{0}', [controller.lastLoginDateTime.format('yyyy/MM/dd HH:mm:ss')]),
                   style: TPTextStyles.bodyRegular,
                   color: TPColors.primary500,
                 ),
                 const SizedBox(height: 10),
-                TPButton.primary(text: '登出'),
+                TPButton.primary(text: '登出'.tr),
               ],
             ),
           ),

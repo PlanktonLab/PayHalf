@@ -100,6 +100,11 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     return false;
   }
 
+  /** 這個陪辦用的業務定義（開始時固定下來的版本） */
+  function serviceOf(s) {
+    return s.service ?? findService(s.serviceId);
+  }
+
   function requireService(serviceId) {
     const service = findService(serviceId);
     if (!service) throw badRequest('找不到這項業務');
@@ -210,6 +215,8 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       fields,
       timeline: [],
     };
+    // 陪辦開始時的題目版本固定在 session 上：承辦人之後改表單（加題、改成草稿）不影響進行中或已結束的陪辦
+    Object.defineProperty(s, 'service', { value: service, enumerable: false, writable: true });
     timeline(s, 'helper', `${helper.title} ${helper.name} 送出協助請求`);
     // 長輩在靜態 QR 表單自己填到一半才求助：已經填好的答案直接帶入，從還沒完成的那一步開始
     const draft = elderId ? hooks.prefill?.(elderId, service) : null;
@@ -704,6 +711,10 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   function requestForElder(helper, { serviceId, elderId, method = 'online_help' }) {
     const service = requireService(serviceId);
     if (isBlocked(elderId, helper.id)) throw forbidden('對方目前無法接受您的協助請求', 'BLOCKED');
+    // 長輩又按了一次求助（新的求助單）：上一個還沒回應的請求作廢，讓客服可以接新的這張
+    for (const o of [...sessions.values()]) {
+      if (o.elderId === elderId && o.helperId === helper.id && o.status === 'pending') end(helper, o.id, 'superseded');
+    }
     checkPendingLimit(helper);
     if (hasOpen(elderId, helper.id)) throw conflict('您已經對這位長輩送出請求了', 'DUPLICATE_REQUEST');
     const elder = findUser(elderId);
@@ -717,7 +728,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     const s = ownedByElder(elder, id);
     if (s.status !== 'pending') throw conflict('這個請求已經失效', 'REQUEST_NOT_PENDING');
     const helper = findUser(s.helperId);
-    const service = findService(s.serviceId);
+    const service = serviceOf(s);
     touch(s);
 
     if (accept) {
@@ -780,7 +791,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   function gotoStep(helper, id, step) {
     const s = ownedByHelper(helper, id);
     requireActive(s);
-    const service = findService(s.serviceId);
+    const service = serviceOf(s);
     if (!Number.isInteger(step) || step < 0 || step >= service.steps.length) {
       throw badRequest('步驟不存在', 'INVALID_STEP');
     }
@@ -808,7 +819,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   function focusField(helper, id, key) {
     const s = ownedByHelper(helper, id);
     requireActive(s);
-    const service = findService(s.serviceId);
+    const service = serviceOf(s);
     if (key !== null) fieldInCurrentStep(s, service, key);
     s.focusField = key;
     touch(s);
@@ -819,7 +830,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   function requestField(helper, id, key) {
     const s = ownedByHelper(helper, id);
     requireActive(s);
-    const service = findService(s.serviceId);
+    const service = serviceOf(s);
     const f = fieldInCurrentStep(s, service, key);
     if (!f.sensitive) throw badRequest('這個欄位請長輩直接在手機上選擇', 'NOT_SENSITIVE');
     const st = s.fields[key];
@@ -853,7 +864,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   function elderStep(elder, id, step) {
     const s = ownedByElder(elder, id);
     requireActive(s);
-    const service = findService(s.serviceId);
+    const service = serviceOf(s);
     if (!s.elderNav) throw forbidden('陪辦人員會帶您到下一步', 'ELDER_NAV_OFF');
     if (!Number.isInteger(step) || step < 0 || step >= service.steps.length || Math.abs(step - s.currentStep) !== 1) {
       throw badRequest('步驟不存在', 'INVALID_STEP');
@@ -873,7 +884,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   function selfAuthorizeField(elder, id, key, value) {
     const s = ownedByElder(elder, id);
     requireActive(s);
-    const service = findService(s.serviceId);
+    const service = serviceOf(s);
     const f = fieldInCurrentStep(s, service, key);
     if (s.pendingAuth === key) return authorizeField(elder, id, key, true, value);
     if (!s.elderSelfAuth) throw forbidden('請等陪辦人員請您提供這項資料', 'ELDER_SELF_AUTH_OFF');
@@ -898,7 +909,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   function authorizeField(elder, id, key, approve, value, { self = false } = {}) {
     const s = ownedByElder(elder, id);
     requireActive(s);
-    const service = findService(s.serviceId);
+    const service = serviceOf(s);
     const f = fieldOf(service, key);
     if (!self && s.pendingAuth !== key) throw conflict('這個授權請求已經失效', 'AUTH_NOT_PENDING');
     const st = s.fields[key];
@@ -942,7 +953,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   function revokeField(elder, id, key) {
     const s = ownedByElder(elder, id);
     requireActive(s);
-    const service = findService(s.serviceId);
+    const service = serviceOf(s);
     const f = fieldOf(service, key);
     const st = s.fields[key];
     if (!f.sensitive || st.status !== 'authorized') throw badRequest('這項資料沒有被授權', 'NOT_AUTHORIZED');
@@ -968,7 +979,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   function editField(elder, id, key, value) {
     const s = ownedByElder(elder, id);
     requireActive(s, null);
-    const service = findService(s.serviceId);
+    const service = serviceOf(s);
     const f = fieldOf(service, key);
     const st = s.fields[key];
     if (!f.sensitive || st.status !== 'authorized') throw badRequest('這項資料還沒有提供', 'NOT_AUTHORIZED');
@@ -995,7 +1006,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   function inputChoice(elder, id, key, value) {
     const s = ownedByElder(elder, id);
     requireActive(s);
-    const service = findService(s.serviceId);
+    const service = serviceOf(s);
     const f = fieldInCurrentStep(s, service, key);
     let shown;
     if (f.type === 'text') {
@@ -1047,7 +1058,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     const s = ownedByHelper(helper, id);
     requireActive(s);
     if (s.pendingAuth) throw conflict('請等長輩回應目前的授權請求', 'AUTH_PENDING');
-    const service = findService(s.serviceId);
+    const service = serviceOf(s);
     const missing = allFields(service).filter(
       (f) => f.required && !['authorized', 'filled'].includes(s.fields[f.key].status),
     );
@@ -1066,7 +1077,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   function submit(elder, id, confirm) {
     const s = ownedByElder(elder, id);
     requireActive(s, 'reviewing');
-    const service = findService(s.serviceId);
+    const service = serviceOf(s);
     touch(s);
     if (!confirm) {
       s.phase = 'filling';
@@ -1122,7 +1133,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     const [app] = applications.splice(idx, 1);
     for (const [k, v] of Object.entries(app.data)) s.fields[k].value = v;
     const caseNo = s.caseNo;
-    hooks.onUndone?.({ service: findService(s.serviceId), caseNo });
+    hooks.onUndone?.({ service: serviceOf(s), caseNo });
     s.status = 'active';
     s.phase = 'reviewing';
     s.caseNo = null;

@@ -23,14 +23,14 @@ class ActivityDetailView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: TPColors.white,
-      appBar: const TPAppBar(title: '活動訊息'),
+      appBar: TPAppBar(title: '活動訊息'.tr),
       body: Column(
         children: [
           TPCachedNetworkImage(imageUrl: activity.imageUrl, width: double.infinity, height: 128, fit: BoxFit.contain),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: TPText(
-              activity.title,
+              activity.title.tr,
               style: TPTextStyles.h3SemiBold,
               color: TPColors.primary500,
             ),
@@ -56,7 +56,7 @@ class ActivityDetailView extends StatelessWidget {
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.only(bottom: 16.0),
                       child: TPText(
-                        activity.content,
+                        activity.content.tr,
                         style: TPTextStyles.h3Regular,
                         color: TPColors.grayscale800,
                       ),
@@ -73,12 +73,12 @@ class ActivityDetailView extends StatelessWidget {
             child: Column(
               children: [
                 TPButton.primary(
-                  text: '立即報名',
+                  text: '立即報名'.tr,
                   onPressed: () => AssistFormView.open(activity.formId!),
                 ),
                 const SizedBox(height: 12),
                 TPButton.secondary(
-                  text: '需要別人協助填寫',
+                  text: '需要別人協助填寫'.tr,
                   onPressed: () => AssistFormView.open(activity.formId!, askHelp: true),
                 ),
               ],
@@ -89,7 +89,7 @@ class ActivityDetailView extends StatelessWidget {
             child: Column(
               children: [
                 TPButton.primary(
-                  text: '網址連結',
+                  text: '網址連結'.tr,
                   onPressed: () async => await TPRoute.openUri(
                     uri: activity.webUrl ?? '',
                   ),

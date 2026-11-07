@@ -29,8 +29,8 @@ class SubscriptionWidget extends StatelessWidget {
           child: IntrinsicHeight(
             child: Row(
               children: [
-                const TPText(
-                  '訂閱',
+                TPText(
+                  '訂閱'.tr,
                   style: TextStyle(
                     color: TPColors.grayscale800,
                     fontSize: 20,
@@ -55,8 +55,8 @@ class SubscriptionWidget extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const TPText(
-                        '設定',
+                      TPText(
+                        '設定'.tr,
                         style: TPTextStyles.h3Regular,
                         color: TPColors.grayscale600,
                       ),
@@ -76,8 +76,8 @@ class SubscriptionWidget extends StatelessWidget {
                   },
                   child: Row(
                     children: [
-                      const TPText(
-                        '更多',
+                      TPText(
+                        '更多'.tr,
                         style: TPTextStyles.h3Regular,
                         color: TPColors.grayscale600,
                       ),
@@ -107,11 +107,11 @@ class SubscriptionWidget extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const TPText('與我相關', style: TPTextStyles.h3SemiBold),
+                TPText('與我相關'.tr, style: TPTextStyles.h3SemiBold),
                 if (items.isEmpty)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Text('目前沒有符合你帳戶資料的活動。'),
+                    child: Text('目前沒有符合你帳戶資料的活動。'.tr),
                   ),
                 for (final item in items)
                   ListTile(
@@ -140,8 +140,8 @@ class SubscriptionWidget extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const TPText(
-                        '活動、服務、福利 一鍵讓你知',
+                      TPText(
+                        '活動、服務、福利 一鍵讓你知'.tr,
                         style: TextStyle(
                           color: TPColors.grayscale800,
                           fontSize: 16,
@@ -150,7 +150,7 @@ class SubscriptionWidget extends StatelessWidget {
                         ),
                       ),
                       TPText(
-                        '訂閱設定',
+                        '訂閱設定'.tr,
                         style: const TextStyle(
                           color: TPColors.primary500,
                           fontSize: 16,

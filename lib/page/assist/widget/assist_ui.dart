@@ -9,6 +9,7 @@ import 'package:town_pass/bean/assist.dart';
 import 'package:town_pass/gen/fonts.gen.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 陪辦頁面共用的設計元件。
 ///
@@ -86,7 +87,7 @@ String assistMmss(Duration d) {
 /// 給 VoiceOver 念的倒數
 String assistSpokenDuration(Duration d) {
   final s = d.inSeconds < 0 ? 0 : d.inSeconds;
-  return s >= 60 ? '${s ~/ 60} 分 ${s % 60} 秒' : '$s 秒';
+  return s >= 60 ? trf('{0} 分 {1} 秒', [s ~/ 60, s % 60]) : trf('{0} 秒', [s]);
 }
 
 String assistYmdhm(DateTime t) => '${t.year}/${_two(t.month)}/${_two(t.day)} ${_two(t.hour)}:${_two(t.minute)}';
@@ -103,7 +104,7 @@ String assistMask(String key, String? value) {
     case 'residentAddress':
       return value.length < 6 ? value : '${value.substring(0, 6)}••••';
     case 'birthday':
-      return value.length < 4 ? value : '${value.substring(0, 4)} 年 •• 月 •• 日';
+      return value.length < 4 ? value : trf('{0} 年 •• 月 •• 日', [value.substring(0, 4)]);
     default:
       return value;
   }
@@ -116,9 +117,9 @@ IconData assistHelperIcon(String helperType) => switch (helperType) {
 };
 
 String assistHelperDisplayName(HelperInfo h) => h.helperType == 'village_chief'
-    ? '${h.name} 里長'
+    ? trf('{0} 里長', [h.name])
     : h.helperType == 'official'
-    ? '${h.name}（1999 客服）'
+    ? trf('{0}（1999 客服）', [h.name])
     : h.name;
 
 // ─────────────────────────────────────────── 元件
@@ -273,12 +274,12 @@ class AssistNotice extends StatelessWidget {
   final Color color;
   final Color background;
 
-  factory AssistNotice.fraud() => const AssistNotice(
+  factory AssistNotice.fraud() => AssistNotice(
     icon: Icons.shield_rounded,
     color: TPColors.red700,
     background: TPColors.red50,
-    title: '防詐騙提醒',
-    text: '市府、里長、1999 都不會要您轉帳、給密碼或簡訊驗證碼。有人這樣要求，一定是詐騙。',
+    title: '防詐騙提醒'.tr,
+    text: '市府、里長、1999 都不會要您轉帳、給密碼或簡訊驗證碼。有人這樣要求，一定是詐騙。'.tr,
   );
 
   @override
@@ -338,27 +339,27 @@ class AssistPill extends StatelessWidget {
   final IconData? icon;
 
   factory AssistPill.forField(FieldState st) => switch (st.status) {
-    'authorized' => const AssistPill(
-      '已同意',
+    'authorized' => AssistPill(
+      '已同意'.tr,
       color: AssistColors.green700,
       background: AssistColors.green50,
       icon: Icons.check_circle_rounded,
     ),
-    'filled' => const AssistPill(
-      '已選擇',
+    'filled' => AssistPill(
+      '已選擇'.tr,
       color: AssistColors.green700,
       background: AssistColors.green50,
       icon: Icons.check_circle_rounded,
     ),
-    'requested' => const AssistPill(
-      '等您確認',
+    'requested' => AssistPill(
+      '等您確認'.tr,
       color: TPColors.secondary800,
       background: TPColors.secondary100,
       icon: Icons.hourglass_top_rounded,
     ),
-    'denied' => const AssistPill('未提供', color: TPColors.red700, background: TPColors.red50, icon: Icons.block_rounded),
-    _ => const AssistPill(
-      '尚未提供',
+    'denied' => AssistPill('未提供'.tr, color: TPColors.red700, background: TPColors.red50, icon: Icons.block_rounded),
+    _ => AssistPill(
+      '尚未提供'.tr,
       color: TPColors.grayscale600,
       background: TPColors.grayscale50,
       icon: Icons.radio_button_unchecked_rounded,
@@ -395,13 +396,13 @@ class AssistHelperBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) => helper.verified
       ? AssistPill(
-          helper.helperType == 'official' ? '市府認證客服' : '市府認證里長',
+          helper.helperType == 'official' ? '市府認證客服'.tr : '市府認證里長'.tr,
           color: AssistColors.green700,
           background: AssistColors.green50,
           icon: Icons.verified_rounded,
         )
-      : const AssistPill(
-          '非公務人員',
+      : AssistPill(
+          '非公務人員'.tr,
           color: TPColors.secondary800,
           background: TPColors.secondary100,
           icon: Icons.info_rounded,
@@ -509,7 +510,7 @@ Future<bool> assistConfirm({
       actions: [
         CupertinoDialogAction(
           onPressed: () => Navigator.of(ctx).pop(false),
-          child: const Text('取消', style: TextStyle(fontFamily: FontFamily.pingFangTC)),
+          child: Text('取消'.tr, style: TextStyle(fontFamily: FontFamily.pingFangTC)),
         ),
         CupertinoDialogAction(
           isDestructiveAction: destructive,
@@ -528,7 +529,7 @@ Future<bool> assistRun(Future<void> Function() action) async {
     await action();
     return true;
   } catch (e) {
-    final msg = e is AssistApiException ? e.message : '連線失敗，請稍後再試';
+    final msg = e is AssistApiException ? e.message : '連線失敗，請稍後再試'.tr;
     Get.closeAllSnackbars();
     Get.showSnackbar(
       GetSnackBar(
@@ -598,9 +599,9 @@ class _EditValueSheetState extends State<_EditValueSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Semantics(header: true, child: Text('修改「${widget.label}」', style: AssistText.title)),
+            Semantics(header: true, child: Text(trf('修改「{0}」', [widget.label]), style: AssistText.title)),
             const SizedBox(height: 6),
-            const Text('改成正確的內容。送出前，您還會再看到一次全部的資料。', style: AssistText.callout),
+            Text('改成正確的內容。送出前，您還會再看到一次全部的資料。'.tr, style: AssistText.callout),
             const SizedBox(height: 16),
             ValueListenableBuilder(
               valueListenable: text,
@@ -616,7 +617,7 @@ class _EditValueSheetState extends State<_EditValueSheet> {
                 decoration: InputDecoration(
                   labelText: widget.label,
                   counterText: '',
-                  errorText: value.text.trim().isEmpty ? '不能是空白' : null,
+                  errorText: value.text.trim().isEmpty ? '不能是空白'.tr : null,
                   filled: true,
                   fillColor: TPColors.grayscale50,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -624,7 +625,7 @@ class _EditValueSheetState extends State<_EditValueSheet> {
                   suffixIcon: value.text.isEmpty
                       ? null
                       : IconButton(
-                          tooltip: '清除',
+                          tooltip: '清除'.tr,
                           onPressed: text.clear,
                           icon: const Icon(Icons.cancel_rounded, color: TPColors.grayscale400),
                         ),
@@ -635,10 +636,10 @@ class _EditValueSheetState extends State<_EditValueSheet> {
             ValueListenableBuilder(
               valueListenable: text,
               builder: (context, value, _) =>
-                  AssistButton('改好了', icon: Icons.check_rounded, onPressed: value.text.trim().isEmpty ? null : save),
+                  AssistButton('改好了'.tr, icon: Icons.check_rounded, onPressed: value.text.trim().isEmpty ? null : save),
             ),
             const SizedBox(height: 10),
-            AssistButton('取消', style: AssistButtonStyle.secondary, onPressed: () => Navigator.of(context).pop()),
+            AssistButton('取消'.tr, style: AssistButtonStyle.secondary, onPressed: () => Navigator.of(context).pop()),
           ],
         ),
       ),
@@ -648,7 +649,7 @@ class _EditValueSheetState extends State<_EditValueSheet> {
 
 /// 說明資料去哪裡：陪辦的人看不到，但會直接填進申請表交給承辦機關
 String assistWhereDataGoes(String helperName, String? recipient) =>
-    '$helperName 看不到內容。這項資料會直接填進申請表，交給${recipient ?? '承辦機關'}。';
+    trf('{0} 看不到內容。這項資料會直接填進申請表，交給{1}。', [helperName, recipient ?? '承辦機關']);
 
 
 /// 敏感資料：整格模糊，中間寫「點一下查看{label}」，點了才顯示；再點一下又遮起來。
@@ -681,7 +682,7 @@ class _AssistRevealValueState extends State<AssistRevealValue> {
     if (assistMask(widget.fieldKey, v) == v) return Text(v, style: widget.style);
     return Semantics(
       button: true,
-      label: reveal ? '${widget.label}：$v。點兩下遮住' : '${widget.label}已遮住。點兩下查看',
+      label: reveal ? trf('{0}：{1}。點兩下遮住', [widget.label, v]) : trf('{0}已遮住。點兩下查看', [widget.label]),
       excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -717,7 +718,7 @@ class _AssistRevealValueState extends State<AssistRevealValue> {
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
-                          '點一下查看${widget.label}',
+                          trf('點一下查看{0}', [widget.label]),
                           style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: TPColors.primary700),
                         ),
                       ),
@@ -727,7 +728,7 @@ class _AssistRevealValueState extends State<AssistRevealValue> {
               else
                 Positioned(
                   right: 0,
-                  child: Text('點一下遮住', style: TextStyle(fontSize: 14, color: TPColors.grayscale500)),
+                  child: Text('點一下遮住'.tr, style: TextStyle(fontSize: 14, color: TPColors.grayscale500)),
                 ),
             ],
           ),

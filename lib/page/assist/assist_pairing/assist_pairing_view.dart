@@ -9,6 +9,7 @@ import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_route.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 「請人陪我辦」：產生一次性配對碼，給協助者掃描或輸入。
 class AssistPairingView extends StatefulWidget {
@@ -39,7 +40,7 @@ class _AssistPairingViewState extends State<AssistPairingView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: TPColors.grayscale50,
-      appBar: const TPAppBar(title: '請人陪我辦'),
+      appBar: TPAppBar(title: '請人陪我辦'.tr),
       body: AssistTextScaleCap(
         child: Obx(() {
           if (!service.linked.value) return _Offline(onRetry: service.retryNow);
@@ -50,9 +51,9 @@ class _AssistPairingViewState extends State<AssistPairingView> {
               // 對方送出請求後，徽章會直接出現在這裡
               const AssistHomeBadge(padding: EdgeInsets.only(top: 16)),
               const SizedBox(height: 16),
-              Semantics(header: true, child: const Text('請把這個畫面給幫忙的人看', style: AssistText.largeTitle)),
+              Semantics(header: true, child: Text('請把這個畫面給幫忙的人看'.tr, style: AssistText.largeTitle)),
               const SizedBox(height: 6),
-              const Text('對方用台北通掃描，或輸入下面的號碼，就能陪您一起辦。', style: AssistText.callout),
+              Text('對方用台北通掃描，或輸入下面的號碼，就能陪您一起辦。'.tr, style: AssistText.callout),
               const SizedBox(height: 18),
               AssistCard(
                 padding: const EdgeInsets.all(22),
@@ -60,9 +61,9 @@ class _AssistPairingViewState extends State<AssistPairingView> {
                     ? failed
                         ? Column(
                             children: [
-                              const Text('暫時拿不到號碼，請再試一次。', style: AssistText.body, textAlign: TextAlign.center),
+                              Text('暫時拿不到號碼，請再試一次。'.tr, style: AssistText.body, textAlign: TextAlign.center),
                               const SizedBox(height: 16),
-                              AssistButton('再試一次', icon: Icons.refresh_rounded, onPressed: _create),
+                              AssistButton('再試一次'.tr, icon: Icons.refresh_rounded, onPressed: _create),
                             ],
                           )
                         : const Padding(
@@ -76,7 +77,7 @@ class _AssistPairingViewState extends State<AssistPairingView> {
                           return Column(
                             children: [
                               Semantics(
-                                label: '配對 QR Code',
+                                label: '配對 QR Code'.tr,
                                 image: true,
                                 child: Opacity(
                                   opacity: expired ? 0.12 : 1,
@@ -93,7 +94,7 @@ class _AssistPairingViewState extends State<AssistPairingView> {
                               ),
                               const SizedBox(height: 12),
                               Semantics(
-                                label: expired ? '配對碼已失效' : '配對碼 ${p.code.split('').join(' ')}',
+                                label: expired ? '配對碼已失效'.tr : trf('配對碼 {0}', [p.code.split('').join(' ')]),
                                 child: ExcludeSemantics(
                                   child: FittedBox(
                                     child: Text(
@@ -111,7 +112,7 @@ class _AssistPairingViewState extends State<AssistPairingView> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                expired ? '這組號碼已失效，請換一組' : '還有 ${assistMmss(left)}，只能用一次',
+                                expired ? '這組號碼已失效，請換一組'.tr : trf('還有 {0}，只能用一次', [assistMmss(left)]),
                                 textAlign: TextAlign.center,
                                 style: AssistText.callout.copyWith(
                                   color: expired ? TPColors.red600 : TPColors.grayscale600,
@@ -119,7 +120,7 @@ class _AssistPairingViewState extends State<AssistPairingView> {
                               ),
                               const SizedBox(height: 14),
                               AssistButton(
-                                '換一組號碼',
+                                '換一組號碼'.tr,
                                 style: expired ? AssistButtonStyle.primary : AssistButtonStyle.secondary,
                                 icon: Icons.refresh_rounded,
                                 onPressed: () => assistRun(service.createPairingCode),
@@ -132,17 +133,17 @@ class _AssistPairingViewState extends State<AssistPairingView> {
               const SizedBox(height: 22),
               const _TrustedPeople(),
               const SizedBox(height: 22),
-              Semantics(header: true, child: const Text('誰可以幫您？', style: AssistText.title)),
+              Semantics(header: true, child: Text('誰可以幫您？'.tr, style: AssistText.title)),
               const SizedBox(height: 10),
-              const AssistCard(
+              AssistCard(
                 padding: EdgeInsets.symmetric(horizontal: 18, vertical: 6),
                 child: Column(
                   children: [
-                    _Who(icon: Icons.holiday_village_rounded, title: '里長或里幹事', desc: '畫面會顯示「市府認證」'),
+                    _Who(icon: Icons.holiday_village_rounded, title: '里長或里幹事'.tr, desc: '畫面會顯示「市府認證」'.tr),
                     Divider(height: 1),
-                    _Who(icon: Icons.support_agent_rounded, title: '1999 市民熱線客服', desc: '畫面會顯示「市府認證」'),
+                    _Who(icon: Icons.support_agent_rounded, title: '1999 市民熱線客服'.tr, desc: '畫面會顯示「市府認證」'.tr),
                     Divider(height: 1),
-                    _Who(icon: Icons.family_restroom_rounded, title: '家人或朋友', desc: '請確認是您認識的人'),
+                    _Who(icon: Icons.family_restroom_rounded, title: '家人或朋友'.tr, desc: '請確認是您認識的人'.tr),
                   ],
                 ),
               ),
@@ -150,7 +151,7 @@ class _AssistPairingViewState extends State<AssistPairingView> {
               AssistNotice.fraud(),
               const SizedBox(height: 8),
               AssistButton(
-                '我的權利與法規說明',
+                '我的權利與法規說明'.tr,
                 style: AssistButtonStyle.plain,
                 icon: Icons.gavel_rounded,
                 onPressed: () => Get.toNamed(TPRoute.assistLegal),
@@ -184,17 +185,17 @@ class _TrustedPeopleState extends State<_TrustedPeople> {
         children: [
           Row(
             children: [
-              Expanded(child: Semantics(header: true, child: const Text('找信任的人', style: AssistText.title))),
+              Expanded(child: Semantics(header: true, child: Text('找信任的人'.tr, style: AssistText.title))),
               if (list.isNotEmpty)
                 TextButton(
                   onPressed: () => setState(() => editing = !editing),
-                  child: Text(editing ? '完成' : '編輯', style: AssistText.callout.copyWith(color: TPColors.primary700)),
+                  child: Text(editing ? '完成'.tr : '編輯'.tr, style: AssistText.callout.copyWith(color: TPColors.primary700)),
                 ),
             ],
           ),
           const SizedBox(height: 2),
           Text(
-            list.isEmpty ? '把常幫您的家人加進來，下次不用掃 QR Code。' : '按一下，對方手機會收到通知來幫您。',
+            list.isEmpty ? '把常幫您的家人加進來，下次不用掃 QR Code。'.tr : '按一下，對方手機會收到通知來幫您。'.tr,
             style: AssistText.callout,
           ),
           const SizedBox(height: 10),
@@ -207,7 +208,7 @@ class _TrustedPeopleState extends State<_TrustedPeople> {
             const SizedBox(height: 10),
           ],
           AssistButton(
-            '加信任的人',
+            '加信任的人'.tr,
             style: AssistButtonStyle.secondary,
             icon: Icons.person_add_alt_1_rounded,
             onPressed: () => _AddTrustedSheet.show(),
@@ -234,23 +235,23 @@ class _TrustedRow extends StatelessWidget {
         style: TextButton.styleFrom(foregroundColor: TPColors.red600, minimumSize: const Size(64, 48)),
         onPressed: () async {
           final ok = await assistConfirm(
-            title: '移除 ${h.name}？',
-            message: '之後他要找您，就要重新掃 QR Code。',
-            confirmLabel: '移除',
+            title: trf('移除 {0}？', [h.name]),
+            message: '之後他要找您，就要重新掃 QR Code。'.tr,
+            confirmLabel: '移除'.tr,
           );
           if (ok) await assistRun(() => service.removeTrusted(h.id));
         },
-        child: const Text('移除', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+        child: Text('移除'.tr, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
       );
     } else if (waiting != null) {
       action = Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          const Text('已通知，等他回應', style: TextStyle(fontSize: 15, color: TPColors.secondary800, fontWeight: FontWeight.w600)),
+          Text('已通知，等他回應'.tr, style: TextStyle(fontSize: 15, color: TPColors.secondary800, fontWeight: FontWeight.w600)),
           TextButton(
             style: TextButton.styleFrom(minimumSize: const Size(56, 40), foregroundColor: TPColors.grayscale600),
             onPressed: () => assistRun(() => service.cancelHelp(waiting!.id)),
-            child: const Text('取消', style: TextStyle(fontSize: 16)),
+            child: Text('取消'.tr, style: TextStyle(fontSize: 16)),
           ),
         ],
       );
@@ -260,7 +261,7 @@ class _TrustedRow extends StatelessWidget {
     final canCall = !editing && waiting == null;
     return Semantics(
       button: canCall,
-      label: canCall ? '請 ${h.name} 來幫我' : null,
+      label: canCall ? trf('請 {0} 來幫我', [h.name]) : null,
       child: Material(
         color: TPColors.white,
         borderRadius: BorderRadius.circular(18),
@@ -272,8 +273,8 @@ class _TrustedRow extends StatelessWidget {
                   if (await assistRun(() => service.requestHelp(h.id))) {
                     Get.closeAllSnackbars();
                     Get.snackbar(
-                      '已通知 ${h.name}',
-                      '他的手機會跳出通知，等他來幫您。',
+                      trf('已通知 {0}', [h.name]),
+                      '他的手機會跳出通知，等他來幫您。'.tr,
                       snackPosition: SnackPosition.BOTTOM,
                       margin: const EdgeInsets.all(12),
                       backgroundColor: TPColors.grayscale800,
@@ -296,7 +297,7 @@ class _TrustedRow extends StatelessWidget {
                       children: [
                         AssistHelperName(h, trusted: true, style: AssistText.headline),
                         if (canCall)
-                          Text('請他來幫我', style: AssistText.callout.copyWith(color: TPColors.primary700, fontWeight: FontWeight.w600)),
+                          Text('請他來幫我'.tr, style: AssistText.callout.copyWith(color: TPColors.primary700, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -382,12 +383,12 @@ class _AddTrustedSheetState extends State<_AddTrustedSheet> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('加信任的人', textAlign: TextAlign.center, style: AssistText.title),
+              Text('加信任的人'.tr, textAlign: TextAlign.center, style: AssistText.title),
               const SizedBox(height: 4),
-              const Text('請家人用台北通掃這個 QR Code，\n或輸入下面的號碼。', textAlign: TextAlign.center, style: AssistText.callout),
+              Text('請家人用台北通掃這個 QR Code，\n或輸入下面的號碼。'.tr, textAlign: TextAlign.center, style: AssistText.callout),
               const SizedBox(height: 16),
               if (failed)
-                AssistButton('暫時拿不到號碼，再試一次', style: AssistButtonStyle.secondary, onPressed: _create)
+                AssistButton('暫時拿不到號碼，再試一次'.tr, style: AssistButtonStyle.secondary, onPressed: _create)
               else if (inv == null)
                 const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
               else
@@ -419,7 +420,7 @@ class _AddTrustedSheetState extends State<_AddTrustedSheet> {
                         ),
                         const SizedBox(height: 10),
                         Semantics(
-                          label: expired ? '號碼已失效' : '號碼 ${inv.code.split('').join(' ')}',
+                          label: expired ? '號碼已失效'.tr : trf('號碼 {0}', [inv.code.split('').join(' ')]),
                           excludeSemantics: true,
                           child: Text(
                             expired ? '------' : '${inv.code.substring(0, 3)} ${inv.code.substring(3)}',
@@ -432,23 +433,23 @@ class _AddTrustedSheetState extends State<_AddTrustedSheet> {
                           ),
                         ),
                         Text(
-                          expired ? '號碼已失效' : '${assistMmss(left)} 後失效',
+                          expired ? '號碼已失效'.tr : trf('{0} 後失效', [assistMmss(left)]),
                           style: AssistText.callout.copyWith(color: expired ? TPColors.red600 : null),
                         ),
                         if (expired) ...[
                           const SizedBox(height: 10),
-                          AssistButton('換一組', icon: Icons.refresh_rounded, onPressed: _create),
+                          AssistButton('換一組'.tr, icon: Icons.refresh_rounded, onPressed: _create),
                         ],
                       ],
                     );
                   },
                 ),
               const SizedBox(height: 16),
-              const AssistNotice(
+              AssistNotice(
                 icon: Icons.shield_rounded,
                 color: TPColors.red700,
                 background: TPColors.red50,
-                text: '只給您信得過的家人。對方掃了之後，您還要再按一次「加入」才算數。',
+                text: '只給您信得過的家人。對方掃了之後，您還要再按一次「加入」才算數。'.tr,
               ),
             ],
           ),
@@ -496,11 +497,11 @@ class _Offline extends StatelessWidget {
       const SizedBox(height: 40),
       Icon(Icons.cloud_off_rounded, size: context.iconSize(56), color: TPColors.grayscale400),
       const SizedBox(height: 16),
-      const Text('暫時連不上陪辦服務', textAlign: TextAlign.center, style: AssistText.title),
+      Text('暫時連不上陪辦服務'.tr, textAlign: TextAlign.center, style: AssistText.title),
       const SizedBox(height: 8),
-      const Text('請確認網路，稍後再試。也可以直接撥打 1999 請客服協助。', textAlign: TextAlign.center, style: AssistText.callout),
+      Text('請確認網路，稍後再試。也可以直接撥打 1999 請客服協助。'.tr, textAlign: TextAlign.center, style: AssistText.callout),
       const SizedBox(height: 24),
-      AssistButton('再試一次', onPressed: onRetry),
+      AssistButton('再試一次'.tr, onPressed: onRetry),
     ],
   );
 }

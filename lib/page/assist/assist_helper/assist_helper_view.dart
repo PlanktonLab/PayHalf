@@ -9,6 +9,7 @@ import 'package:town_pass/service/assist_helper_controller.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 協助者（里長、家人、1999 客服）用手機陪長輩辦事的畫面。
 /// 由首頁「掃描」掃到長輩的配對 QR Code 進來（帶入配對碼），或從「設定 › 測試身分」打開。
@@ -29,6 +30,8 @@ class AssistHelperView extends StatefulWidget {
     await Get.to(
       () => AssistHelperView(code: code, elderId: elderId, serviceId: serviceId, autoSend: autoSend),
       routeName: '/assist_helper',
+      // 已經在陪辦畫面時，從來電通知按「去幫他」也要能打開
+      preventDuplicates: false,
     );
   }
 
@@ -60,17 +63,17 @@ class _AssistHelperViewState extends State<AssistHelperView> {
       final Widget body;
       final String title;
       if (c.loading.value) {
-        title = '陪辦';
+        title = '陪辦'.tr;
         body = const Center(child: CircularProgressIndicator());
       } else if (c.loginError.value != null) {
-        title = '陪辦';
+        title = '陪辦'.tr;
         body = _Message(
           icon: Icons.cloud_off_rounded,
           text: c.loginError.value!,
-          action: FilledButton(onPressed: c.login, child: const Text('再試一次')),
+          action: FilledButton(onPressed: c.login, child: Text('再試一次'.tr)),
         );
       } else if (s == null) {
-        title = '新陪辦';
+        title = '新陪辦'.tr;
         body = _NewRequest(
           c: c,
           code: widget.code,
@@ -83,7 +86,7 @@ class _AssistHelperViewState extends State<AssistHelperView> {
           },
         );
       } else if (s.isPending) {
-        title = '等待長輩回應';
+        title = '等待長輩回應'.tr;
         body = _Waiting(c: c, s: s);
       } else if (s.isActive) {
         title = s.serviceTitle;
@@ -106,7 +109,7 @@ class _AssistHelperViewState extends State<AssistHelperView> {
               if (s != null && s.isActive)
                 TextButton(
                   onPressed: () => _confirmEnd(context, c),
-                  child: const Text('結束', style: TextStyle(color: TPColors.red600, fontSize: 16, fontWeight: FontWeight.w600)),
+                  child: Text('結束'.tr, style: TextStyle(color: TPColors.red600, fontSize: 16, fontWeight: FontWeight.w600)),
                 ),
             ],
           ),
@@ -123,8 +126,8 @@ Future<void> _run(Future<void> Function() f) async {
   } catch (e) {
     Get.closeAllSnackbars();
     Get.snackbar(
-      '沒有完成',
-      e is AssistApiException ? e.message : '連線失敗，請稍後再試',
+      '沒有完成'.tr,
+      e is AssistApiException ? e.message : '連線失敗，請稍後再試'.tr,
       snackPosition: SnackPosition.TOP,
       margin: const EdgeInsets.all(12),
       backgroundColor: TPColors.grayscale800,
@@ -137,14 +140,14 @@ Future<void> _confirmEnd(BuildContext context, AssistHelperController c) async {
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('結束這次陪辦？'),
-      content: const Text('結束後您就無法再引導長輩，長輩手機上的協助畫面也會關閉。已授權的資料不會送出。'),
+      title: Text('結束這次陪辦？'.tr),
+      content: Text('結束後您就無法再引導長輩，長輩手機上的協助畫面也會關閉。已授權的資料不會送出。'.tr),
       actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
+        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text('取消'.tr)),
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: TPColors.red600),
           onPressed: () => Navigator.of(ctx).pop(true),
-          child: const Text('結束陪辦'),
+          child: Text('結束陪辦'.tr),
         ),
       ],
     ),
@@ -311,7 +314,7 @@ class _NewRequestState extends State<_NewRequest> {
         await widget.c.requestByCode(serviceId!, code.text);
       }
     } catch (e) {
-      setState(() => error = e is AssistApiException ? e.message : '連線失敗，請稍後再試');
+      setState(() => error = e is AssistApiException ? e.message : '連線失敗，請稍後再試'.tr);
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -334,7 +337,7 @@ class _NewRequestState extends State<_NewRequest> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      '以 ${me['name']}（${me['title']}）身分協助',
+                      trf('以 {0}（{1}）身分協助', [me['name'], me['title']]),
                       style: const TextStyle(fontSize: 14, color: TPColors.grayscale600),
                     ),
                   ),
@@ -344,7 +347,7 @@ class _NewRequestState extends State<_NewRequest> {
                         _Dot(c.connected.value ? TPColors.green500 : TPColors.grayscale300),
                         const SizedBox(width: 4),
                         Text(
-                          c.connected.value ? '已連線' : '連線中',
+                          c.connected.value ? '已連線'.tr : '連線中'.tr,
                           style: const TextStyle(fontSize: 13, color: TPColors.grayscale500),
                         ),
                       ],
@@ -359,7 +362,7 @@ class _NewRequestState extends State<_NewRequest> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _Label('信任您的長輩・按一下就通知，不用配對碼'),
+                    _Label('信任您的長輩・按一下就通知，不用配對碼'.tr),
                     for (final e in trusted) ...[
                       _TrustedElderTile(
                         name: e['displayName'] as String,
@@ -378,7 +381,7 @@ class _NewRequestState extends State<_NewRequest> {
                   ],
                 );
               }),
-              Obx(() => _Label(c.trustedElders.isNotEmpty && widget.code == null ? '或輸入長輩的配對碼' : '長輩的配對碼')),
+              Obx(() => _Label(c.trustedElders.isNotEmpty && widget.code == null ? '或輸入長輩的配對碼'.tr : '長輩的配對碼'.tr)),
               _Card(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -395,7 +398,7 @@ class _NewRequestState extends State<_NewRequest> {
                     const SizedBox(height: 10),
                     Text(
                       (elderId == null ? error : null) ??
-                          (widget.code != null ? '已從 QR Code 帶入配對碼。' : '請長輩打開台北通「請人陪我辦」，念出 6 位數號碼。'),
+                          (widget.code != null ? '已從 QR Code 帶入配對碼。'.tr : '請長輩打開台北通「請人陪我辦」，念出 6 位數號碼。'.tr),
                       style: TextStyle(
                         fontSize: 14,
                         color: error != null && elderId == null ? TPColors.red600 : TPColors.grayscale500,
@@ -409,15 +412,15 @@ class _NewRequestState extends State<_NewRequest> {
                 child: TextButton.icon(
                   onPressed: assistEnterTrustCode,
                   icon: const Icon(Icons.favorite_border_rounded, size: 18),
-                  label: const Text('長輩給您的是「加信任的人」號碼？'),
+                  label: Text('長輩給您的是「加信任的人」號碼？'.tr),
                 ),
               ),
               const SizedBox(height: 4),
-              const _Label('要陪長輩辦什麼'),
+              _Label('要陪長輩辦什麼'.tr),
               for (final sv in c.services) ...[
                 _ServiceTile(
                   title: sv['title'] as String,
-                  subtitle: '約 ${sv['estMinutes']} 分鐘・${sv['sensitiveFieldCount']} 項個資需長輩授權',
+                  subtitle: trf('約 {0} 分鐘・{1} 項個資需長輩授權', [sv['estMinutes'], sv['sensitiveFieldCount']]),
                   selected: serviceId == sv['id'],
                   onTap: () => setState(() => serviceId = sv['id'] as String),
                 ),
@@ -428,7 +431,7 @@ class _NewRequestState extends State<_NewRequest> {
                 const SizedBox(height: 8),
               ],
               const SizedBox(height: 8),
-              const _Card(
+              _Card(
                 color: TPColors.primary50,
                 padding: EdgeInsets.all(14),
                 child: Row(
@@ -438,7 +441,7 @@ class _NewRequestState extends State<_NewRequest> {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '您看不到長輩的個資。每一項資料都要長輩自己同意，最後也只有長輩能按送出。',
+                        '您看不到長輩的個資。每一項資料都要長輩自己同意，最後也只有長輩能按送出。'.tr,
                         style: TextStyle(fontSize: 14, height: 1.5, color: TPColors.primary800),
                       ),
                     ),
@@ -447,7 +450,7 @@ class _NewRequestState extends State<_NewRequest> {
               ),
               if (recent.isNotEmpty) ...[
                 const SizedBox(height: 20),
-                const _Label('最近的案件'),
+                _Label('最近的案件'.tr),
                 _Card(
                   padding: EdgeInsets.zero,
                   child: Column(
@@ -472,7 +475,7 @@ class _NewRequestState extends State<_NewRequest> {
                 icon: busy
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: TPColors.white))
                     : const Icon(Icons.send_rounded),
-                label: Text(elderId != null ? '通知長輩確認' : '送出陪辦請求'),
+                label: Text(elderId != null ? '通知長輩確認'.tr : '送出陪辦請求'.tr),
               ),
             ),
           ],
@@ -549,7 +552,7 @@ class _CodeBoxes extends StatelessWidget {
                     onChanged: onChanged,
                     showCursor: false,
                     enableInteractiveSelection: false,
-                    decoration: const InputDecoration(border: InputBorder.none, counterText: '', labelText: '配對碼，6 位數字'),
+                    decoration: InputDecoration(border: InputBorder.none, counterText: '', labelText: '配對碼，6 位數字'.tr),
                   ),
                 ),
               ),
@@ -645,7 +648,7 @@ class _TrustedElderTile extends StatelessWidget {
                   children: [
                     Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: TPColors.grayscale900)),
                     const SizedBox(height: 2),
-                    const Text('已把您加為信任的人', style: TextStyle(fontSize: 13, color: TPColors.grayscale500)),
+                    Text('已把您加為信任的人'.tr, style: TextStyle(fontSize: 13, color: TPColors.grayscale500)),
                   ],
                 ),
               ),
@@ -715,9 +718,9 @@ class _Waiting extends StatelessWidget {
                     child: const Icon(Icons.phone_iphone_rounded, size: 40, color: TPColors.primary600),
                   ),
                   const SizedBox(height: 20),
-                  Text('等 ${s.elderDisplayName} 在手機上同意', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                  Text(trf('等 {0} 在手機上同意', [s.elderDisplayName]), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 6),
-                  Text('「${s.serviceTitle}」的陪辦請求已送出', style: const TextStyle(fontSize: 14, color: TPColors.grayscale500)),
+                  Text(trf('「{0}」的陪辦請求已送出', [s.serviceTitle]), style: const TextStyle(fontSize: 14, color: TPColors.grayscale500)),
                   const SizedBox(height: 20),
                   AssistTicker(
                     builder: (context, now) {
@@ -732,12 +735,12 @@ class _Waiting extends StatelessWidget {
                       );
                     },
                   ),
-                  const Text('後請求自動失效', style: TextStyle(fontSize: 13, color: TPColors.grayscale500)),
+                  Text('後請求自動失效'.tr, style: TextStyle(fontSize: 13, color: TPColors.grayscale500)),
                   const SizedBox(height: 20),
-                  const _Card(
+                  _Card(
                     color: TPColors.grayscale100,
                     child: Text(
-                      '長輩手機首頁最上方會出現您的姓名與身分，由長輩自己決定要不要接受。',
+                      '長輩手機首頁最上方會出現您的姓名與身分，由長輩自己決定要不要接受。'.tr,
                       style: TextStyle(fontSize: 14, height: 1.5, color: TPColors.grayscale700),
                     ),
                   ),
@@ -749,7 +752,7 @@ class _Waiting extends StatelessWidget {
         _BottomBar(
           children: [
             Expanded(
-              child: OutlinedButton(style: _secondary(), onPressed: () => _run(c.end), child: const Text('取消請求')),
+              child: OutlinedButton(style: _secondary(), onPressed: () => _run(c.end), child: Text('取消請求'.tr)),
             ),
           ],
         ),
@@ -783,7 +786,7 @@ class _Session extends StatelessWidget {
               // 對象與狀態
               Row(
                 children: [
-                  Text('陪 ${s.elderDisplayName}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  Text(trf('陪 {0}', [s.elderDisplayName]), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                   const SizedBox(width: 8),
                   _Dot(s.isReviewing ? TPColors.orange500 : TPColors.green500),
                   const SizedBox(width: 4),
@@ -791,7 +794,7 @@ class _Session extends StatelessWidget {
                   const Spacer(),
                   AssistTicker(
                     builder: (context, now) => Text(
-                      '已進行 ${assistMmss(now.difference(s.startedAt ?? now))}',
+                      trf('已進行 {0}', [assistMmss(now.difference(s.startedAt ?? now))]),
                       style: const TextStyle(fontSize: 13, color: TPColors.grayscale500, fontFeatures: [FontFeature.tabularFigures()]),
                     ),
                   ),
@@ -816,7 +819,7 @@ class _Session extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                '第 ${s.currentStep + 1} / ${steps.length} 步',
+                trf('第 {0} / {1} 步', [s.currentStep + 1, steps.length]),
                 style: const TextStyle(fontSize: 13, color: TPColors.primary700, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 2),
@@ -826,22 +829,22 @@ class _Session extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
                         Icon(Icons.phone_iphone_rounded, size: 16, color: TPColors.grayscale500),
                         SizedBox(width: 4),
-                        Text('長輩手機上看到', style: TextStyle(fontSize: 13, color: TPColors.grayscale500)),
+                        Text('長輩手機上看到'.tr, style: TextStyle(fontSize: 13, color: TPColors.grayscale500)),
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text('「${step.elderGuide}」', style: const TextStyle(fontSize: 15, height: 1.5)),
+                    Text(trf('「{0}」', [step.elderGuide]), style: const TextStyle(fontSize: 15, height: 1.5)),
                     if (step.helperScript.isNotEmpty) ...[
                       const Divider(height: 24),
-                      const Row(
+                      Row(
                         children: [
                           Icon(Icons.record_voice_over_outlined, size: 16, color: TPColors.primary700),
                           SizedBox(width: 4),
-                          Text('建議這樣說', style: TextStyle(fontSize: 13, color: TPColors.primary700)),
+                          Text('建議這樣說'.tr, style: TextStyle(fontSize: 13, color: TPColors.primary700)),
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -852,7 +855,7 @@ class _Session extends StatelessWidget {
               ),
               if (step.fields.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                const _Label('這一步的資料'),
+                _Label('這一步的資料'.tr),
                 _Card(
                   padding: EdgeInsets.zero,
                   child: Column(
@@ -871,9 +874,9 @@ class _Session extends StatelessWidget {
                 child: SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
                   activeTrackColor: TPColors.primary500,
-                  title: const Text('長輩自己換頁', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  title: Text('長輩自己換頁'.tr, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                   subtitle: Text(
-                    s.elderNav ? '完成一步自動到下一步，長輩也能按上一頁／下一頁' : '只有您能換頁，長輩手機會顯示「會帶您到下一步」',
+                    s.elderNav ? '完成一步自動到下一步，長輩也能按上一頁／下一頁'.tr : '只有您能換頁，長輩手機會顯示「會帶您到下一步」'.tr,
                     style: const TextStyle(fontSize: 13, color: TPColors.grayscale500),
                   ),
                   value: s.elderNav,
@@ -886,9 +889,9 @@ class _Session extends StatelessWidget {
                 child: SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
                   activeTrackColor: TPColors.primary500,
-                  title: const Text('長輩自己授權', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  title: Text('長輩自己授權'.tr, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                   subtitle: Text(
-                    s.elderSelfAuth ? '長輩可以直接點開這一步的資料自己同意，不用等您請求' : '只有您按「請長輩授權」後，長輩才能提供資料',
+                    s.elderSelfAuth ? '長輩可以直接點開這一步的資料自己同意，不用等您請求'.tr : '只有您按「請長輩授權」後，長輩才能提供資料'.tr,
                     style: const TextStyle(fontSize: 13, color: TPColors.grayscale500),
                   ),
                   value: s.elderSelfAuth,
@@ -908,7 +911,7 @@ class _Session extends StatelessWidget {
                 child: OutlinedButton(
                   style: _secondary().copyWith(padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 8))),
                   onPressed: waiting ? null : () => _run(() => c.gotoStep(s.currentStep - 1)),
-                  child: const Text('上一步'),
+                  child: Text('上一步'.tr),
                 ),
               ),
               const SizedBox(width: 10),
@@ -921,12 +924,12 @@ class _Session extends StatelessWidget {
                     : () => _run(() => last ? c.requestSubmit() : c.gotoStep(s.currentStep + 1)),
                 child: Text(
                   waiting
-                      ? '等長輩回應授權…'
+                      ? '等長輩回應授權…'.tr
                       : s.isReviewing
-                      ? '長輩正在確認送出'
+                      ? '長輩正在確認送出'.tr
                       : last
-                      ? '請長輩確認並送出'
-                      : '下一步（長輩畫面同步）',
+                      ? '請長輩確認並送出'.tr
+                      : '下一步（長輩畫面同步）'.tr,
                 ),
               ),
             ),
@@ -949,11 +952,11 @@ class _FieldRow extends StatelessWidget {
     final focused = s.focusField == f.key;
     final remaining = st.remainingRequests ?? 0;
     final (String label, Color color) = switch (st.status) {
-      'authorized' => (st.edited ? '長輩已授權（修改過）' : '長輩已授權', TPColors.green500),
-      'filled' => (f.type == 'text' ? '長輩填了：${st.value ?? ''}' : '長輩選了：${f.optionLabel(st.value)}', TPColors.green500),
-      'requested' => ('等待長輩授權', TPColors.orange500),
-      'denied' => ('長輩不同意', TPColors.red500),
-      _ => (f.sensitive ? '尚未授權' : f.type == 'text' ? '請長輩在手機上填寫' : '請長輩在手機上選擇', TPColors.grayscale300),
+      'authorized' => (st.edited ? '長輩已授權（修改過）'.tr : '長輩已授權'.tr, TPColors.green500),
+      'filled' => (f.type == 'text' ? trf('長輩填了：{0}', [st.value ?? '']) : trf('長輩選了：{0}', [f.optionLabel(st.value)]), TPColors.green500),
+      'requested' => ('等待長輩授權'.tr, TPColors.orange500),
+      'denied' => ('長輩不同意'.tr, TPColors.red500),
+      _ => (f.sensitive ? '尚未授權'.tr : f.type == 'text' ? '請長輩在手機上填寫'.tr : '請長輩在手機上選擇'.tr, TPColors.grayscale300),
     };
     final canAsk = f.sensitive && st.status != 'authorized' && st.status != 'requested' && s.pendingAuth == null && remaining > 0;
 
@@ -973,7 +976,7 @@ class _FieldRow extends StatelessWidget {
                     ),
                     if (f.sensitive && f.riskLevel == 'high') ...[
                       const SizedBox(width: 6),
-                      const _Tag('高敏感', TPColors.red600, TPColors.red50),
+                      _Tag('高敏感'.tr, TPColors.red600, TPColors.red50),
                     ],
                   ],
                 ),
@@ -989,7 +992,7 @@ class _FieldRow extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: focused ? '取消標示' : '在長輩畫面上標示這一項',
+            tooltip: focused ? '取消標示'.tr : '在長輩畫面上標示這一項'.tr,
             onPressed: s.pendingAuth != null ? null : () => _run(() => c.focusField(focused ? null : f.key)),
             icon: Icon(
               focused ? Icons.highlight_alt_rounded : Icons.highlight_alt_outlined,
@@ -1011,10 +1014,10 @@ class _FieldRow extends StatelessWidget {
                     }
                   : null,
               child: Text(switch (st.status) {
-                'authorized' => '已授權',
-                'requested' => '詢問中',
-                'denied' => remaining > 0 ? '再問一次' : '已達上限',
-                _ => '請授權',
+                'authorized' => '已授權'.tr,
+                'requested' => '詢問中'.tr,
+                'denied' => remaining > 0 ? '再問一次'.tr : '已達上限'.tr,
+                _ => '請授權'.tr,
               }),
             ),
         ],
@@ -1055,7 +1058,7 @@ class _TimelineState extends State<_Timeline> {
           ListTile(
             onTap: () => setState(() => open = !open),
             leading: const Icon(Icons.history_rounded, color: TPColors.grayscale500),
-            title: Text('即時動態（${items.length}）', style: const TextStyle(fontSize: 15)),
+            title: Text(trf('即時動態（{0}）', [items.length]), style: const TextStyle(fontSize: 15)),
             trailing: Icon(open ? Icons.expand_less_rounded : Icons.expand_more_rounded),
           ),
           if (open)
@@ -1128,14 +1131,14 @@ class _Done extends StatelessWidget {
                     header: true,
                     liveRegion: true,
                     child: Text(
-                      ok ? '謝謝您的陪伴！' : statusLabel(s),
+                      ok ? '謝謝您的陪伴！'.tr : statusLabel(s),
                       textAlign: TextAlign.center,
                       style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    ok ? '${s.elderDisplayName} 已送出「${s.serviceTitle}」。' : '「${s.serviceTitle}」',
+                    ok ? trf('{0} 已送出「{1}」。', [s.elderDisplayName, s.serviceTitle]) : trf('「{0}」', [s.serviceTitle]),
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 15, color: TPColors.grayscale600),
                   ),
@@ -1145,7 +1148,7 @@ class _Done extends StatelessWidget {
                       color: TPColors.primary50,
                       child: Column(
                         children: [
-                          const Text('案件編號', style: TextStyle(fontSize: 13, color: TPColors.primary700)),
+                          Text('案件編號'.tr, style: TextStyle(fontSize: 13, color: TPColors.primary700)),
                           Text(s.caseNo!, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: TPColors.primary800)),
                         ],
                       ),
@@ -1163,12 +1166,12 @@ class _Done extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  FilledButton(style: _primary(), onPressed: Get.back, child: const Text('回到首頁')),
+                  FilledButton(style: _primary(), onPressed: Get.back, child: Text('回到首頁'.tr)),
                   const SizedBox(height: 6),
                   TextButton(
                     onPressed: () => c.focusedId.value = null,
                     style: TextButton.styleFrom(minimumSize: const Size.fromHeight(44)),
-                    child: const Text('再陪辦另一位', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                    child: Text('再陪辦另一位'.tr, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),

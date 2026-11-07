@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 長輩手機：家人掃了邀請碼，問長輩「要把他加為信任的人嗎？」一定要長輩本人按「加入」。
 class AssistTrustRequestSheet extends StatelessWidget {
@@ -55,28 +56,28 @@ class AssistTrustRequestSheet extends StatelessWidget {
                 Center(child: AssistHelperAvatar(helper: h, size: 88)),
                 const SizedBox(height: 14),
                 Text(
-                  '${assistHelperDisplayName(h)}\n想成為您信任的人',
+                  trf('{0}\n想成為您信任的人', [assistHelperDisplayName(h)]),
                   textAlign: TextAlign.center,
                   style: AssistText.largeTitle.copyWith(fontSize: 26),
                 ),
                 const SizedBox(height: 8),
                 Center(child: AssistHelperBadge(helper: h)),
                 const SizedBox(height: 14),
-                const Text(
-                  '加入後，您可以直接請他來幫忙。\n電話裡有人要您加他，就是詐騙。',
+                Text(
+                  '加入後，您可以直接請他來幫忙。\n電話裡有人要您加他，就是詐騙。'.tr,
                   textAlign: TextAlign.center,
                   style: AssistText.callout,
                 ),
                 const SizedBox(height: 20),
                 AssistButton(
-                  '加入',
+                  '加入'.tr,
                   icon: Icons.favorite_rounded,
                   onPressed: () async {
                     if (await assistRun(() => service.respondTrustRequest(r.id, true))) {
                       Get.closeAllSnackbars();
                       Get.snackbar(
-                        '已加入 ${h.name}',
-                        '在「請人陪我辦」按他，就能請他來幫忙。',
+                        trf('已加入 {0}', [h.name]),
+                        '在「請人陪我辦」按他，就能請他來幫忙。'.tr,
                         snackPosition: SnackPosition.BOTTOM,
                         margin: const EdgeInsets.all(12),
                         backgroundColor: TPColors.grayscale800,
@@ -87,7 +88,7 @@ class AssistTrustRequestSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 AssistButton(
-                  '不要',
+                  '不要'.tr,
                   style: AssistButtonStyle.secondary,
                   onPressed: () async {
                     await assistRun(() => service.respondTrustRequest(r.id, false));

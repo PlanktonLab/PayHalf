@@ -19,8 +19,8 @@ class ActivityInfoWidget extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
-              const TPText(
-                '活動訊息',
+              TPText(
+                '活動訊息'.tr,
                 style: TextStyle(
                   color: TPColors.grayscale800,
                   fontSize: 20,
@@ -37,8 +37,8 @@ class ActivityInfoWidget extends StatelessWidget {
                 },
                 child: Row(
                   children: [
-                    const TPText(
-                      '更多',
+                    TPText(
+                      '更多'.tr,
                       textAlign: TextAlign.right,
                       style: TextStyle(
                         color: TPColors.grayscale800,

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:town_pass/bean/assist.dart';
 import 'package:town_pass/service/assist_service.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 用這支手機「協助別人」時的狀態（協助者端）。
 /// 與長輩端的 [AssistService] 分開：同一支手機可以同時是長輩、也是協助者。
@@ -64,7 +65,7 @@ class AssistHelperController extends GetxController {
       _connect();
       await reload();
     } catch (e) {
-      loginError.value = e is AssistApiException ? e.message : '連不上陪辦伺服器（$base）';
+      loginError.value = e is AssistApiException ? e.message : trf('連不上陪辦伺服器（{0}）', [base]);
     } finally {
       loading.value = false;
     }
@@ -107,6 +108,10 @@ class AssistHelperController extends GetxController {
   Future<void> reload() async {
     if (_token == null) return;
     final list = await _send('GET', '/helper/sessions') as List;
+    // 伺服器重啟後已不存在的陪辦：清掉，避免停在一個按什麼都 404 的畫面
+    final ids = {for (final e in list) (e as Map)['id'] as String};
+    sessions.removeWhere((id, _) => !ids.contains(id));
+    if (focusedId.value != null && !ids.contains(focusedId.value)) focusedId.value = null;
     for (final e in list) {
       _put(Map<String, dynamic>.from(e as Map));
     }
@@ -181,7 +186,7 @@ class AssistHelperController extends GetxController {
       throw AssistApiException(
         res.statusCode,
         err?['code'] as String? ?? 'ERROR',
-        err?['message'] as String? ?? '系統忙碌中，請稍後再試',
+        err?['message'] as String? ?? '系統忙碌中，請稍後再試'.tr,
       );
     }
     return data;

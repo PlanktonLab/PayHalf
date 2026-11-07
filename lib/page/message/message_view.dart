@@ -10,6 +10,7 @@ import 'package:town_pass/util/tp_tab_view.dart';
 import 'package:town_pass/util/tp_text.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 part 'package:town_pass/page/message/widget/_empty_message_widget.dart';
 
@@ -20,9 +21,9 @@ part 'package:town_pass/page/message/widget/_message_list_view.dart';
 extension on MessageType {
   String get string {
     return switch (this) {
-      MessageType.personal => '個人通知',
-      MessageType.tcg => '市府訊息',
-      MessageType.system => '系統訊息',
+      MessageType.personal => '個人通知'.tr,
+      MessageType.tcg => '市府訊息'.tr,
+      MessageType.system => '系統訊息'.tr,
     };
   }
 }
@@ -36,7 +37,7 @@ class MessageView extends GetView<MessageViewController> {
       length: controller.tabTypeList.length,
       child: Scaffold(
         appBar: TPAppBar(
-          title: '訊息',
+          title: '訊息'.tr,
           actions: [
             IconButton(
               icon: Assets.svg.iconTrashClose.svg(),

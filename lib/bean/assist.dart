@@ -1,3 +1,4 @@
+import 'package:get/get.dart';
 /// 陪辦（協辦）功能的資料模型，對應 assist_backend 的 JSON。
 /// 刻意不走 json_serializable，避免為了 Demo 新增 build_runner 產生檔。
 class FieldDef {
@@ -5,7 +6,7 @@ class FieldDef {
   final Map<String, dynamic> raw;
 
   String get key => raw['key'] as String;
-  String get label => raw['label'] as String;
+  String get label => (raw['label'] as String).tr;
   String get type => raw['type'] as String;
   bool get sensitive => raw['sensitive'] == true;
   bool get required => raw['required'] == true;
@@ -15,16 +16,16 @@ class FieldDef {
 
   /// 表單的文字題（type == 'text'）：text／textarea／number／date／address／phone…
   String get inputType => raw['inputType'] as String? ?? 'text';
-  String get hint => raw['hint'] as String? ?? '';
+  String get hint => (raw['hint'] as String? ?? '').tr;
 
   /// 遮罩用的個資種類：表單題目的 key 是題號，個資種類看 profileKey
   String get maskKey => raw['profileKey'] as String? ?? key;
   String get riskLevel => raw['riskLevel'] as String? ?? 'medium';
-  String? get purpose => raw['purpose'] as String?;
-  String? get recipient => raw['recipient'] as String?;
-  String? get retention => raw['retention'] as String?;
+  String? get purpose => (raw['purpose'] as String?)?.tr;
+  String? get recipient => (raw['recipient'] as String?)?.tr;
+  String? get retention => (raw['retention'] as String?)?.tr;
   String? get legalBasis => raw['legalBasis'] as String?;
-  List<String> get risks => (raw['risks'] as List? ?? const []).cast<String>();
+  List<String> get risks => (raw['risks'] as List? ?? const []).cast<String>().map((e) => e.tr).toList();
   List<ChoiceOption> get options =>
       (raw['options'] as List? ?? const []).map((o) => ChoiceOption(Map<String, dynamic>.from(o as Map))).toList();
 
@@ -38,16 +39,16 @@ class ChoiceOption {
   ChoiceOption(this.raw);
   final Map<String, dynamic> raw;
   String get value => raw['value'] as String;
-  String get label => raw['label'] as String;
+  String get label => (raw['label'] as String).tr;
 }
 
 class StepDef {
   StepDef(this.raw);
   final Map<String, dynamic> raw;
   String get id => raw['id'] as String;
-  String get title => raw['title'] as String;
-  String get elderGuide => raw['elderGuide'] as String? ?? '';
-  String get helperScript => raw['helperScript'] as String? ?? '';
+  String get title => (raw['title'] as String).tr;
+  String get elderGuide => (raw['elderGuide'] as String? ?? '').tr;
+  String get helperScript => (raw['helperScript'] as String? ?? '').tr;
   List<FieldDef> get fields =>
       (raw['fields'] as List).map((f) => FieldDef(Map<String, dynamic>.from(f as Map))).toList();
 }
@@ -56,10 +57,10 @@ class ServiceDef {
   ServiceDef(this.raw);
   final Map<String, dynamic> raw;
   String get id => raw['id'] as String;
-  String get title => raw['title'] as String;
-  String get category => raw['category'] as String? ?? '';
-  String get summary => raw['summary'] as String? ?? '';
-  String get agency => raw['agency'] as String? ?? '';
+  String get title => (raw['title'] as String).tr;
+  String get category => (raw['category'] as String? ?? '').tr;
+  String get summary => (raw['summary'] as String? ?? '').tr;
+  String get agency => (raw['agency'] as String? ?? '').tr;
   String get legalBasis => raw['legalBasis'] as String? ?? '';
   int get estMinutes => (raw['estMinutes'] as num?)?.toInt() ?? 5;
   List<StepDef> get steps =>
@@ -95,7 +96,7 @@ class HelperInfo {
   final Map<String, dynamic> raw;
   String get id => raw['id'] as String;
   String get name => raw['name'] as String;
-  String get title => raw['title'] as String;
+  String get title => (raw['title'] as String).tr;
   String get helperType => raw['helperType'] as String;
   String? get org => raw['org'] as String?;
   bool get verified => raw['verified'] == true;
@@ -108,7 +109,7 @@ class AssistSession {
 
   String get id => raw['id'] as String;
   String get serviceId => raw['serviceId'] as String;
-  String get serviceTitle => raw['serviceTitle'] as String;
+  String get serviceTitle => (raw['serviceTitle'] as String).tr;
   String get status => raw['status'] as String;
   String get phase => raw['phase'] as String? ?? 'filling';
   String get method => raw['method'] as String? ?? '';
@@ -136,7 +137,7 @@ class AssistSession {
   bool get isReviewing => isActive && phase == 'reviewing';
 
   // 協助者視圖
-  String get elderDisplayName => (raw['elder'] as Map?)?['displayName'] as String? ?? '長輩';
+  String get elderDisplayName => (raw['elder'] as Map?)?['displayName'] as String? ?? '長輩'.tr;
 
   // 長輩視圖
   HelperInfo? get helper => raw['helper'] == null ? null : HelperInfo(Map<String, dynamic>.from(raw['helper'] as Map));
@@ -157,16 +158,16 @@ class AssistSession {
 }
 
 String statusLabel(AssistSession s) => switch (s.status) {
-  'pending' => '等待長輩回應',
-  'active' => s.isReviewing ? '長輩確認送出中' : '協辦進行中',
-  'completed' => '已送出',
-  'rejected' => '長輩婉拒',
-  'cancelled' => '已取消',
-  'expired' => '等待逾時',
+  'pending' => '等待長輩回應'.tr,
+  'active' => s.isReviewing ? '長輩確認送出中'.tr : '協辦進行中'.tr,
+  'completed' => '已送出'.tr,
+  'rejected' => '長輩婉拒'.tr,
+  'cancelled' => '已取消'.tr,
+  'expired' => '等待逾時'.tr,
   'ended' => switch (s.endReason) {
-    'timeout' => '閒置逾時結束',
-    'blocked' => '已被長輩封鎖',
-    _ => s.endedBy == 'elder' ? '長輩結束協助' : '已結束',
+    'timeout' => '閒置逾時結束'.tr,
+    'blocked' => '已被長輩封鎖'.tr,
+    _ => s.endedBy == 'elder' ? '長輩結束協助'.tr : '已結束'.tr,
   },
   _ => s.status,
 };
@@ -194,7 +195,13 @@ class HelpRequest {
 
   /// 長輩在某份表單裡求助時，帶著那份表單（對方按「去幫他」會直接選好）
   String? get serviceId => raw['serviceId'] as String?;
-  String? get serviceTitle => raw['serviceTitle'] as String?;
+  String? get serviceTitle => (raw['serviceTitle'] as String?)?.tr;
+}
+
+/// 個資種類的名稱（「填入我的姓名」用）：依介面語言顯示
+String profileKindName(String? kind, String fallbackRawLabel) {
+  const names = {'realName': '姓名', 'birthday': '出生日期', 'idNo': '身分證字號', 'phone': '聯絡電話', 'residentAddress': '戶籍地址'};
+  return (names[kind] ?? fallbackRawLabel.replaceFirst(RegExp(r'^(你|您)的'), '')).tr;
 }
 
 /// 靜態 QR Code 表單的一題（格式同承辦人表單後台）
@@ -203,8 +210,8 @@ class StaticFormField {
   final Map<String, dynamic> raw;
   String get id => raw['id'] as String;
   String get type => raw['type'] as String;
-  String get label => raw['label'] as String? ?? '';
-  String get hint => raw['hint'] as String? ?? '';
+  String get label => (raw['label'] as String? ?? '').tr;
+  String get hint => (raw['hint'] as String? ?? '').tr;
   bool get required => raw['required'] != false;
   List<String> get options => (raw['options'] as List? ?? const []).cast<String>();
 
@@ -217,11 +224,11 @@ class StaticForm {
   StaticForm(this.raw);
   final Map<String, dynamic> raw;
   String get id => raw['id'] as String;
-  String get title => raw['title'] as String? ?? '';
-  String get dept => raw['dept'] as String? ?? '';
-  String get desc => raw['desc'] as String? ?? '';
+  String get title => (raw['title'] as String? ?? '').tr;
+  String get dept => (raw['dept'] as String? ?? '').tr;
+  String get desc => (raw['desc'] as String? ?? '').tr;
   String get deadline => raw['deadline'] as String? ?? '';
-  String get doneMsg => raw['doneMsg'] as String? ?? '';
+  String get doneMsg => (raw['doneMsg'] as String? ?? '').tr;
   String get status => raw['status'] as String? ?? 'open';
   String get serviceId => raw['serviceId'] as String? ?? 'form-$id';
   bool get allowAssist => raw['allowAssist'] != false;
@@ -237,7 +244,7 @@ class TrustCandidate {
   TrustCandidate(this.raw);
   final Map<String, dynamic> raw;
   HelperInfo get helper => HelperInfo(Map<String, dynamic>.from(raw['helper'] as Map));
-  String? get serviceTitle => raw['serviceTitle'] as String?;
+  String? get serviceTitle => (raw['serviceTitle'] as String?)?.tr;
   DateTime get lastHelpedAt => DateTime.fromMillisecondsSinceEpoch((raw['lastHelpedAt'] as num).toInt());
 }
 

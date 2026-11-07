@@ -5,6 +5,7 @@ import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 我的權利與法規說明：任何時候都能查閱。
 class AssistLegalView extends StatelessWidget {
@@ -15,7 +16,7 @@ class AssistLegalView extends StatelessWidget {
     final service = Get.find<AssistService>();
     return Scaffold(
       backgroundColor: TPColors.grayscale50,
-      appBar: const TPAppBar(title: '我的權利與法規'),
+      appBar: TPAppBar(title: '我的權利與法規'.tr),
       body: AssistTextScaleCap(
         child: Obx(() {
           final legal = service.legal.value;
@@ -55,7 +56,7 @@ class AssistLegalView extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
               ],
-              Semantics(header: true, child: const Text('有問題請打電話', style: AssistText.title)),
+              Semantics(header: true, child: Text('有問題請打電話'.tr, style: AssistText.title)),
               const SizedBox(height: 10),
               AssistCard(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -79,7 +80,7 @@ class AssistLegalView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              Text('最後更新：${legal['updatedAt']}。條文為摘要，以全國法規資料庫為準。', style: AssistText.footnote),
+              Text(trf('最後更新：{0}。條文為摘要，以全國法規資料庫為準。', [legal['updatedAt']]), style: AssistText.footnote),
             ],
           );
         }),

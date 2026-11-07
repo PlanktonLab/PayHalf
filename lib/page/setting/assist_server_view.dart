@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 設定 › 陪辦伺服器：在本機後端與雲端（payhalf.plankton.tw）之間切換，方便測試。
 class AssistServerView extends StatefulWidget {
@@ -10,8 +11,8 @@ class AssistServerView extends StatefulWidget {
 
   /// 設定頁那一列右側要顯示的簡短名稱
   static String labelFor(String base) {
-    if (base == AssistService.cloudBase) return '雲端';
-    if (base == AssistService.localBase) return '本機';
+    if (base == AssistService.cloudBase) return '雲端'.tr;
+    if (base == AssistService.localBase) return '本機'.tr;
     return Uri.tryParse(base)?.authority ?? base;
   }
 
@@ -55,7 +56,7 @@ class _AssistServerViewState extends State<AssistServerView> {
     if (problem != null) {
       setState(() {
         busy = false;
-        message = '沒有切換：$problem';
+        message = trf('沒有切換：{0}', [problem]);
         messageIsError = true;
         failedBase = base;
       });
@@ -65,7 +66,7 @@ class _AssistServerViewState extends State<AssistServerView> {
       await service.useServer(base);
       if (!mounted) return;
       setState(() {
-        message = '已切換到 ${AssistService.normalizeBase(base)}';
+        message = trf('已切換到 {0}', [AssistService.normalizeBase(base)]);
         messageIsError = false;
       });
     } on FormatException catch (e) {
@@ -82,7 +83,7 @@ class _AssistServerViewState extends State<AssistServerView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: TPColors.grayscale50,
-      appBar: const TPAppBar(title: '陪辦伺服器'),
+      appBar: TPAppBar(title: '陪辦伺服器'.tr),
       body: Obx(() {
         final cur = service.server.value;
         final linked = service.linked.value;
@@ -92,9 +93,9 @@ class _AssistServerViewState extends State<AssistServerView> {
           children: [
             _StatusCard(base: cur, linked: linked, connected: connected),
             const SizedBox(height: 20),
-            const _SectionTitle('切換到'),
+            _SectionTitle('切換到'.tr),
             _Option(
-              title: '雲端',
+              title: '雲端'.tr,
               subtitle: AssistService.cloudBase,
               selected: cur == AssistService.cloudBase,
               enabled: !busy,
@@ -102,14 +103,14 @@ class _AssistServerViewState extends State<AssistServerView> {
             ),
             const SizedBox(height: 8),
             _Option(
-              title: '本機',
-              subtitle: '${AssistService.localBase}（電腦上執行的後端）',
+              title: '本機'.tr,
+              subtitle: trf('{0}（電腦上執行的後端）', [AssistService.localBase]),
               selected: cur == AssistService.localBase,
               enabled: !busy,
               onTap: () => _use(AssistService.localBase),
             ),
             const SizedBox(height: 20),
-            const _SectionTitle('自訂位址'),
+            _SectionTitle('自訂位址'.tr),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(color: TPColors.white, borderRadius: BorderRadius.circular(12)),
@@ -121,10 +122,10 @@ class _AssistServerViewState extends State<AssistServerView> {
                     enabled: !busy,
                     keyboardType: TextInputType.url,
                     autocorrect: false,
-                    decoration: const InputDecoration(
-                      hintText: '例：http://192.168.1.10:3000',
+                    decoration: InputDecoration(
+                      hintText: '例：http://192.168.1.10:3000'.tr,
                       hintStyle: TextStyle(color: TPColors.grayscale400),
-                      helperText: '實機連電腦時，填電腦的區網 IP',
+                      helperText: '實機連電腦時，填電腦的區網 IP'.tr,
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -134,7 +135,7 @@ class _AssistServerViewState extends State<AssistServerView> {
                   FilledButton(
                     onPressed: busy ? null : () => custom.text.trim().isEmpty ? null : _use(custom.text),
                     style: FilledButton.styleFrom(backgroundColor: TPColors.primary600, minimumSize: const Size.fromHeight(44)),
-                    child: const Text('使用這個位址'),
+                    child: Text('使用這個位址'.tr),
                   ),
                 ],
               ),
@@ -154,7 +155,7 @@ class _AssistServerViewState extends State<AssistServerView> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      busy ? '測試連線中…' : message!,
+                      busy ? '測試連線中…'.tr : message!,
                       style: TextStyle(color: messageIsError ? TPColors.red500 : TPColors.grayscale700),
                     ),
                   ),
@@ -165,13 +166,13 @@ class _AssistServerViewState extends State<AssistServerView> {
                   alignment: Alignment.centerLeft,
                   child: TextButton(
                     onPressed: () => _use(failedBase!, force: true),
-                    child: const Text('仍要切換'),
+                    child: Text('仍要切換'.tr),
                   ),
                 ),
             ],
             const SizedBox(height: 24),
-            const Text(
-              '切換後會結束目前的陪辦、清掉配對碼，並用同一個台北通帳號重新登入新的伺服器。選擇會記住，下次開啟 App 仍沿用。',
+            Text(
+              '切換後會結束目前的陪辦、清掉配對碼，並用同一個台北通帳號重新登入新的伺服器。選擇會記住，下次開啟 App 仍沿用。'.tr,
               style: TextStyle(color: TPColors.grayscale500, fontSize: 13, height: 1.5),
             ),
           ],
@@ -190,17 +191,17 @@ class _StatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = connected
-        ? ('已連線', TPColors.green500)
+        ? ('已連線'.tr, TPColors.green500)
         : linked
-        ? ('已登入，即時連線中…', TPColors.orange500)
-        : ('連線中…', TPColors.grayscale400);
+        ? ('已登入，即時連線中…'.tr, TPColors.orange500)
+        : ('連線中…'.tr, TPColors.grayscale400);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: TPColors.white, borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('目前使用', style: TextStyle(color: TPColors.grayscale500, fontSize: 13)),
+          Text('目前使用'.tr, style: TextStyle(color: TPColors.grayscale500, fontSize: 13)),
           const SizedBox(height: 4),
           Text(base, style: const TextStyle(color: TPColors.grayscale900, fontSize: 17, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),

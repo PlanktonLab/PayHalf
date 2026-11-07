@@ -227,3 +227,24 @@ test('測試 SOP 的示範表單：三題、三個陪辦步驟，可以重複填
     await h.close();
   }
 });
+
+test('陪辦進行中，承辦人改表單（加題、改成草稿）不會讓陪辦列表壞掉', async () => {
+  const h = await startTestServer({ dataDir: null });
+  try {
+    const elder = await h.login('elder-wang');
+    const staff = await h.login('helper-1999');
+    const help = await elder.post('/elder/forms/demo/help', { mode: 'online', answers: {} });
+    const take = await staff.post(`/console/help-tickets/${help.body.ticket.id}/take`);
+    assert.equal(take.body.status, 'pending');
+    const f = await staff.get('/console/forms/demo');
+    const added = { ...f.body, fields: [...f.body.fields, { id: 'qnew', type: 'text', label: '備註', required: false }] };
+    assert.equal((await h.call(staff.token, 'PUT', '/console/forms/demo', added)).status, 200);
+    assert.equal((await elder.get('/elder/sessions')).status, 200);
+    assert.equal((await staff.get('/helper/sessions')).status, 200);
+    h.advance(4 * 60 * 1000); // 等待逾時的清理也不能出錯
+    assert.equal((await h.call(staff.token, 'PUT', '/console/forms/demo', { ...f.body, status: 'draft' })).status, 200);
+    assert.equal((await elder.get('/elder/sessions')).status, 200);
+  } finally {
+    await h.close();
+  }
+});

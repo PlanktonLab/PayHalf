@@ -23,7 +23,7 @@ class QRCodeScanView extends GetView<QRCodeScanController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: TPAppBar(
-        title: '掃描',
+        title: '掃描'.tr,
         leading: const SizedBox.shrink(),
         actions: [
           CloseButton(
@@ -62,25 +62,25 @@ class QRCodeScanView extends GetView<QRCodeScanController> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const TPText(
-                  '請掃描 QR Code',
-                  style: TPTextStyles.h2SemiBold,
-                  color: TPColors.white,
-                ),
-                const TPText(
-                  '或',
+                TPText(
+                  '請掃描 QR Code'.tr,
                   style: TPTextStyles.h2SemiBold,
                   color: TPColors.white,
                 ),
                 TPText(
-                  '從相片掃描',
+                  '或'.tr,
+                  style: TPTextStyles.h2SemiBold,
+                  color: TPColors.white,
+                ),
+                TPText(
+                  '從相片掃描'.tr,
                   style: TPTextStyles.h2SemiBold.copyWith(
                     color: TPColors.primary500,
                     decoration: TextDecoration.underline,
                     decorationColor: TPColors.primary500,
                   ),
                   onTap: () async => switch (await controller.scanFromImage()) {
-                    null => await TPDialog.showError(title: '錯誤', content: '無法辨識 QR Code'),
+                    null => await TPDialog.showError(title: '錯誤'.tr, content: '無法辨識 QR Code'.tr),
                     String string => Get.back(result: string),
                   },
                 ),
@@ -94,7 +94,7 @@ class QRCodeScanView extends GetView<QRCodeScanController> {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => TPDialog.showInfo(
-                title: '條碼示意圖',
+                title: '條碼示意圖'.tr,
                 content: SizedBox(
                   width: Get.width * 0.5,
                   height: Get.width * 0.5,
@@ -106,8 +106,8 @@ class QRCodeScanView extends GetView<QRCodeScanController> {
                 children: [
                   Assets.svg.info.svg(height: 16, colorFilter: const ColorFilter.mode(TPColors.white, BlendMode.srcIn)),
                   const SizedBox(width: 4),
-                  const TPText(
-                    '掃描說明',
+                  TPText(
+                    '掃描說明'.tr,
                     style: TPTextStyles.bodySemiBold,
                     color: TPColors.white,
                   ),

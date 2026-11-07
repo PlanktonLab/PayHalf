@@ -8,6 +8,7 @@ import { createAuditLog } from './core/audit.js';
 import { createAssistService } from './core/assistService.js';
 import { createFormService } from './core/formService.js';
 import { buildHttpApp, LOCAL_ORIGIN } from './http/app.js';
+import { initPrefs } from './data/users.js';
 import { findUser } from './data/users.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -27,6 +28,7 @@ export function createAssistServer(overrides = {}) {
     dataDir: process.env.DATA_DIR ?? path.resolve(here, '../../../var'),
     ...overrides,
   });
+  initPrefs(config.dataDir);
   const now = overrides.now ?? (() => Date.now());
   const tokens = createTokenService({ secret: config.tokenSecret, ttlMs: config.tokenTtlMs, now });
   const audit = createAuditLog({ now });
@@ -62,9 +64,18 @@ export function createAssistServer(overrides = {}) {
     socket.onAny(() => {});
   });
 
+  // 定時清理不能因為單一筆資料出錯就讓整個服務掛掉
   const timer = setInterval(() => {
-    assist.sweep();
-    forms.sweep();
+    try {
+      assist.sweep();
+    } catch (e) {
+      console.error('[sweep] assist', e);
+    }
+    try {
+      forms.sweep();
+    } catch (e) {
+      console.error('[sweep] forms', e);
+    }
   }, config.sweepIntervalMs);
   timer.unref();
 
@@ -89,7 +100,17 @@ export function createAssistServer(overrides = {}) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const server = createAssistServer();
+  // demo 現場：任何漏接的錯誤都只記錄，不讓服務整個掛掉（掛掉會丟失所有進行中的陪辦）
+  process.on('uncaughtException', (e) => console.error('[uncaught]', e));
+  process.on('unhandledRejection', (e) => console.error('[unhandled]', e));
+  // demo 現場會反覆排練同一位長輩：放寬求助／請求次數限制（身分查詢的限制維持不變）
+  const ten = 10 * 60 * 1000;
+  const server = createAssistServer({
+    helpRequestLimit: { max: 100, windowMs: ten },
+    trustedRequestLimit: { max: 100, windowMs: ten },
+    pairingAttemptLimit: { max: 60, windowMs: ten },
+    ticketLimit: { max: 100, windowMs: ten },
+  });
   const port = await server.listen();
   console.log(`陪辦 demo 後端已啟動：http://localhost:${port}`);
   console.log(`  承辦工作台（陪辦＋表單）：http://localhost:${port}/#/console`);

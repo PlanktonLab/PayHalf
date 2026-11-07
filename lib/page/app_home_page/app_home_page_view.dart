@@ -14,20 +14,20 @@ class AppHomePageView extends GetView<AppHomePageController> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: TPColors.white,
-      appBar: const TPAppBar(
-        title: '偏好設定',
+      appBar: TPAppBar(
+        title: '偏好設定'.tr,
       ),
       body: Obx(
         () => TPSettingList(
           children: [
             TPSettingListTile.listTile(
-              title: const TPText(
-                '首頁偏好設定',
+              title: TPText(
+                '首頁偏好設定'.tr,
                 style: TPTextStyles.h3SemiBold,
                 color: TPColors.grayscale700,
               ),
-              subtitle: const TPText(
-                '開啟APP的起始首頁',
+              subtitle: TPText(
+                '開啟APP的起始首頁'.tr,
                 style: TPTextStyles.bodyRegular,
                 color: TPColors.grayscale700,
               ),
@@ -40,22 +40,22 @@ class AppHomePageView extends GetView<AppHomePageController> {
                 SettingSelectionListItem(
                   selectedLeading: Assets.svg.iconTabbarServiceSelect.svg(),
                   unselectedLeading: Assets.svg.iconTabbarServiceDefault.svg(),
-                  title: '服務',
+                  title: '服務'.tr,
                 ),
                 SettingSelectionListItem(
                   selectedLeading: Assets.svg.iconTabbarHomeSelect.svg(),
                   unselectedLeading: Assets.svg.iconTabbarHomeDefault.svg(),
-                  title: '首頁',
+                  title: '首頁'.tr,
                 ),
                 SettingSelectionListItem(
                   selectedLeading: Assets.svg.iconTabbarCouponSelect.svg(),
                   unselectedLeading: Assets.svg.iconTabbarCouponDefault.svg(),
-                  title: '優惠',
+                  title: '優惠'.tr,
                 ),
                 SettingSelectionListItem(
                   selectedLeading: Assets.svg.iconTabbarAccountSelect.svg(),
                   unselectedLeading: Assets.svg.iconTabbarAccountDefault.svg(),
-                  title: '帳務',
+                  title: '帳務'.tr,
                 ),
               ],
             ),

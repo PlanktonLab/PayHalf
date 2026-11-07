@@ -814,3 +814,22 @@ test('加好友：長輩出示邀請碼 → 家人掃碼 → 長輩確認才加�
     await h.close();
   }
 });
+
+test('介面語言：每個人存在自己的帳號上，登入時帶回來', async () => {
+  const h = await startTestServer({ dataDir: null });
+  try {
+    const first = await h.call(null, 'POST', '/auth/demo-login', { userId: 'helper-family' });
+    assert.equal(first.body.user.lang, null);
+    const t = first.body.token;
+    const put = await h.call(t, 'PUT', '/me/lang', { lang: 'vi' });
+    assert.deepEqual(put.body, { lang: 'vi' });
+    const again = await h.call(null, 'POST', '/auth/demo-login', { userId: 'helper-family' });
+    assert.equal(again.body.user.lang, 'vi');
+    assert.equal((await h.call(t, 'GET', '/me')).body.lang, 'vi');
+    const other = await h.call(null, 'POST', '/auth/demo-login', { userId: 'elder-wang' });
+    assert.equal(other.body.user.lang, null);
+    assert.equal((await h.call(t, 'PUT', '/me/lang', { lang: 'xx' })).status, 400);
+  } finally {
+    await h.close();
+  }
+});
