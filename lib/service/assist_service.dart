@@ -80,12 +80,17 @@ class AssistService extends GetxService {
 
   // ───────────────────────── 連線
 
+  /// 以台北通帳號換取陪辦 token。後端重啟後舊 token 會失效，也會從這裡重新登入。
+  Future<void> _login() async {
+    final accountId = Get.find<AccountService>().account?.id;
+    final res = await _request('POST', '/auth/townpass-login', {'accountId': accountId}, false) as Map;
+    _token = res['token'] as String;
+  }
+
   Future<void> _link() async {
     _retry?.cancel();
     try {
-      final accountId = Get.find<AccountService>().account?.id;
-      final res = await _request('POST', '/auth/townpass-login', {'accountId': accountId}, false) as Map;
-      _token = res['token'] as String;
+      await _login();
       linked.value = true;
       _connectSocket();
       legal.value = Map<String, dynamic>.from(await _request('GET', '/legal') as Map);
@@ -119,11 +124,30 @@ class AssistService extends GetxService {
       refresh();
     });
     socket.onDisconnect((_) => connected.value = false);
+    // token 失效（例如後端重啟）時，socket 會一直被拒絕：改為重新登入並重連
+    socket.onConnectError((_) {
+      connected.value = false;
+      if (_retry?.isActive ?? false) return;
+      _retry = Timer(const Duration(seconds: 3), _link);
+    });
     socket.connect();
     _socket = socket;
   }
 
   Future<dynamic> _request(String method, String path, [Map<String, dynamic>? body, bool auth = true]) async {
+    try {
+      return await _send(method, path, body, auth);
+    } on AssistApiException catch (e) {
+      // 登入已失效：重新登入一次再重試，不讓畫面卡在轉圈
+      if (!auth || e.status != 401) rethrow;
+      await _login();
+      linked.value = true;
+      _connectSocket();
+      return _send(method, path, body, auth);
+    }
+  }
+
+  Future<dynamic> _send(String method, String path, Map<String, dynamic>? body, bool auth) async {
     final uri = Uri.parse('$apiBase/api$path');
     final headers = {'Content-Type': 'application/json', if (auth && _token != null) 'Authorization': 'Bearer $_token'};
     final res = method == 'GET'
