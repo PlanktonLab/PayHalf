@@ -1,0 +1,79 @@
+import http from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Server } from 'socket.io';
+import { buildConfig } from './config.js';
+import { createTokenService } from './core/token.js';
+import { createAuditLog } from './core/audit.js';
+import { createAssistService } from './core/assistService.js';
+import { buildHttpApp, LOCAL_ORIGIN } from './http/app.js';
+import { findUser } from './data/users.js';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_WEB = path.resolve(here, '../../assist_web/build/web');
+
+/**
+ * 建立完整服務（HTTP API + Socket.IO 即時推播）。
+ * Socket 只負責「伺服器推送」，所有動作都走 REST，方便授權檢查與測試。
+ */
+export function createAssistServer(overrides = {}) {
+  const config = buildConfig({ staticDir: DEFAULT_WEB, ...overrides });
+  const now = overrides.now ?? (() => Date.now());
+  const tokens = createTokenService({ secret: config.tokenSecret, ttlMs: config.tokenTtlMs, now });
+  const audit = createAuditLog({ now });
+
+  let io = null;
+  const notify = (userId, event, payload) => io?.to(`user:${userId}`).emit(event, payload);
+  const assist = createAssistService({ config, audit, notify, now });
+
+  const app = buildHttpApp({ config, tokens, assist, audit });
+  const httpServer = http.createServer(app);
+
+  io = new Server(httpServer, {
+    cors: { origin: (origin, cb) => cb(null, !origin || LOCAL_ORIGIN.test(origin)) },
+    maxHttpBufferSize: 1024,
+  });
+  io.use((socket, next) => {
+    const claims = tokens.verify(socket.handshake.auth?.token);
+    const user = claims ? findUser(claims.sub) : null;
+    if (!user || user.role !== claims.role) return next(new Error('UNAUTHORIZED'));
+    socket.data.user = user;
+    next();
+  });
+  io.on('connection', (socket) => {
+    socket.join(`user:${socket.data.user.id}`);
+    if (!overrides.quiet) console.log(`[socket] ${socket.data.user.role} ${socket.data.user.id} 已連線`);
+    socket.emit('ready', { userId: socket.data.user.id });
+    // 用戶端不能透過 socket 下任何指令
+    socket.onAny(() => {});
+  });
+
+  const timer = setInterval(() => assist.sweep(), config.sweepIntervalMs);
+  timer.unref();
+
+  return {
+    config,
+    app,
+    io,
+    assist,
+    audit,
+    tokens,
+    httpServer,
+    listen(port = config.port) {
+      return new Promise((resolve) => httpServer.listen(port, () => resolve(httpServer.address().port)));
+    },
+    async close() {
+      clearInterval(timer);
+      io.close();
+      await new Promise((r) => httpServer.close(() => r()));
+    },
+  };
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const server = createAssistServer();
+  const port = await server.listen();
+  console.log(`陪你辦 demo 後端已啟動：http://localhost:${port}`);
+  console.log(`  協助者工作台：http://localhost:${port}/#/helper`);
+  console.log(`  長輩手機模擬：http://localhost:${port}/#/elder`);
+}
