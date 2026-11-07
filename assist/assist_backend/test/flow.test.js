@@ -560,3 +560,124 @@ test('換頁：一步完成會自動到下一步；長輩可按上一頁／下�
     await h.close();
   }
 });
+
+test('信任的人：陪辦過才能加入；信任的人不用配對碼也能請求，但長輩仍要同意', async () => {
+  const h = await startTestServer();
+  try {
+    const { elder, helper, id } = await startActive(h);
+    const elderSock = h.listen(elder.token);
+    await elderSock.ready;
+
+    // 還沒信任：不能直接請求
+    const nope = await helper.post('/helper/requests', { serviceId: 'senior-card', method: 'trusted', elderId: 'elder-wang' });
+    assert.equal(nope.status, 403);
+    assert.equal(nope.body.error.code, 'NOT_TRUSTED');
+    assert.deepEqual((await helper.get('/helper/trusted-elders')).body, []);
+
+    // 長輩從這次陪辦加入信任；協助者不能幫自己加
+    assert.equal((await helper.post('/elder/trusted', { sessionId: id })).status, 403);
+    const added = await elder.post('/elder/trusted', { sessionId: id });
+    assert.ok(added.body.some((t) => t.helper.id === 'helper-chief'));
+    assert.equal((await elder.get(`/sessions/${id}`)).body.helperTrusted, true);
+    const list = (await helper.get('/helper/trusted-elders')).body;
+    assert.deepEqual(list.map((e) => [e.elderId, e.displayName]), [['elder-wang', '王○明']]);
+    assert.ok(!JSON.stringify(list).includes('A102837499'));
+    await elder.post(`/sessions/${id}/end`);
+
+    // 不用配對碼直接請求 → 長輩收到推播，仍是等待同意
+    const r = await helper.post('/helper/requests', { serviceId: 'senior-card', method: 'trusted', elderId: 'elder-wang' });
+    assert.equal(r.status, 202);
+    assert.equal(r.body.status, 'pending');
+    await wait();
+    const pushed = elderSock.events.find((e) => e.event === 'session:update' && e.payload.id === r.body.id);
+    assert.ok(pushed);
+    assert.equal(pushed.payload.method, 'trusted');
+    assert.equal(pushed.payload.helperTrusted, true);
+    // 重複請求擋下
+    assert.equal(
+      (await helper.post('/helper/requests', { serviceId: 'senior-card', method: 'trusted', elderId: 'elder-wang' })).body.error.code,
+      'DUPLICATE_REQUEST',
+    );
+
+    // 移除後就不能再直接請求
+    await elder.post(`/elder/sessions/${r.body.id}/respond`, { accept: false });
+    await elder.post('/elder/trusted/helper-chief/remove');
+    assert.equal(
+      (await helper.post('/helper/requests', { serviceId: 'senior-card', method: 'trusted', elderId: 'elder-wang' })).status,
+      403,
+    );
+    const audit = (await elder.get('/elder/audit')).body.map((a) => a.type);
+    assert.ok(audit.includes('trust.added') && audit.includes('trust.removed'));
+  } finally {
+    await h.close();
+  }
+});
+
+test('信任的人：沒接受過的請求不能加入；封鎖會同時取消信任；Demo 預設家人已信任', async () => {
+  const h = await startTestServer();
+  try {
+    const elder = await h.login('elder-wang');
+    const family = await h.login('helper-family');
+    assert.deepEqual((await elder.get('/elder/trusted')).body.map((t) => t.helper.id), ['helper-family']);
+
+    const r = await family.post('/helper/requests', { serviceId: 'senior-card', method: 'trusted', elderId: 'elder-wang' });
+    assert.equal(r.status, 202);
+    // 未同意的請求不能拿來加信任
+    const chief = await h.login('helper-chief');
+    const code = (await elder.post('/elder/pairing-code')).body.code;
+    const pending = (await chief.post('/helper/requests', { serviceId: 'senior-card', method: 'pairing_code', code })).body.id;
+    assert.equal((await elder.post('/elder/trusted', { sessionId: pending })).body.error.code, 'NOT_ACCEPTED');
+
+    // 封鎖家人 → 信任一併取消
+    await elder.post(`/elder/sessions/${r.body.id}/block`);
+    assert.deepEqual((await elder.get('/elder/trusted')).body, []);
+    assert.deepEqual((await family.get('/helper/trusted-elders')).body, []);
+  } finally {
+    await h.close();
+  }
+});
+
+test('長輩自己授權：預設可以不等請求直接同意；陪辦人員可以關閉；協助者看不到內容', async () => {
+  const h = await startTestServer();
+  try {
+    const { elder, helper, id } = await startActive(h);
+    assert.equal((await helper.get(`/sessions/${id}`)).body.elderSelfAuth, true);
+    // 不在目前步驟的欄位不行
+    assert.equal(
+      (await elder.post(`/elder/sessions/${id}/fields/realName/self-authorize`)).body.error.code,
+      'FIELD_NOT_IN_STEP',
+    );
+    await helper.post(`/helper/sessions/${id}/step`, { step: 1 });
+    // 長輩看得到自己要提供的內容，協助者看不到
+    assert.equal((await elder.get(`/sessions/${id}`)).body.fields.idNo.preview, 'A102837499');
+    assert.ok(!JSON.stringify((await helper.get(`/sessions/${id}`)).body).includes('A102837499'));
+    const a = await elder.post(`/elder/sessions/${id}/fields/realName/self-authorize`);
+    assert.equal(a.status, 200, JSON.stringify(a.body));
+    assert.equal(a.body.fields.realName.status, 'authorized');
+    assert.equal(a.body.fields.realName.value, '王大明');
+    const hv = (await helper.get(`/sessions/${id}`)).body;
+    assert.equal(hv.fields.realName.status, 'authorized');
+    assert.equal(hv.fields.realName.value, null);
+    assert.ok(hv.timeline.some((t) => t.text.includes('長輩自己同意提供「姓名」')));
+    // 可以順便修改內容
+    const b = await elder.post(`/elder/sessions/${id}/fields/birthday/self-authorize`, { value: '1948-03-16' });
+    assert.equal(b.body.fields.birthday.edited, true);
+    // 重複授權擋下
+    assert.equal(
+      (await elder.post(`/elder/sessions/${id}/fields/realName/self-authorize`)).body.error.code,
+      'ALREADY_AUTHORIZED',
+    );
+    // 陪辦人員關閉後只能等請求
+    assert.equal((await helper.post(`/helper/sessions/${id}/elder-self-auth`, { enabled: false })).body.elderSelfAuth, false);
+    const off = await elder.post(`/elder/sessions/${id}/fields/idNo/self-authorize`);
+    assert.equal(off.status, 403);
+    assert.equal(off.body.error.code, 'ELDER_SELF_AUTH_OFF');
+    // 但陪辦人員請求的欄位一樣能同意
+    await helper.post(`/helper/sessions/${id}/fields/idNo/request`);
+    assert.equal((await elder.post(`/elder/sessions/${id}/fields/idNo/self-authorize`)).body.fields.idNo.status, 'authorized');
+    // 長輩不能改開關
+    assert.equal((await elder.post(`/helper/sessions/${id}/elder-self-auth`, { enabled: true })).status, 403);
+  } finally {
+    await h.close();
+  }
+});

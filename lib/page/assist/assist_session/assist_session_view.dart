@@ -42,7 +42,20 @@ class _AssistSessionViewState extends State<AssistSessionView> {
     return Obx(() {
       final s = service.sessions[id];
       final def = s == null ? null : service.serviceDefs[s.serviceId];
-      final auth = s != null && s.isActive ? s.pendingAuthField : null;
+      // 陪辦人員請求的欄位優先；否則是長輩自己點開的欄位
+      FieldDef? auth = s != null && s.isActive ? s.pendingAuthField : null;
+      var selfAuth = false;
+      final selfKey = service.selfAuthKey.value;
+      if (auth == null && selfKey != null && s != null && s.isActive && !s.isReviewing && def != null) {
+        final fd = def.allFields.where((f) => f.key == selfKey).firstOrNull;
+        final st = s.field(selfKey);
+        if (fd != null && s.elderSelfAuth && st.status != 'authorized' && st.preview != null) {
+          auth = FieldDef({...fd.raw, 'value': st.preview});
+          selfAuth = true;
+        } else {
+          WidgetsBinding.instance.addPostFrameCallback((_) => service.selfAuthKey.value = null);
+        }
+      }
 
       final Widget body;
       if (s == null || def == null) {
@@ -85,7 +98,12 @@ class _AssistSessionViewState extends State<AssistSessionView> {
                   ),
                   child: auth == null
                       ? const SizedBox.shrink(key: ValueKey('none'))
-                      : _AuthSheet(key: ValueKey('auth-${auth.key}-${s!.field(auth.key).requestCount}'), s: s, f: auth),
+                      : _AuthSheet(
+                          key: ValueKey('auth-${auth.key}-${s!.field(auth.key).requestCount}-$selfAuth'),
+                          s: s,
+                          f: auth,
+                          self: selfAuth,
+                        ),
                 ),
               ),
             ],
@@ -298,6 +316,27 @@ class _FieldCardState extends State<_FieldCard> {
           children: [body, const Text('您已修改過這項資料', style: AssistText.footnote)],
         );
       }
+    } else if (f.sensitive && s.elderSelfAuth && s.pendingAuth == null && st.preview != null) {
+      // 預設：長輩可以自己點開授權，不用等陪辦人員
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            st.status == 'denied' ? '您剛才選擇不提供。改變主意也可以再提供。' : '不用等，按下面就能自己提供。',
+            style: AssistText.callout,
+          ),
+          const SizedBox(height: 10),
+          AssistButton(
+            '確認並提供',
+            style: AssistButtonStyle.secondary,
+            icon: Icons.lock_open_rounded,
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              service.selfAuthKey.value = f.key;
+            },
+          ),
+        ],
+      );
     } else {
       body = Text(switch (st.status) {
         'denied' => '您選擇不提供這項資料',
@@ -416,9 +455,11 @@ class _ChoiceRow extends StatelessWidget {
 // ═════════════════════════════════════════════ 授權（全螢幕）
 
 class _AuthSheet extends StatefulWidget {
-  const _AuthSheet({super.key, required this.s, required this.f});
+  const _AuthSheet({super.key, required this.s, required this.f, this.self = false});
   final AssistSession s;
   final FieldDef f;
+  /// 長輩自己點開的（不是陪辦人員請求的）：按「先不要」只是關掉
+  final bool self;
   @override
   State<_AuthSheet> createState() => _AuthSheetState();
 }
@@ -430,10 +471,17 @@ class _AuthSheetState extends State<_AuthSheet> {
   String? edited;
 
   Future<void> answer(bool approve) async {
+    final service = Get.find<AssistService>();
+    if (widget.self && !approve) {
+      service.selfAuthKey.value = null;
+      return;
+    }
     setState(() => busy = true);
     if (approve) HapticFeedback.mediumImpact();
     await assistRun(
-      () => Get.find<AssistService>().authorize(widget.s.id, widget.f.key, approve, value: approve ? edited : null),
+      () => widget.self
+          ? service.selfAuthorize(widget.s.id, widget.f.key, value: edited)
+          : service.authorize(widget.s.id, widget.f.key, approve, value: approve ? edited : null),
     );
     if (mounted) setState(() => busy = false);
   }
@@ -510,7 +558,7 @@ class _AuthSheetState extends State<_AuthSheet> {
                   const SizedBox(height: 8),
                   Semantics(
                     header: true,
-                    label: '${s.helper!.name} 請您確認：要提供您的${f.label}嗎？',
+                    label: widget.self ? '要提供您的${f.label}嗎？' : '${s.helper!.name} 請您確認：要提供您的${f.label}嗎？',
                     child: ExcludeSemantics(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -525,7 +573,7 @@ class _AuthSheetState extends State<_AuthSheet> {
                   AssistReadButton(
                     id: 'auth-${s.id}-${f.key}',
                     text: () =>
-                        '${s.helper!.name}請您確認，要提供您的${f.label}嗎？'
+                        '${widget.self ? '' : '${s.helper!.name}請您確認，'}要提供您的${f.label}嗎？'
                         '給${f.recipient ?? s.agency ?? ''}使用。用途是${f.purpose ?? ''}。保存期限：${f.retention ?? ''}。'
                         '請注意：${f.risks.join('。')}。${assistWhereDataGoes(s.helper!.name, f.recipient ?? s.agency)}'
                         '不想提供，可以按先不要，不會有任何處罰。',
@@ -812,6 +860,10 @@ class _Result extends StatelessWidget {
             text: () => ok ? '$message案件編號：${(s.caseNo ?? '').split('').join(' ')}。' : message,
           ),
         ),
+        if (s.startedAt != null && s.helper != null && s.endReason != 'blocked') ...[
+          const SizedBox(height: 16),
+          _TrustCard(s: s),
+        ],
         const SizedBox(height: 18),
         const Text('這次是誰陪您、您提供了哪些資料，都可以在「我的帳戶 › 歷程與授權管理」查看。', textAlign: TextAlign.center, style: AssistText.callout),
       ],
@@ -837,6 +889,55 @@ class _Result extends StatelessWidget {
 }
 
 // ═════════════════════════════════════════════ 小元件
+
+/// 辦完後：把這次陪辦的人加為「信任的人」，下次對方不用配對碼就能找您
+class _TrustCard extends StatelessWidget {
+  const _TrustCard({required this.s});
+  final AssistSession s;
+
+  @override
+  Widget build(BuildContext context) {
+    final service = Get.find<AssistService>();
+    final h = s.helper!;
+    return Obx(() {
+      final trusted = service.trusted.any((t) => t.helper.id == h.id);
+      if (trusted) {
+        return AssistNotice(
+          icon: Icons.favorite_rounded,
+          color: AssistColors.green700,
+          background: AssistColors.green50,
+          title: '${h.name} 是您信任的人',
+          text: '下次他不用配對碼就能找您，您一樣要按同意才會開始。',
+        );
+      }
+      return AssistCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('下次直接找 ${h.name}？', style: AssistText.headline),
+            const SizedBox(height: 4),
+            const Text('加為信任的人，下次他不用掃 QR Code 就能請求陪您辦。每次一樣要您按同意，資料也一樣一項一項問您。', style: AssistText.callout),
+            const SizedBox(height: 12),
+            AssistButton(
+              '加為信任的人',
+              style: AssistButtonStyle.secondary,
+              icon: Icons.favorite_border_rounded,
+              onPressed: () async {
+                final ok = await assistConfirm(
+                  title: '把 ${h.name} 加為信任的人？',
+                  message: '只加您信得過的人，例如子女。\n電話裡有人要您加他，就是詐騙。',
+                  confirmLabel: '加入',
+                  destructive: false,
+                );
+                if (ok) await assistRun(() => service.addTrusted(s.id));
+              },
+            ),
+          ],
+        ),
+      );
+    });
+  }
+}
 
 /// 「修改」：把要送出的資料改成正確的內容
 class _EditButton extends StatelessWidget {

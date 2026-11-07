@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/bean/assist.dart';
 import 'package:town_pass/gen/assets.gen.dart';
+import 'package:town_pass/page/assist/assist_help_others/assist_help_others_view.dart';
 import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
@@ -86,7 +87,7 @@ class _IncomingBadge extends StatelessWidget {
         container: true,
         label:
             '協助請求。${assistHelperDisplayName(h)} 想陪您辦理${s.serviceTitle}。'
-            '${h.verified ? '市府認證身分。' : '對方不是公務人員。'}剩下 ${assistSpokenDuration(left)}。',
+            '${s.helperTrusted ? '這是您信任的人。' : ''}${h.verified ? '市府認證身分。' : '對方不是公務人員。'}剩下 ${assistSpokenDuration(left)}。',
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(gradient: AssistColors.brandGradient, borderRadius: BorderRadius.circular(24)),
@@ -155,7 +156,20 @@ class _IncomingBadge extends StatelessWidget {
                         children: [
                           Text(assistHelperDisplayName(h), style: AssistText.title.copyWith(color: TPColors.white)),
                           const SizedBox(height: 4),
-                          AssistHelperBadge(helper: h),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              if (s.helperTrusted)
+                                const AssistPill(
+                                  '您信任的人',
+                                  color: AssistColors.green700,
+                                  background: AssistColors.green50,
+                                  icon: Icons.favorite_rounded,
+                                ),
+                              AssistHelperBadge(helper: h),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -237,48 +251,86 @@ class _ActiveBadge extends StatelessWidget {
   }
 }
 
-/// 首頁的「請人陪我辦」入口，放在 1999 按鈕附近。
+/// 首頁的陪辦入口：「請人陪我辦」與「幫別人辦」。每個人都可以被協助，也可以協助別人。
 class AssistEntryCard extends StatelessWidget {
   const AssistEntryCard({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return AssistTextScaleCap(child: _entry(context));
+    return AssistTextScaleCap(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          children: [
+            _EntryTile(
+              // 與服務頁「陪辦」使用同一個台北通風格圖示
+              leading: Assets.svg.iconAccompany.svg(width: context.iconSize(52), height: context.iconSize(52)),
+              title: '不會用嗎？請人陪我辦',
+              subtitle: '讓里長、家人或 1999 客服，陪您用手機一起辦。',
+              onTap: () => Get.toNamed(TPRoute.assistPairing),
+            ),
+            const SizedBox(height: 10),
+            _EntryTile(
+              // 同樣的圓形台北通風格，改用暖色區分「幫別人」
+              leading: Container(
+                width: context.iconSize(52),
+                height: context.iconSize(52),
+                decoration: const BoxDecoration(shape: BoxShape.circle, color: TPColors.secondary500),
+                child: Icon(Icons.volunteer_activism_rounded, color: TPColors.white, size: context.iconSize(28)),
+              ),
+              title: '我也能幫別人辦',
+              subtitle: '幫爸媽、長輩或鄰居代辦，對方的個資您看不到。',
+              onTap: () => Get.to(() => const AssistHelpOthersView(), routeName: '/assist_help_others'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
+}
 
-  Widget _entry(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Semantics(
-        button: true,
-        label: '請人陪我辦。讓里長、家人或 1999 客服，陪您用手機一起辦。',
-        child: Material(
-          color: TPColors.white,
+class _EntryTile extends StatelessWidget {
+  const _EntryTile({
+    required this.leading,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+  final Widget leading;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: '$title。$subtitle',
+      child: Material(
+        color: TPColors.white,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: () => Get.toNamed(TPRoute.assistPairing),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: ExcludeSemantics(
-                child: Row(
-                  children: [
-                    // 與服務頁「陪辦」使用同一個台北通風格圖示
-                    Assets.svg.iconAccompany.svg(width: context.iconSize(52), height: context.iconSize(52)),
-                    const SizedBox(width: 14),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('不會用嗎？請人陪我辦', style: AssistText.headline),
-                          SizedBox(height: 2),
-                          Text('讓里長、家人或 1999 客服，陪您用手機一起辦。', style: AssistText.callout),
-                        ],
-                      ),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: ExcludeSemantics(
+              child: Row(
+                children: [
+                  leading,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, style: AssistText.headline),
+                        const SizedBox(height: 2),
+                        Text(subtitle, style: AssistText.callout),
+                      ],
                     ),
-                    Icon(Icons.chevron_right_rounded, color: TPColors.grayscale400, size: context.iconSize(28)),
-                  ],
-                ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: TPColors.grayscale400, size: context.iconSize(28)),
+                ],
               ),
             ),
           ),

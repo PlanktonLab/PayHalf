@@ -232,6 +232,8 @@ class _NewRequestState extends State<_NewRequest> {
   late final TextEditingController code = TextEditingController(text: widget.code ?? '');
   final focus = FocusNode();
   String? serviceId;
+  /// 選了「信任我的長輩」就不用配對碼
+  String? elderId;
   bool busy = false;
   String? error;
 
@@ -239,7 +241,15 @@ class _NewRequestState extends State<_NewRequest> {
   void initState() {
     super.initState();
     if (widget.c.services.isNotEmpty) serviceId = widget.c.services.first['id'] as String;
-    if (widget.code == null) WidgetsBinding.instance.addPostFrameCallback((_) => focus.requestFocus());
+    if (widget.code == null) {
+      final trusted = widget.c.trustedElders;
+      if (trusted.length == 1) {
+        // 只有一位信任您的長輩：直接選好，按一下就能送出
+        elderId = trusted.first['elderId'] as String;
+      } else if (trusted.isEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => focus.requestFocus());
+      }
+    }
   }
 
   @override
@@ -249,7 +259,7 @@ class _NewRequestState extends State<_NewRequest> {
     super.dispose();
   }
 
-  bool get ready => !busy && serviceId != null && code.text.length == 6;
+  bool get ready => !busy && serviceId != null && (elderId != null || code.text.length == 6);
 
   Future<void> send() async {
     if (!ready) return;
@@ -259,7 +269,11 @@ class _NewRequestState extends State<_NewRequest> {
       error = null;
     });
     try {
-      await widget.c.requestByCode(serviceId!, code.text);
+      if (elderId != null) {
+        await widget.c.requestTrusted(serviceId!, elderId!);
+      } else {
+        await widget.c.requestByCode(serviceId!, code.text);
+      }
     } catch (e) {
       setState(() => error = e is AssistApiException ? e.message : '連線失敗，請稍後再試');
     } finally {
@@ -303,17 +317,53 @@ class _NewRequestState extends State<_NewRequest> {
                 ],
               ),
               const SizedBox(height: 16),
-              const _Label('長輩的配對碼'),
+              Obx(() {
+                final trusted = c.trustedElders.toList();
+                if (trusted.isEmpty || widget.code != null) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _Label('信任您的長輩・不用配對碼'),
+                    for (final e in trusted) ...[
+                      _TrustedElderTile(
+                        name: e['displayName'] as String,
+                        selected: elderId == e['elderId'],
+                        onTap: () {
+                          FocusScope.of(context).unfocus();
+                          setState(() {
+                            error = null;
+                            elderId = elderId == e['elderId'] ? null : e['elderId'] as String;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    const SizedBox(height: 8),
+                  ],
+                );
+              }),
+              Obx(() => _Label(c.trustedElders.isNotEmpty && widget.code == null ? '或輸入長輩的配對碼' : '長輩的配對碼')),
               _Card(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _CodeBoxes(controller: code, focus: focus, error: error != null, onChanged: (_) => setState(() => error = null)),
+                    _CodeBoxes(
+                      controller: code,
+                      focus: focus,
+                      error: error != null && elderId == null,
+                      onChanged: (_) => setState(() {
+                        error = null;
+                        elderId = null;
+                      }),
+                    ),
                     const SizedBox(height: 10),
                     Text(
-                      error ??
+                      (elderId == null ? error : null) ??
                           (widget.code != null ? '已從 QR Code 帶入配對碼。' : '請長輩打開台北通「請人陪我辦」，念出 6 位數號碼。'),
-                      style: TextStyle(fontSize: 14, color: error != null ? TPColors.red600 : TPColors.grayscale500),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: error != null && elderId == null ? TPColors.red600 : TPColors.grayscale500,
+                      ),
                     ),
                   ],
                 ),
@@ -327,6 +377,10 @@ class _NewRequestState extends State<_NewRequest> {
                   selected: serviceId == sv['id'],
                   onTap: () => setState(() => serviceId = sv['id'] as String),
                 ),
+                const SizedBox(height: 8),
+              ],
+              if (error != null && elderId != null) ...[
+                Text(error!, style: const TextStyle(fontSize: 14, color: TPColors.red600)),
                 const SizedBox(height: 8),
               ],
               const SizedBox(height: 8),
@@ -374,7 +428,7 @@ class _NewRequestState extends State<_NewRequest> {
                 icon: busy
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: TPColors.white))
                     : const Icon(Icons.send_rounded),
-                label: const Text('送出陪辦請求'),
+                label: Text(elderId != null ? '請長輩確認' : '送出陪辦請求'),
               ),
             ),
           ],
@@ -493,6 +547,61 @@ class _ServiceTile extends StatelessWidget {
                     Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: TPColors.grayscale900)),
                     const SizedBox(height: 2),
                     Text(subtitle, style: const TextStyle(fontSize: 13, color: TPColors.grayscale500)),
+                  ],
+                ),
+              ),
+              Icon(
+                selected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
+                color: selected ? TPColors.primary500 : TPColors.grayscale300,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _TrustedElderTile extends StatelessWidget {
+  const _TrustedElderTile({required this.name, required this.selected, required this.onTap});
+  final String name;
+  final bool selected;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => Semantics(
+    selected: selected,
+    button: true,
+    child: Material(
+      color: selected ? TPColors.primary50 : TPColors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: selected ? TPColors.primary500 : TPColors.white, width: 1.5),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(shape: BoxShape.circle, color: TPColors.secondary100),
+                child: Text(
+                  name.characters.first,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: TPColors.secondary800),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: TPColors.grayscale900)),
+                    const SizedBox(height: 2),
+                    const Text('已把您加為信任的人', style: TextStyle(fontSize: 13, color: TPColors.grayscale500)),
                   ],
                 ),
               ),
@@ -725,6 +834,21 @@ class _Session extends StatelessWidget {
                   ),
                   value: s.elderNav,
                   onChanged: (v) => _run(() => c.setElderNav(v)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _Card(
+                padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+                child: SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  activeTrackColor: TPColors.primary500,
+                  title: const Text('長輩自己授權', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  subtitle: Text(
+                    s.elderSelfAuth ? '長輩可以直接點開這一步的資料自己同意，不用等您請求' : '只有您按「請長輩授權」後，長輩才能提供資料',
+                    style: const TextStyle(fontSize: 13, color: TPColors.grayscale500),
+                  ),
+                  value: s.elderSelfAuth,
+                  onChanged: (v) => _run(() => c.setElderSelfAuth(v)),
                 ),
               ),
               const SizedBox(height: 12),

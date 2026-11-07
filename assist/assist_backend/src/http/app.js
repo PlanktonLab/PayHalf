@@ -136,6 +136,10 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
     ),
   );
   elder.post(
+    '/sessions/:id/fields/:key/self-authorize',
+    wrap((req) => assist.selfAuthorizeField(req.user, req.params.id, req.params.key, req.body?.value)),
+  );
+  elder.post(
     '/sessions/:id/fields/:key/edit',
     wrap((req) => assist.editField(req.user, req.params.id, req.params.key, req.body?.value)),
   );
@@ -153,6 +157,9 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
     wrap((req) => assist.submit(req.user, req.params.id, req.body?.confirm === true)),
   );
   elder.post('/sessions/:id/undo', wrap((req) => assist.undoSubmit(req.user, req.params.id)));
+  elder.get('/trusted', wrap((req) => assist.listTrusted(req.user)));
+  elder.post('/trusted', wrap((req) => assist.addTrusted(req.user, req.body?.sessionId)));
+  elder.post('/trusted/:helperId/remove', wrap((req) => assist.removeTrusted(req.user, req.params.helperId)));
   elder.post('/sessions/:id/block', wrap((req) => assist.blockHelper(req.user, req.params.id)));
   api.use('/elder', elder);
 
@@ -166,12 +173,14 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
       let view;
       if (body.method === 'pairing_code') view = assist.requestByCode(req.user, body);
       else if (body.method === 'identity') view = assist.requestByIdentity(req.user, body);
+      else if (body.method === 'trusted') view = assist.requestTrusted(req.user, body);
       else throw badRequest('請選擇找到長輩的方式', 'INVALID_METHOD');
       res.status(202);
       return view;
     }),
   );
   helper.get('/sessions', wrap((req) => assist.listForHelper(req.user)));
+  helper.get('/trusted-elders', wrap((req) => assist.listTrustingElders(req.user)));
   helper.get('/audit', wrap((req) => assist.helperAudit(req.user)));
   helper.post(
     '/sessions/:id/step',
@@ -180,6 +189,10 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
   helper.post(
     '/sessions/:id/elder-nav',
     wrap((req) => assist.setElderNav(req.user, req.params.id, req.body?.enabled)),
+  );
+  helper.post(
+    '/sessions/:id/elder-self-auth',
+    wrap((req) => assist.setElderSelfAuth(req.user, req.params.id, req.body?.enabled)),
   );
   helper.post(
     '/sessions/:id/focus',

@@ -28,6 +28,11 @@ export function buildConfig(overrides = {}) {
     // 同一協助者在 24 小時內被同一長輩拒絕幾次後自動封鎖
     autoBlockAfterRejects: 3,
     autoBlockWindowMs: 24 * 60 * 60 * 1000,
+    // 信任的人：每位長輩最多幾位、信任的人直接發起請求的次數上限
+    maxTrustedPerElder: 5,
+    trustedRequestLimit: { max: 5, windowMs: 10 * 60 * 1000 },
+    // Demo 預設好友：王大明（elder-wang）已信任家人王小華（helper-family）
+    demoTrust: [['elder-wang', 'helper-family']],
     // 送出後可撤回的時間（降低誤觸送出的風險）。網頁原型原設 5 秒，長輩反應較慢，放寬為 10 秒
     undoWindowMs: 10 * 1000,
     staticDir: process.env.STATIC_DIR ?? null,

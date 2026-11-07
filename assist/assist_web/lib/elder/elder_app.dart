@@ -212,7 +212,18 @@ class _ElderRoot extends StatelessWidget {
       key = 'home';
     }
 
-    final auth = c.active?.pendingAuthField;
+    // 陪辦人員請求的欄位優先；否則是長輩自己點開的欄位
+    var auth = c.active?.pendingAuthField;
+    var selfAuth = false;
+    final a = c.active;
+    if (auth == null && c.selfAuthKey != null && a != null && !a.isReviewing) {
+      final fd = c.serviceDefs[a.serviceId]?.field(c.selfAuthKey!);
+      final st = a.field(c.selfAuthKey!);
+      if (fd != null && a.elderSelfAuth && st.status != 'authorized' && st.preview != null) {
+        auth = FieldDef({...fd.raw, 'value': st.preview});
+        selfAuth = true;
+      }
+    }
     return Stack(
       children: [
         AnimatedSwitcher(
@@ -237,7 +248,7 @@ class _ElderRoot extends StatelessWidget {
           ),
           child: auth == null
               ? const SizedBox.shrink(key: ValueKey('no-auth'))
-              : _AuthScreen(key: ValueKey('auth-${auth.key}'), c: c, s: c.active!, f: auth),
+              : _AuthScreen(key: ValueKey('auth-${auth.key}-$selfAuth'), c: c, s: c.active!, f: auth, self: selfAuth),
         ),
       ],
     );
@@ -1029,6 +1040,24 @@ class _ElderFieldState extends State<_ElderField> {
           ),
         ],
       );
+    } else if (f.sensitive && s.elderSelfAuth && s.pendingAuth == null && st.preview != null) {
+      // 預設：長輩可以自己點開授權，不用等陪辦人員
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            st.status == 'denied' ? '您剛才選擇不提供。改變主意也可以再提供。' : '不用等，按下面就能自己提供。',
+            style: const TextStyle(fontSize: 18, color: TPColors.grayscale600),
+          ),
+          const SizedBox(height: 10),
+          _BigButton(
+            '確認並提供',
+            outlined: true,
+            color: TPColors.primary600,
+            onPressed: () => widget.c.openSelfAuth(f.key),
+          ),
+        ],
+      );
     } else {
       body = Text(switch (st.status) {
         'denied' => '您選擇不提供',
@@ -1128,10 +1157,12 @@ class _ChoiceButton extends StatelessWidget {
 // ═════════════════════════════════════════════ 授權（全螢幕）
 
 class _AuthScreen extends StatefulWidget {
-  const _AuthScreen({super.key, required this.c, required this.s, required this.f});
+  const _AuthScreen({super.key, required this.c, required this.s, required this.f, this.self = false});
   final ElderController c;
   final AssistSession s;
   final FieldDef f;
+  /// 長輩自己點開的：按「先不要」只是關掉
+  final bool self;
   @override
   State<_AuthScreen> createState() => _AuthScreenState();
 }
@@ -1142,8 +1173,14 @@ class _AuthScreenState extends State<_AuthScreen> {
   String? edited;
 
   Future<void> answer(bool approve) async {
+    if (widget.self && !approve) return widget.c.openSelfAuth(null);
     setState(() => busy = true);
-    await _run(context, () => widget.c.authorize(widget.s.id, widget.f.key, approve, value: approve ? edited : null));
+    await _run(
+      context,
+      () => widget.self
+          ? widget.c.selfAuthorize(widget.s.id, widget.f.key, value: edited)
+          : widget.c.authorize(widget.s.id, widget.f.key, approve, value: approve ? edited : null),
+    );
     if (mounted) setState(() => busy = false);
   }
 

@@ -60,6 +60,7 @@ class ServiceDef {
 class FieldState {
   FieldState(this.raw);
   final Map<String, dynamic> raw;
+  String? get preview => raw['preview'] as String?;
   String get status => raw['status'] as String? ?? 'empty';
   String? get value => raw['value'] as String?;
   int get requestCount => (raw['requestCount'] as num?)?.toInt() ?? 0;
@@ -104,6 +105,7 @@ class AssistSession {
   String? get focusField => raw['focusField'] as String?;
   /// 長輩自己換頁（完成一步自動到下一步、長輩可按上一頁／下一頁）
   bool get elderNav => raw['elderNav'] != false;
+  bool get elderSelfAuth => raw['elderSelfAuth'] != false;
   String? get pendingAuth => raw['pendingAuth'] as String?;
   String? get caseNo => raw['caseNo'] as String?;
   String? get endReason => raw['endReason'] as String?;

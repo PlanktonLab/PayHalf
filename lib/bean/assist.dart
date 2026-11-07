@@ -68,6 +68,8 @@ class FieldState {
   bool get done => status == 'authorized' || status == 'filled';
   /// 長輩改過帳號帶入的內容
   bool get edited => raw['edited'] == true;
+  /// 長輩自己授權前看到的「將提供的內容」（只出現在長輩自己的視圖）
+  String? get preview => raw['preview'] as String?;
 }
 
 class TimelineItem {
@@ -105,6 +107,8 @@ class AssistSession {
   String? get focusField => raw['focusField'] as String?;
   /// 長輩可以自己換頁（陪辦人員可關閉）
   bool get elderNav => raw['elderNav'] != false;
+  /// 長輩可以不等請求，自己點開欄位授權（陪辦人員可關閉）
+  bool get elderSelfAuth => raw['elderSelfAuth'] != false;
   String? get pendingAuth => raw['pendingAuth'] as String?;
   String? get caseNo => raw['caseNo'] as String?;
   DateTime? get undoUntil => _dt(raw['undoUntil']);
@@ -128,6 +132,8 @@ class AssistSession {
   HelperInfo? get helper => raw['helper'] == null ? null : HelperInfo(Map<String, dynamic>.from(raw['helper'] as Map));
   String? get agency => raw['agency'] as String?;
   String? get legalBasis => raw['legalBasis'] as String?;
+  /// 這位協助者是長輩「信任的人」
+  bool get helperTrusted => raw['helperTrusted'] == true;
   FieldDef? get pendingAuthField =>
       raw['pendingAuthField'] == null ? null : FieldDef(Map<String, dynamic>.from(raw['pendingAuthField'] as Map));
 
@@ -154,3 +160,11 @@ String statusLabel(AssistSession s) => switch (s.status) {
   },
   _ => s.status,
 };
+
+/// 長輩「信任的人」
+class TrustedHelper {
+  TrustedHelper(this.raw);
+  final Map<String, dynamic> raw;
+  HelperInfo get helper => HelperInfo(Map<String, dynamic>.from(raw['helper'] as Map));
+  DateTime get since => DateTime.fromMillisecondsSinceEpoch((raw['since'] as num).toInt());
+}
