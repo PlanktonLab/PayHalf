@@ -25,6 +25,7 @@ cd assist/assist_backend && npm install && npm start
 - `/#/console` 承辦工作台：側欄切換「工作台／陪辦紀錄／稽核紀錄／我的表單」（舊網址 `/#/helper` 仍可用）
 - `/#/forms` 直接開啟「我的表單」（`/admin/` 也會轉到這裡）
 - `/#/elder` 長輩的手機，可在另一台裝置用同一個區網網址開啟
+- `/lab/` 工作台 UX 實驗室：六種簡化方向的可互動原型（`assist_web/web/lab/index.html`，純 HTML，不需重新編譯也能直接開）
 
 「我的表單」只開放給市府認證身分（里長、1999 客服）。舊版單檔表單後台保留在 `/admin/legacy/` 供對照。
 

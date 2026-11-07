@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>陪辦工作台 UX 實驗室</title>
+<style>
+:root{
+  --canvas:#F6F7F8;--surface:#fff;--inset:#F2F4F5;--hover:#F4F6F7;--border:#E6E9EB;--border2:#D3D9DC;--divider:#EEF0F2;
+  --ink:#171B1D;--ink2:#475259;--ink3:#738995;--ink4:#91A0A8;
+  --accent:#5AB4C5;--accent-strong:#468D9B;--accent-ink:#356C77;--accent-soft:#EDF8FA;--accent-soft2:#DBF1F5;
+  --ok:#3E9E6E;--ok-ink:#2A6E4C;--ok-soft:#EAF6EF;--warn:#E7A43C;--warn-ink:#74521B;--warn-soft:#FDF8ED;
+  --danger:#D45251;--danger-ink:#C2332F;--danger-soft:#FAEEEE;
+  --r:12px;--rc:8px;--shadow:0 1px 2px rgba(16,24,40,.03);--pop:0 12px 24px rgba(16,24,40,.08),0 2px 4px rgba(16,24,40,.04);
+  --font:"PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--canvas);color:var(--ink);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3,p{margin:0}
+.muted{color:var(--ink3)}.small{font-size:13px}.cap{font-size:12px;color:var(--ink3);letter-spacing:.2px}
+.sp{flex:1}.row{display:flex;align-items:center;gap:10px}.col{display:flex;flex-direction:column}
+.ic{flex:none;width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ===== 實驗室外框 ===== */
+.lab{display:grid;grid-template-rows:auto 1fr;height:100vh}
+.labbar{display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--ink);color:#fff;flex-wrap:wrap}
+.labbar b{font-size:14px;font-weight:600;white-space:nowrap}
+.labbar .tabs{display:flex;gap:4px;flex-wrap:wrap}
+.labbar .tabs button{border:0;background:transparent;color:#C9D1D5;border-radius:7px;padding:6px 10px;font-size:13px;white-space:nowrap}
+.labbar .tabs button[aria-pressed=true]{background:#fff;color:var(--ink);font-weight:600}
+.labbar .tabs button .star{color:#F5BA4B;margin-left:4px}
+.labbar .lbtn{border:1px solid #475259;background:transparent;color:#fff;border-radius:7px;padding:5px 10px;font-size:13px}
+.labmain{display:grid;grid-template-columns:1fr 320px;min-height:0}
+.labmain.nonotes{grid-template-columns:1fr}
+.stage{min-height:0;overflow:auto;position:relative}
+.notes{border-left:1px solid var(--border);background:var(--surface);overflow:auto;padding:20px}
+.notes h2{font-size:18px;margin-bottom:4px}
+.notes h4{margin:18px 0 6px;font-size:13px;color:var(--ink3);font-weight:600}
+.notes ul{margin:0;padding-left:18px;color:var(--ink2);font-size:14px}
+.notes li{margin:3px 0}
+.notes .fav{margin-top:18px;width:100%}
+.notes .hint{margin-top:16px;padding:12px;border-radius:10px;background:var(--inset);font-size:13px;color:var(--ink2)}
+@media (max-width:980px){.labmain{grid-template-columns:1fr}.notes{display:none}.labmain.shownotes .notes{display:block;position:fixed;inset:auto 0 0 0;max-height:55vh;border-top:1px solid var(--border);z-index:30}}
+
+/* ===== 元件 ===== */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow)}
+.pad{padding:20px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:38px;padding:0 14px;border-radius:var(--rc);border:1px solid var(--border);background:var(--surface);font-weight:600;font-size:14px;white-space:nowrap}
+.btn:hover{background:var(--hover)}
+.btn.lg{height:48px;padding:0 20px;font-size:16px}
+.btn.xl{height:56px;padding:0 26px;font-size:17px;border-radius:10px}
+.btn.primary{background:var(--accent-strong);border-color:var(--accent-strong);color:#fff}
+.btn.primary:hover{background:var(--accent-ink)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--ink2)}
+.btn.ghost:hover{background:var(--hover)}
+.btn.danger{color:var(--danger-ink)}
+.btn:disabled{background:var(--inset);border-color:var(--border);color:var(--ink4);cursor:not-allowed}
+.btn.block{width:100%}
+.link{border:0;background:none;color:var(--accent-ink);font-weight:600;padding:0;font-size:14px}
+.link:hover{text-decoration:underline}
+.kbd{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--ink3);background:var(--surface);font-weight:500}
+.dot{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2)}
+.dot::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ink4);flex:none}
+.dot.ok{color:var(--ok-ink)}.dot.ok::before{background:var(--ok)}
+.dot.warn{color:var(--warn-ink)}.dot.warn::before{background:var(--warn);box-shadow:0 0 0 3px rgba(231,164,60,.25)}
+.dot.accent{color:var(--accent-ink)}.dot.accent::before{background:var(--accent)}
+.dot.danger{color:var(--danger-ink)}.dot.danger::before{background:var(--danger)}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;background:var(--inset);font-size:12px;color:var(--ink2);font-weight:500}
+.tag i{width:6px;height:6px;border-radius:50%;background:var(--ink4)}
+.tag.warn i{background:var(--warn)}.tag.danger i{background:var(--danger)}
+.notice{display:flex;gap:10px;padding:12px 14px;border-radius:10px;background:var(--inset);color:var(--ink2);font-size:14px}
+.notice.warn{background:var(--warn-soft);color:var(--warn-ink)}
+.notice.danger{background:var(--danger-soft);color:var(--danger-ink)}
+.notice .ic{margin-top:2px;color:var(--ink3)}
+.seg{display:inline-flex;padding:3px;background:var(--inset);border-radius:10px}
+.seg button{border:1px solid transparent;background:transparent;border-radius:7px;padding:6px 12px;font-size:14px;color:var(--ink3)}
+.seg button[aria-pressed=true]{background:var(--surface);border-color:var(--border);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--border2);background:var(--surface);border-radius:999px;padding:8px 14px;font-size:14px;display:inline-flex;gap:8px;align-items:center}
+.chip[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;font-weight:500;color:var(--ink2)}
+.input{height:42px;border:1px solid var(--border2);border-radius:var(--rc);padding:0 12px;background:var(--surface);font-size:15px;width:100%}
+.input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft2)}
+select.input{appearance:none;background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23738995' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;padding-right:36px}
+
+/* 配對碼：6 格，但其實是一個輸入框（螢幕報讀與貼上都正常） */
+.code{position:relative;display:inline-grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.code .box{width:var(--cw,56px);height:calc(var(--cw,56px)*1.18);border:1.5px solid var(--border2);border-radius:12px;background:var(--surface);display:grid;place-items:center;font-size:calc(var(--cw,56px)*.55);font-weight:600;font-variant-numeric:tabular-nums}
+.code .box.cur{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft2)}
+.code .box.err{border-color:var(--danger)}
+.code .box:nth-child(3){margin-right:10px}
+.code input{position:absolute;inset:0;opacity:0;width:100%;height:100%;font-size:16px;border:0;cursor:text}
+.code.sm{--cw:40px}.code.lg{--cw:64px}
+.errmsg{color:var(--danger-ink);font-size:14px;display:flex;gap:6px;align-items:center}
+
+/* App 外殼 */
+.app{display:flex;min-height:100%}
+.rail{width:64px;flex:none;padding:16px 10px;display:flex;flex-direction:column;gap:6px;align-items:center}
+.rail .logo{width:34px;height:34px;border-radius:10px;border:1px solid var(--border);background:var(--surface);display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--accent-ink);margin-bottom:14px}
+.rail button{width:40px;height:40px;border-radius:var(--rc);border:1px solid transparent;background:transparent;color:var(--ink3);display:grid;place-items:center}
+.rail button[aria-current=true]{background:var(--surface);border-color:var(--border);color:var(--accent-strong)}
+.rail .me{margin-top:auto;width:34px;height:34px;border-radius:50%;background:var(--inset);display:grid;place-items:center;font-size:13px;color:var(--ink2)}
+.content{flex:1;min-width:0;padding:28px 32px 48px}
+.ptitle{font-size:26px;font-weight:600;line-height:1.25}
+.psub{color:var(--ink3);margin-top:4px}
+
+/* 等待與完成 */
+.center{min-height:calc(100vh - 140px);display:grid;place-items:center;padding:24px}
+.pulse{width:96px;height:96px;position:relative;display:grid;place-items:center;margin:0 auto}
+.pulse::before,.pulse::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--accent-soft2);animation:pl 1.8s infinite}
+.pulse::after{animation-delay:.9s}
+.pulse span{position:relative;width:56px;height:56px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:grid;place-items:center;color:var(--accent-ink)}
+@keyframes pl{0%{transform:scale(.55);opacity:.8}100%{transform:scale(1.05);opacity:0}}
+@media (prefers-reduced-motion:reduce){.pulse::before,.pulse::after{animation:none;opacity:.4}}
+.big{font-size:44px;font-weight:600;font-variant-numeric:tabular-nums}
+.case{background:var(--inset);border-radius:10px;padding:14px;text-align:center;margin:18px 0}
+.case b{font-size:22px;letter-spacing:1px}
+
+/* 精簡陪辦畫面 */
+.steps{display:flex;gap:6px;flex-wrap:wrap}
+.steps span{padding:4px 10px;border-radius:999px;background:var(--inset);font-size:13px;color:var(--ink3);display:inline-flex;gap:6px;align-items:center}
+.steps span.done{color:var(--ink2)}
+.steps span.cur{background:var(--surface);border:1px solid var(--accent);color:var(--accent-ink);font-weight:600}
+.fieldrow{display:flex;align-items:center;gap:14px;padding:14px 18px;border-top:1px solid var(--divider)}
+.fieldrow:first-child{border-top:0}
+.fieldrow .nm{font-weight:600}
+.fieldrow.focus{background:var(--accent-soft)}
+.phoneline{display:flex;gap:10px;padding:12px 14px;background:var(--inset);border-radius:10px;font-size:14px}
+.script{padding:12px 14px;border-radius:10px;background:var(--accent-soft);color:var(--ink);font-size:14px}
+.script b{color:var(--accent-ink);font-size:13px;display:block;margin-bottom:2px}
+details.more summary{cursor:pointer;color:var(--ink3);font-size:13px;list-style:none;display:inline-flex;gap:6px;align-items:center}
+details.more summary::-webkit-details-marker{display:none}
+.log{font-size:13px;color:var(--ink2);display:grid;gap:6px;margin-top:10px}
+
+/* 命令列 */
+.cmd{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);width:min(620px,calc(100% - 40px));z-index:20}
+.cmdbox{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--pop);padding:8px 8px 8px 16px}
+.cmdbox input{flex:1;border:0;outline:none;font-size:16px;height:40px;background:transparent}
+.cmdbox .go{width:40px;height:40px;border-radius:10px;border:0;background:var(--accent-strong);color:#fff;display:grid;place-items:center}
+.cmdbox .go:disabled{background:var(--inset);color:var(--ink4)}
+.cmdpop{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--pop);padding:6px;margin-bottom:8px}
+.cmdpop button{display:flex;width:100%;align-items:center;gap:12px;border:0;background:transparent;text-align:left;padding:10px 12px;border-radius:8px}
+.cmdpop button[aria-selected=true],.cmdpop button:hover{background:var(--hover)}
+.cmdpop .grp{padding:6px 12px 2px;font-size:12px;color:var(--ink3)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr)}
+.stats>div{padding:16px 20px;border-left:1px solid var(--divider)}
+.stats>div:first-child{border-left:0}
+.stats b{display:block;font-size:24px;font-weight:600;margin-top:6px;font-variant-numeric:tabular-nums}
+@media (max-width:640px){.stats{grid-template-columns:1fr 1fr}.stats>div:nth-child(3){border-left:0}}
+.list .item{display:flex;align-items:center;gap:12px;padding:12px 18px;border-top:1px solid var(--divider)}
+.list .item:first-child{border-top:0}
+button.item{width:100%;border:0;background:transparent;text-align:left}
+button.item:hover{background:var(--hover)}
+button.item[aria-current=true]{background:var(--accent-soft)}
+
+/* 精靈 */
+.wiz{max-width:720px;margin:0 auto;padding:36px 24px 64px}
+.wizsteps{display:flex;gap:8px;margin-bottom:28px}
+.wizsteps div{flex:1}
+.wizsteps i{display:block;height:4px;border-radius:2px;background:var(--border)}
+.wizsteps div.on i{background:var(--accent)}
+.wizsteps span{font-size:13px;color:var(--ink3);display:block;margin-top:8px}
+.wizsteps div.cur span{color:var(--ink);font-weight:600}
+.opt{display:flex;gap:14px;align-items:flex-start;width:100%;text-align:left;padding:18px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);margin-bottom:10px}
+.opt:hover{background:var(--hover)}
+.opt[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent)}
+.radio{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--ink4);flex:none;margin-top:2px;display:grid;place-items:center}
+[aria-pressed=true] .radio{border-color:var(--accent-strong)}
+[aria-pressed=true] .radio::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--accent-strong)}
+
+/* 下一步卡 */
+.split{display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start}
+@media (max-width:860px){.split{grid-template-columns:1fr}}
+.phone{width:280px;height:560px;border:1.5px solid var(--border2);border-radius:34px;background:var(--surface);padding:8px;box-shadow:var(--pop);margin:0 auto}
+.phone .scr{height:100%;border-radius:26px;overflow:hidden;background:#fff;display:flex;flex-direction:column}
+.phone .top{height:52px;background:linear-gradient(135deg,#5AB4C5,#4B8DBF);color:#fff;display:flex;align-items:center;padding:0 14px;font-weight:600;font-size:14px}
+.phone .bd{padding:16px;display:grid;gap:10px;font-size:15px;overflow:auto}
+.phone .pf{border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;font-size:14px}
+.phone .pf.hl{border-color:var(--warn);background:var(--warn-soft)}
+.nextcard{padding:28px}
+.nextcard .eyebrow{font-size:13px;color:var(--accent-ink);font-weight:600}
+.nextcard h2{font-size:28px;line-height:1.3;margin:6px 0 10px}
+.progress{height:6px;border-radius:3px;background:var(--inset);overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent)}
+
+/* 案件列表 */
+.inbox{display:grid;grid-template-columns:320px 1fr;min-height:100vh}
+@media (max-width:860px){.inbox{grid-template-columns:1fr}}
+.inbox .left{border-right:1px solid var(--border);padding:20px 14px;background:var(--canvas)}
+.inbox .right{padding:28px 32px 48px;min-width:0}
+
+.toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+.mx{max-width:760px}
+@media (max-width:640px){.content{padding:20px 16px 40px}.code{--cw:44px;gap:6px}.code .box:nth-child(3){margin-right:6px}}
+</style>
+</head>
+<body>
+<div class="lab">
+  <div class="labbar">
+    <b>陪辦工作台 UX 實驗室</b>
+    <div class="tabs" id="tabs" role="group" aria-label="切換方案"></div>
+    <span class="sp"></span>
+    <button class="lbtn" data-act="reset">重新開始</button>
+    <button class="lbtn" data-act="notes" id="notesBtn">說明</button>
+  </div>
+  <div class="labmain" id="labmain">
+    <div class="stage" id="stage"></div>
+    <aside class="notes" id="notes"></aside>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ================= 圖示 ================= */
+const P={
+  home:'<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  hand:'<path d="M11 14h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 16"/><path d="m7 20 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9"/><path d="m2 15 6 6"/>',
+  hist:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
+  shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  form:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 13h6M10 17h6M8 13h.01M8 17h.01"/>',
+  phone:'<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/>',
+  send:'<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>',
+  arrowR:'<path d="M5 12h14M12 5l7 7-7 7"/>',arrowL:'<path d="M19 12H5M12 19l-7-7 7-7"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',plus:'<path d="M12 5v14M5 12h14"/>',
+  lock:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  alert:'<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  power:'<path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/>',
+  mic:'<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/>',
+  id:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 8h2M15 12h2M7 16h10"/>',
+  hl:'<path d="M3 3h4M3 3v4M21 3h-4M21 3v4M3 21h4M3 21v-4M21 21h-4M21 21v-4"/><path d="M9 12h6"/>',
+  chev:'<path d="m9 18 6-6-6-6"/>',x:'<path d="M18 6 6 18M6 6l12 12"/>',
+};
+const ic=(n,s=18)=>`<svg class="ic" style="width:${s}px;height:${s}px" viewBox="0 0 24 24" aria-hidden="true">${P[n]||''}</svg>`;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=s=>document.querySelector(s);
+
+/* ================= 模擬資料 ================= */
+const SERVICES=[
+  {id:'card',title:'敬老卡申請',cat:'社會福利',min:8,n:5,desc:'年滿 65 歲、設籍臺北市',
+   steps:[
+    {t:'申辦說明',guide:'這次要幫您申請「敬老卡」。辦好之後，搭公車、捷運都有優惠。',script:'先口頭確認長輩年滿 65 歲、戶籍在臺北市，再按「下一步」。',f:[]},
+    {t:'確認身分',guide:'接下來需要您的基本資料，手機會一項一項問您。',script:'一次請長輩授權一項，請長輩自己看清楚再按「同意」。',f:[{k:'name',l:'姓名',s:1},{k:'bday',l:'出生日期',s:1},{k:'id',l:'身分證字號',s:1,h:1}]},
+    {t:'地址與電話',guide:'卡片會寄到您家，需要地址與電話。',script:'跟長輩說明卡片會寄到戶籍地址。',f:[{k:'addr',l:'戶籍地址',s:1},{k:'tel',l:'聯絡電話',s:1}]},
+    {t:'領卡方式',guide:'請在手機上選擇怎麼拿到卡片。',script:'請長輩在手機上選「郵寄」或「到區公所領」。',f:[{k:'pick',l:'領卡方式',s:0}]},
+    {t:'確認送出',guide:'請檢查資料，沒問題就按「確認送出」。',script:'送出鍵只有長輩能按，請耐心等候。',f:[]}]},
+  {id:'event',title:'里民活動報名',cat:'社區活動',min:4,n:2,desc:'重陽敬老餐會，名額有限',
+   steps:[
+    {t:'活動說明',guide:'正得里「重陽敬老餐會」，10 月 29 日中午。',script:'確認長輩那天有空，再按「下一步」。',f:[]},
+    {t:'聯絡資料',guide:'報名需要您的姓名與電話。',script:'請長輩授權姓名與電話。',f:[{k:'name',l:'姓名',s:1},{k:'tel',l:'聯絡電話',s:1}]},
+    {t:'確認送出',guide:'請檢查資料，沒問題就按「確認送出」。',script:'送出鍵只有長輩能按。',f:[]}]},
+];
+const HISTORY=[
+  {who:'王○明',svc:'敬老卡申請',st:'已送出',tone:'ok',t:'09:12'},
+  {who:'林○珠',svc:'里民活動報名',st:'已送出',tone:'ok',t:'昨天'},
+  {who:'陳○雄',svc:'敬老卡申請',st:'長輩婉拒',tone:'',t:'昨天'},
+];
+
+/* ================= 方案說明 ================= */
+const V={
+ A:{name:'一個輸入框',sum:'打開就是大大的配對碼輸入框，其他東西全部收起來。',
+    why:['最常做的事只有一件：輸入長輩念的 6 位數','業務改成輸入框下方的小選項，預設上次辦的','守則濃縮成一行，需要時再展開'],
+    trade:['第一次使用的人不一定知道業務可以換','統計資訊被移到別頁'],fit:'里長、家人：偶爾用、一次只陪一位長輩。'},
+ B:{name:'三步驟',sum:'一次只問一件事：選業務 → 輸入號碼 → 等長輩同意。',
+    why:['每一頁只有一個決定，按鈕很大','上方進度條讓人知道還剩幾步','最不容易迷路，也適合當教學'],
+    trade:['熟手會覺得多按了一頁','畫面空白較多'],fit:'第一次使用的里長、家人。'},
+ C:{name:'命令列',sum:'像參考圖底部的「Ask」列：一個萬用輸入列，打數字就是配對碼，打字就是找業務。',
+    why:['首頁保留指標與今日紀錄，但輸入永遠在固定位置','按「/」就能開始輸入，不用找','打數字自動辨識成配對碼，按 Enter 送出'],
+    trade:['需要學一個新習慣','對不熟電腦的人不夠直覺'],fit:'1999 客服：一天處理很多件、習慣鍵盤。'},
+ D:{name:'案件列表',sum:'左邊是今天的案件，右邊是內容；沒選案件時，右邊就是輸入框。',
+    why:['同時陪多位長輩時，一眼看到誰在等','「+ 新陪辦」固定在列表最上方','空狀態本身就是輸入配對碼的地方'],
+    trade:['只陪一位長輩時，左欄有點多餘','窄螢幕要改成上下排'],fit:'1999 客服、里辦公處值班人員。'},
+ E:{name:'下一步卡',sum:'陪辦進行中只顯示「現在要做的一件事」，旁邊是長輩手機的畫面。',
+    why:['不用看整張欄位表，只看一句話和一顆按鈕','左邊看到長輩手機上的樣子，比較好口頭引導','建議台詞直接放在按鈕下方'],
+    trade:['想跳步驟或總覽時要多點一下','手機畫面是示意，需要和 App 保持一致'],fit:'所有人；特別是陪辦進行中容易慌的情境。'},
+ F:{name:'精簡現版',sum:'保留目前的結構，只做減法：輸入框移到最上面、業務改成下拉、其他摺疊。',
+    why:['工程改動最小，可以最快上線','跟現在的版本最像，不用重新學','指標與守則仍在，但不搶主角'],
+    trade:['畫面仍然比 A 擁擠','本質上還是表單式的頁面'],fit:'想先小改、之後再決定大方向時。'},
+};
+const ORDER=['A','B','C','D','E','F'];
+
+/* ================= 狀態 ================= */
+let cur=(()=>{try{return localStorage.getItem('lab-v')||'A'}catch(e){return 'A'}})();
+let favs=(()=>{try{return JSON.parse(localStorage.getItem('lab-fav')||'[]')}catch(e){return []}})();
+let notesOpen=true;
+let S;
+function fresh(){return {screen:'entry',svc:'card',code:'',err:'',method:'code',wiz:0,step:0,fields:{},focus:null,log:[],t0:0,cmd:'',cmdSel:0,sel:null,newOpen:false,submitting:false,caseNo:''};}
+S=fresh();
+const svc=()=>SERVICES.find(s=>s.id===S.svc);
+const timers=[];
+function later(fn,ms){timers.push(setTimeout(()=>{fn();render()},ms))}
+function clearTimers(){timers.forEach(clearTimeout);timers.length=0}
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2200)}
+function log(m){S.log.unshift({m,t:new Date().toTimeString().slice(0,5)})}
+
+/* ================= 共用動作 ================= */
+function startRequest(){
+  if(S.code.length!==6){S.err='請輸入完整的 6 位數號碼';return}
+  if(S.code==='000000'){S.err='找不到這組號碼。請長輩在手機上按「換一組號碼」，再念一次給您聽。';return}
+  S.err='';S.screen='waiting';S.t0=Date.now();log('送出陪辦請求');
+  later(()=>{S.screen='session';S.step=0;S.fields={};log('長輩同意接受陪辦');toast('（模擬）長輩在手機上按了「好，請他幫我」')},2200);
+}
+function fieldDone(k){return ['ok','chosen'].includes(S.fields[k])}
+function stepDone(i){const st=svc().steps[i];return st.f.every(f=>fieldDone(f.k))}
+function nextNeeded(){const st=svc().steps[S.step];return st.f.find(f=>!fieldDone(f.k))}
+function ask(k){
+  const f=svc().steps[S.step].f.find(x=>x.k===k);S.fields[k]='wait';S.focus=k;log(`請長輩${f.s?'授權':'選擇'}「${f.l}」`);
+  later(()=>{S.fields[k]=f.s?'ok':'chosen';S.focus=null;log(`長輩已${f.s?'同意提供':'選擇'}「${f.l}」`)},1500);
+}
+function go(d){S.step=Math.max(0,Math.min(svc().steps.length-1,S.step+d));S.focus=null;log(`帶到第 ${S.step+1} 步：${svc().steps[S.step].t}`)}
+function submit(){S.submitting=true;log('請長輩確認送出');later(()=>{S.screen='done';S.caseNo='TP-2611-'+String(Math.floor(Math.random()*9000)+1000);HISTORY.unshift({who:'王○明',svc:svc().title,st:'已送出',tone:'ok',t:'剛剛'})},2200)}
+function endSession(){if(confirm('結束這次陪辦？長輩手機上的協助畫面也會關閉。')){clearTimers();S=fresh();toast('已結束陪辦')}}
+
+/* ================= 共用畫面片段 ================= */
+function codeInput(size='',opts={}){
+  const d=S.code.padEnd(6,' ').split('');
+  const curIdx=Math.min(S.code.length,5);
+  return `<div class="code ${size}" data-code>${d.map((c,i)=>`<div class="box ${S.err&&S.code.length===6?'err':''}" data-i="${i}">${c.trim()}</div>`).join('')}
+   <input id="codein" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-label="配對碼，6 位數字" value="${S.code}" ${opts.autofocus!==false?'data-autofocus':''}></div>`;
+}
+const errBox=()=>S.err?`<div class="errmsg" role="alert">${ic('alert',16)}${esc(S.err)}</div>`:'';
+function rail(active='work'){
+  const b=(k,i,l)=>`<button aria-label="${l}" title="${l}" ${active===k?'aria-current="true"':''}>${ic(i,20)}</button>`;
+  return `<nav class="rail"><div class="logo">北</div>${b('work','hand','工作台')}${b('hist','hist','陪辦紀錄')}${b('audit','shield','稽核紀錄')}${b('form','form','我的表單')}<div class="me" title="陳美玲・里長">陳</div></nav>`;
+}
+function waiting(){
+  const left=Math.max(0,120-Math.floor((Date.now()-S.t0)/1000));
+  return `<div class="center"><div class="panel pad" style="max-width:480px;width:100%;text-align:center;padding:36px 32px">
+    <div class="pulse"><span>${ic('phone',24)}</span></div>
+    <h2 style="font-size:22px;margin-top:18px">等待 王○明 回應</h2>
+    <p class="muted" style="margin-top:4px">「${svc().title}」的陪辦請求已送出</p>
+    <div class="big" style="margin-top:18px" data-countdown>${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}</div>
+    <p class="small muted">後請求自動失效</p>
+    <div class="notice" style="margin-top:18px;text-align:left">${ic('info')}<span>請長輩看手機，台北通首頁最上方會出現您的名字，由長輩自己決定要不要接受。</span></div>
+    <div style="margin-top:18px"><button class="btn" data-act="cancel">取消請求</button></div></div></div>`;
+}
+function done(){
+  return `<div class="center"><div class="panel pad" style="max-width:480px;width:100%;text-align:center;padding:36px 32px">
+    <div style="width:64px;height:64px;border-radius:50%;background:var(--ok-soft);color:var(--ok);display:grid;place-items:center;margin:0 auto">${ic('check',32)}</div>
+    <h2 style="font-size:22px;margin-top:16px">長輩已完成送出</h2><p class="muted">${svc().title}・王○明</p>
+    <div class="case"><div class="cap">案件編號</div><b>${S.caseNo}</b></div>
+    <p class="small muted">長輩的個資已直接送到受理機關，陪辦紀錄中不保留任何個資。</p>
+    <div style="margin-top:20px"><button class="btn primary lg" data-act="reset">${ic('plus')}開始新的陪辦</button></div></div></div>`;
+}
+function fieldStatus(k,s){const v=S.fields[k];
+  if(v==='ok')return '<span class="dot ok">長輩已授權</span>';
+  if(v==='chosen')return '<span class="dot ok">長輩已選擇</span>';
+  if(v==='wait')return '<span class="dot warn">等長輩回應</span>';
+  return `<span class="dot">${s?'尚未授權':'尚未選擇'}</span>`;}
+/* 精簡版陪辦畫面（A、B、C、D、F 共用） */
+function session(){
+  const sv=svc(),st=sv.steps[S.step],last=S.step===sv.steps.length-1,busy=Object.values(S.fields).includes('wait')||S.submitting;
+  return `<div class="mx">
+   <div class="row" style="align-items:flex-start;margin-bottom:16px">
+     <button class="btn ghost" data-act="cancel" aria-label="回到工作台" style="padding:0 8px">${ic('arrowL')}</button>
+     <div class="sp"><div class="ptitle" style="font-size:22px">${sv.title}</div><div class="muted small">陪辦對象 王○明</div></div>
+     <span class="dot accent" style="margin-top:8px">陪辦中</span>
+     <button class="btn danger" data-act="end">${ic('power',16)}結束</button></div>
+   <div class="steps" style="margin-bottom:14px">${sv.steps.map((s,i)=>`<span class="${i===S.step?'cur':(i<S.step?'done':'')}">${i<S.step?ic('check',14):(i+1)} ${s.t}</span>`).join('')}</div>
+   <div class="panel">
+     <div class="pad" style="padding-bottom:14px">
+       <div class="cap" style="color:var(--accent-ink);font-weight:600">第 ${S.step+1} 步，共 ${sv.steps.length} 步</div>
+       <h2 style="font-size:22px;margin:2px 0 12px">${st.t}</h2>
+       <div class="phoneline">${ic('phone',16)}<span><span class="cap">長輩手機上顯示</span><br>「${st.guide}」</span></div>
+       <div class="script" style="margin-top:10px"><b>建議您這樣說</b>${st.script}</div>
+     </div>
+     ${st.f.length?`<div style="border-top:1px solid var(--divider)">${st.f.map(f=>`<div class="fieldrow ${S.focus===f.k?'focus':''}">
+        <div class="sp"><span class="nm">${f.l}</span> ${f.s?`<span class="tag ${f.h?'danger':'warn'}"><i></i>${f.h?'高敏感':'個資'}</span>`:'<span class="tag">長輩自選</span>'}
+        <div class="small muted">${f.s?'●●●●●● 您看不到內容':'長輩在手機上選'}</div></div>
+        ${fieldStatus(f.k,f.s)}
+        ${fieldDone(f.k)?'':`<button class="btn ${S.fields[f.k]==='wait'?'':'primary'}" data-act="ask" data-k="${f.k}" ${busy?'disabled':''}>${f.s?'請長輩授權':'請長輩選擇'}</button>`}
+      </div>`).join('')}</div>`:''}
+   </div>
+   <div class="row" style="margin-top:16px">
+     <button class="btn lg" data-act="prev" ${S.step===0||busy?'disabled':''}>${ic('arrowL')}上一步</button><span class="sp"></span>
+     ${last?`<button class="btn primary lg" data-act="submit" ${busy?'disabled':''}>${S.submitting?'長輩確認中…':'請長輩確認送出'}</button>`
+           :`<button class="btn primary lg" data-act="next" ${busy?'disabled':''}>下一步 ${ic('arrowR')}</button>`}
+   </div>
+   <details class="more" style="margin-top:18px"><summary>${ic('hist',14)}即時動態（${S.log.length}）</summary><div class="log">${S.log.map(l=>`<div class="row"><span class="sp">${esc(l.m)}</span><span class="cap">${l.t}</span></div>`).join('')}</div></details>
+  </div>`;
+}
+function stage(entry){
+  if(S.screen==='waiting')return waiting();
+  if(S.screen==='done')return done();
+  if(S.screen==='session')return session();
+  return entry();
+}
+
+/* ================= A 一個輸入框 ================= */
+function vA(){
+  const entry=()=>`<div style="max-width:640px;margin:7vh auto 0;text-align:center">
+     <p class="muted">陳美玲，午安</p>
+     <h1 style="font-size:30px;line-height:1.35;margin:6px 0 24px">請長輩念出手機上的<br>6 位數號碼</h1>
+     ${codeInput('lg')}
+     <div style="min-height:28px;margin-top:12px;display:flex;justify-content:center">${errBox()}</div>
+     <div style="margin:14px 0 8px" class="cap">要陪長輩辦什麼？</div>
+     <div class="chips" style="justify-content:center">${SERVICES.map(s=>`<button class="chip" data-act="svc" data-k="${s.id}" aria-pressed="${S.svc===s.id}">${s.title}<span class="muted small">約 ${s.min} 分</span></button>`).join('')}</div>
+     <div style="margin-top:24px"><button class="btn primary xl" data-act="start" ${S.code.length===6?'':'disabled'}>${ic('send')}開始陪辦</button></div>
+     <div style="margin-top:20px" class="small muted">長輩找不到號碼？請他打開台北通首頁的「請人陪我辦」。<button class="link" data-act="toast" data-m="（示意）改用姓名、生日、身分證末四碼查找">改用身分資料</button></div>
+     <div class="small muted" style="margin-top:28px;display:flex;gap:6px;justify-content:center;align-items:center">${ic('shield',14)}您看不到長輩個資，授權與送出只有長輩能按。</div>
+   </div>`;
+  return `<div class="app">${rail()}<main class="content">${stage(entry)}</main></div>`;
+}
+
+/* ================= B 三步驟 ================= */
+function vB(){
+  if(S.screen!=='entry')return `<div class="app">${rail()}<main class="content">${stage(()=>'')}</main></div>`;
+  const names=['選擇業務','輸入號碼','送出請求'];
+  const bar=`<div class="wizsteps">${names.map((n,i)=>`<div class="${i<=S.wiz?'on':''} ${i===S.wiz?'cur':''}"><i></i><span>${i+1}　${n}</span></div>`).join('')}</div>`;
+  let body;
+  if(S.wiz===0)body=`<h1 class="ptitle">要陪長輩辦什麼？</h1><p class="psub" style="margin-bottom:20px">選一項，下一步再找長輩。</p>
+     ${SERVICES.map(s=>`<button class="opt" data-act="svc" data-k="${s.id}" aria-pressed="${S.svc===s.id}"><span class="radio"></span><span class="sp"><b style="font-size:17px">${s.title}</b><br><span class="muted small">${s.desc}・約 ${s.min} 分鐘・${s.n} 項個資需長輩授權</span></span></button>`).join('')}
+     <div class="row" style="margin-top:20px"><span class="sp"></span><button class="btn primary xl" data-act="wiz" data-d="1">下一步 ${ic('arrowR')}</button></div>`;
+  else if(S.wiz===1)body=`<h1 class="ptitle">請長輩念出手機上的號碼</h1><p class="psub" style="margin-bottom:24px">長輩打開台北通首頁，按「請人陪我辦」，就會看到 6 位數號碼。</p>
+     <div style="text-align:center">${codeInput('lg')}<div style="min-height:28px;margin-top:12px;display:flex;justify-content:center">${errBox()}</div></div>
+     <div class="row" style="margin-top:20px"><button class="btn lg" data-act="wiz" data-d="-1">${ic('arrowL')}上一步</button><span class="sp"></span><button class="btn primary xl" data-act="wiz" data-d="1" ${S.code.length===6?'':'disabled'}>下一步 ${ic('arrowR')}</button></div>`;
+  else body=`<h1 class="ptitle">確認後送出</h1><p class="psub" style="margin-bottom:20px">長輩手機會收到通知，由長輩自己決定要不要接受。</p>
+     <div class="panel" style="margin-bottom:14px"><div class="list">
+       <div class="item"><span class="muted" style="width:72px">業務</span><b class="sp">${svc().title}</b><button class="link" data-act="wizto" data-d="0">修改</button></div>
+       <div class="item"><span class="muted" style="width:72px">號碼</span><b class="sp" style="letter-spacing:4px">${S.code}</b><button class="link" data-act="wizto" data-d="1">修改</button></div>
+     </div></div>
+     <div class="notice">${ic('shield')}<span>您看不到長輩的個資內容；授權與送出只有長輩本人能按。</span></div>
+     <div style="min-height:28px;margin-top:12px">${errBox()}</div>
+     <div class="row" style="margin-top:12px"><button class="btn lg" data-act="wiz" data-d="-1">${ic('arrowL')}上一步</button><span class="sp"></span><button class="btn primary xl" data-act="start">${ic('send')}送出請求</button></div>`;
+  return `<div class="app">${rail()}<main style="flex:1"><div class="wiz">${bar}${body}</div></main></div>`;
+}
+
+/* ================= C 命令列 ================= */
+function cmdItems(){
+  const q=S.cmd.trim(),digits=/^\d+$/.test(q);
+  const items=[];
+  if(digits){[...SERVICES].sort((a,b)=>(b.id===S.svc)-(a.id===S.svc)).forEach(s=>items.push({k:'code',svc:s.id,label:q.length===6?`以號碼 ${q} 開始陪辦「${s.title}」`:`配對碼還差 ${6-q.length} 位數…`,sub:s.cat,dis:q.length!==6}));}
+  else{SERVICES.filter(s=>!q||(s.title+s.cat).includes(q)).forEach(s=>items.push({k:'svc',svc:s.id,label:`陪辦「${s.title}」`,sub:'接著輸入配對碼'}));
+    if(!q)items.push({k:'nav',label:'查看陪辦紀錄',sub:'R'},{k:'nav',label:'建立民眾表單',sub:'F'});}
+  return items;
+}
+function vC(){
+  const entry=()=>`<h1 class="ptitle">工作台</h1><p class="psub">陳美玲・正得里辦公處</p>
+    <div class="panel stats" style="margin-top:22px">${[['進行中','0'],['等待長輩回應','0'],['今日完成',String(HISTORY.filter(h=>h.t==='剛剛'||h.t==='09:12').length)],['稽核紀錄','12']].map(([a,b])=>`<div><span class="muted small">${a}</span><b>${b}</b></div>`).join('')}</div>
+    <div class="panel" style="margin-top:16px"><div class="pad" style="padding-bottom:10px"><b>今天的陪辦</b></div><div class="list">${HISTORY.map(h=>`<div class="item"><span class="sp"><b style="font-size:14px">${h.svc}</b><br><span class="small muted">${h.who}・${h.t}</span></span><span class="dot ${h.tone}">${h.st}</span></div>`).join('')}</div></div>
+    <div style="height:120px"></div>
+    <div class="cmd"><div id="cmdpop"></div>
+      <div class="cmdbox">${ic('search',18)}<input id="cmdin" value="${esc(S.cmd)}" placeholder="輸入長輩念的 6 位數號碼，或搜尋業務…" aria-label="輸入配對碼或搜尋業務" autocomplete="off" role="combobox" aria-controls="cmdpop" data-autofocus><span class="kbd">/</span>
+      <button class="go" data-act="cmdgo" aria-label="開始" id="cmdgo">${ic('arrowR')}</button></div>
+      <div style="min-height:24px;margin-top:6px;display:flex;justify-content:center">${errBox()}</div></div>`;
+  return `<div class="app">${rail()}<main class="content">${stage(entry)}</main></div>`;
+}
+
+/* ================= D 案件列表 ================= */
+function vD(){
+  const live=S.screen==='entry'?null:{who:'王○明',svc:svc().title,st:S.screen==='waiting'?'等待長輩回應':S.screen==='done'?'已送出':'陪辦中',tone:S.screen==='waiting'?'warn':S.screen==='done'?'ok':'accent'};
+  const showNew=S.screen==='entry';
+  const left=`<div class="left">
+     <button class="btn primary lg block" data-act="dnew">${ic('plus')}新陪辦</button>
+     ${live?`<div class="cap" style="margin:18px 6px 6px">進行中</div><div class="panel"><button class="item list" style="display:flex;padding:12px 14px;gap:10px" aria-current="${!showNew}" data-act="dsel"><span class="sp"><b style="font-size:14px">${live.svc}</b><br><span class="small muted">${live.who}</span></span><span class="dot ${live.tone}">${live.st}</span></button></div>`:''}
+     <div class="cap" style="margin:18px 6px 6px">今天</div>
+     <div class="panel list">${HISTORY.map(h=>`<div class="item" style="padding:12px 14px"><span class="sp"><b style="font-size:14px">${h.svc}</b><br><span class="small muted">${h.who}・${h.t}</span></span><span class="dot ${h.tone}">${h.st}</span></div>`).join('')}</div>
+   </div>`;
+  const entry=()=>`<div style="max-width:560px">
+     <h1 class="ptitle">新陪辦</h1><p class="psub" style="margin-bottom:22px">請長輩念出手機上「請人陪我辦」的號碼。</p>
+     ${codeInput('')}<div style="min-height:28px;margin-top:10px">${errBox()}</div>
+     <div class="field" style="margin-top:14px;max-width:320px"><label for="dsvc">業務</label><select id="dsvc" class="input" data-act="svcsel">${SERVICES.map(s=>`<option value="${s.id}" ${S.svc===s.id?'selected':''}>${s.title}</option>`).join('')}</select></div>
+     <div style="margin-top:22px"><button class="btn primary lg" data-act="start" ${S.code.length===6?'':'disabled'}>${ic('send')}送出請求</button></div>
+     <p class="small muted" style="margin-top:22px">${ic('shield',14)} 您看不到長輩個資，授權與送出只有長輩能按。</p></div>`;
+  return `<div class="app">${rail()}<div class="inbox" style="flex:1">${left}<main class="right">${stage(entry)}</main></div></div>`;
+}
+
+/* ================= E 下一步卡 ================= */
+function vE(){
+  const entry=()=>`<div style="max-width:560px;margin:8vh auto 0">
+     <div class="panel pad" style="padding:28px"><h1 style="font-size:24px">開始陪辦</h1><p class="muted" style="margin:4px 0 20px">請長輩念出手機上的 6 位數號碼</p>
+       ${codeInput('')}<div style="min-height:28px;margin-top:10px">${errBox()}</div>
+       <div class="row" style="margin-top:14px;flex-wrap:wrap"><div class="seg">${SERVICES.map(s=>`<button data-act="svc" data-k="${s.id}" aria-pressed="${S.svc===s.id}">${s.title}</button>`).join('')}</div><span class="sp"></span>
+       <button class="btn primary lg" data-act="start" ${S.code.length===6?'':'disabled'}>開始 ${ic('arrowR')}</button></div></div></div>`;
+  if(S.screen!=='session')return `<div class="app">${rail()}<main class="content">${stage(entry)}</main></div>`;
+  const sv=svc(),st=sv.steps[S.step],need=nextNeeded(),last=S.step===sv.steps.length-1,waitK=Object.keys(S.fields).find(k=>S.fields[k]==='wait');
+  let eyebrow,title,btn,hint;
+  if(S.submitting){eyebrow='等待長輩';title='長輩正在手機上確認資料';btn=`<button class="btn xl" disabled>長輩確認中…</button>`;hint='送出鍵只有長輩能按，請耐心等候。'}
+  else if(waitK){const f=st.f.find(x=>x.k===waitK);eyebrow='等待長輩';title=`請長輩看手機，決定要不要提供「${f.l}」`;btn=`<button class="btn xl" disabled><span class="dot warn">等長輩回應</span></button>`;hint='長輩可以按「先不要」，不會有任何處罰。'}
+  else if(need){eyebrow='現在請做';title=`請長輩${need.s?'授權':'選擇'}「${need.l}」`;btn=`<button class="btn primary xl" data-act="ask" data-k="${need.k}">${need.s?ic('lock'):ic('hand')}${need.s?'送出授權請求':'請長輩選擇'}</button>`;hint=st.script}
+  else if(!last){eyebrow=st.f.length?'這一步完成了':'現在請做';title=st.f.length?`可以進到「${sv.steps[S.step+1].t}」`:`向長輩說明「${st.t}」`;btn=`<button class="btn primary xl" data-act="next">下一步：${sv.steps[S.step+1].t} ${ic('arrowR')}</button>`;hint=st.script}
+  else{eyebrow='最後一步';title='請長輩檢查資料並按送出';btn=`<button class="btn primary xl" data-act="submit">${ic('check')}請長輩確認送出</button>`;hint=st.script}
+  const doneCount=sv.steps.filter((s,i)=>i<S.step).length;
+  const phone=`<div class="phone"><div class="scr"><div class="top">陳美玲里長 正在陪您</div><div class="bd">
+     <div class="cap">第 ${S.step+1} 步，共 ${sv.steps.length} 步</div><b style="font-size:19px">${st.t}</b><div style="color:var(--ink2)">${st.guide}</div>
+     ${st.f.map(f=>`<div class="pf ${S.focus===f.k?'hl':''}"><span>${f.s?ic('lock',14):''} ${f.l}</span>${fieldDone(f.k)?'<span class="dot ok">好了</span>':S.fields[f.k]==='wait'?'<span class="dot warn">請確認</span>':'<span class="cap">等待中</span>'}</div>`).join('')}
+     ${S.submitting?'<div class="pf hl"><b>確認送出</b></div>':''}</div></div></div>`;
+  return `<div class="app">${rail()}<main class="content">
+   <div class="row" style="margin-bottom:18px"><div class="sp"><div style="font-size:20px;font-weight:600">${sv.title}・王○明</div>
+     <div class="row" style="margin-top:8px;gap:12px"><div class="progress" style="width:220px"><i style="width:${(S.step/(sv.steps.length-1))*100}%"></i></div><span class="cap">${doneCount}／${sv.steps.length - 1} 步完成</span></div></div>
+     <button class="btn danger" data-act="end">${ic('power',16)}結束陪辦</button></div>
+   <div class="split">
+     <div><div class="cap" style="text-align:center;margin-bottom:8px">長輩手機上的畫面</div>${phone}</div>
+     <div>
+       <div class="panel nextcard"><div class="eyebrow">${eyebrow}</div><h2>${title}</h2>
+         <div class="script" style="margin-bottom:20px"><b>建議您這樣說</b>${hint}</div>${btn}
+         ${S.step>0&&!waitK&&!S.submitting?`<div style="margin-top:14px"><button class="link" data-act="prev">回上一步</button></div>`:''}</div>
+       <details class="more" style="margin-top:16px"><summary>${ic('chev',14)}這一步的所有欄位與動態</summary>
+         <div class="panel" style="margin-top:10px">${st.f.length?st.f.map(f=>`<div class="fieldrow"><span class="sp nm">${f.l}</span>${fieldStatus(f.k,f.s)}</div>`).join(''):'<div class="fieldrow muted">這一步沒有欄位</div>'}</div>
+         <div class="log">${S.log.slice(0,6).map(l=>`<div class="row"><span class="sp">${esc(l.m)}</span><span class="cap">${l.t}</span></div>`).join('')}</div></details>
+     </div></div></main></div>`;
+}
+
+/* ================= F 精簡現版 ================= */
+function vF(){
+  const entry=()=>`<h1 class="ptitle">工作台</h1><p class="psub">長輩同意後，您就能一步一步陪他完成申辦。</p>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;margin-top:22px;align-items:start" class="fgrid">
+     <div class="panel pad" style="padding:24px">
+       <div class="row" style="margin-bottom:16px"><b class="sp" style="font-size:16px">開始陪辦</b>
+         <div class="seg"><button aria-pressed="${S.method==='code'}" data-act="method" data-k="code">配對碼</button><button aria-pressed="${S.method==='id'}" data-act="method" data-k="id">身分資料</button></div></div>
+       ${S.method==='code'?`<div class="field"><label>長輩手機上的 6 位數號碼</label>${codeInput('')}</div><div style="min-height:28px;margin-top:8px">${errBox()}</div>`
+         :`<div class="row" style="flex-wrap:wrap;align-items:flex-end">${['長輩姓名','出生日期','身分證末四碼'].map(l=>`<div class="field" style="width:170px"><label>${l}</label><input class="input"></div>`).join('')}</div>
+           <div class="notice" style="margin-top:12px">${ic('shield')}<span>系統不會告訴您是否找到這個人，資料正確時長輩手機才會收到通知。</span></div>`}
+       <div class="row" style="margin-top:14px;align-items:flex-end;flex-wrap:wrap"><div class="field" style="width:260px"><label for="fsvc">業務</label><select id="fsvc" class="input" data-act="svcsel">${SERVICES.map(s=>`<option value="${s.id}" ${S.svc===s.id?'selected':''}>${s.title}（約 ${s.min} 分鐘）</option>`).join('')}</select></div>
+         <span class="sp"></span><button class="btn primary lg" data-act="${S.method==='code'?'start':'toast'}" data-m="（示意）以身分資料送出" ${S.method==='code'&&S.code.length!==6?'disabled':''}>${ic('send')}送出陪辦請求</button></div>
+     </div>
+     <div class="col" style="gap:12px">
+       <div class="panel"><div class="pad" style="padding:14px 18px"><span class="muted small">今日</span></div><div class="list">${[['進行中','0'],['已完成','1'],['稽核紀錄','12 筆・完整']].map(([a,b])=>`<div class="item" style="padding:10px 18px"><span class="sp small">${a}</span><b style="font-size:14px">${b}</b></div>`).join('')}</div></div>
+       <details class="panel pad more" style="padding:14px 18px"><summary>${ic('shield',14)}陪辦守則（5 條）</summary>
+         <ul class="small" style="padding-left:18px;color:var(--ink2);margin:10px 0 0"><li>您看不到長輩個資的內容</li><li>授權與送出只有長輩能按</li><li>長輩隨時可以結束</li><li>所有操作都有不可竄改的紀錄</li><li>絕不要求轉帳、密碼或驗證碼</li></ul></details>
+     </div></div>
+    <style>@media(max-width:900px){.fgrid{grid-template-columns:1fr!important}}</style>`;
+  return `<div class="app">${rail()}<main class="content">${stage(entry)}</main></div>`;
+}
+
+const VIEWS={A:vA,B:vB,C:vC,D:vD,E:vE,F:vF};
+
+/* ================= 繪製 ================= */
+function renderTabs(){
+  $('#tabs').innerHTML=ORDER.map(k=>`<button data-act="tab" data-k="${k}" aria-pressed="${cur===k}">${k}　${V[k].name}${favs.includes(k)?'<span class="star">★</span>':''}</button>`).join('');
+}
+function renderNotes(){
+  const v=V[cur];
+  $('#notes').innerHTML=`<div class="cap">方案 ${cur}</div><h2>${v.name}</h2><p style="color:var(--ink2)">${v.sum}</p>
+   <h4>為什麼這樣設計</h4><ul>${v.why.map(x=>`<li>${x}</li>`).join('')}</ul>
+   <h4>取捨</h4><ul>${v.trade.map(x=>`<li>${x}</li>`).join('')}</ul>
+   <h4>適合誰</h4><p style="font-size:14px;color:var(--ink2)">${v.fit}</p>
+   <button class="btn fav ${favs.includes(cur)?'primary':''}" data-act="fav">${favs.includes(cur)?'★ 已標記喜歡':'☆ 標記喜歡這個方向'}</button>
+   <div class="hint"><b>試玩方式</b><br>輸入任意 6 位數就會模擬長輩接受；輸入 <b>000000</b> 可以看錯誤狀態。陪辦中的授權、送出都會自動模擬長輩回應。</div>`;
+  $('#labmain').classList.toggle('nonotes',!notesOpen);
+  $('#labmain').classList.toggle('shownotes',notesOpen);
+}
+function render(){
+  const a=document.activeElement,focusId=a&&a.id,sel=a&&a.selectionStart;
+  renderTabs();renderNotes();
+  $('#stage').innerHTML=VIEWS[cur]();
+  updateCode();updateCmd();
+  const back=focusId&&document.getElementById(focusId);
+  if(back){back.focus();try{back.setSelectionRange(sel,sel)}catch(e){}}
+  else{const af=$('#stage [data-autofocus]');if(af&&S.screen==='entry')af.focus({preventScroll:true});}
+}
+function updateCmd(){
+  const pop=$('#cmdpop'),inp=$('#cmdin');if(!pop||!inp)return;
+  const open=document.activeElement===inp||S.cmd;const items=cmdItems();
+  S.cmdSel=Math.min(S.cmdSel,Math.max(0,items.length-1));
+  pop.innerHTML=open?`<div class="cmdpop" role="listbox">${items.map((it,i)=>`${i===0&&it.k==='code'?'<div class="grp">配對碼</div>':''}<button role="option" aria-selected="${i===S.cmdSel}" data-act="cmdpick" data-i="${i}" ${it.dis?'disabled style="opacity:.55"':''}>${ic(it.k==='code'?'send':it.k==='svc'?'hand':'chev',16)}<span class="sp">${esc(it.label)}</span><span class="cap">${esc(it.sub)}</span></button>`).join('')}</div>`:'';
+  const g=$('#cmdgo');if(g)g.disabled=!(items[S.cmdSel]&&!items[S.cmdSel].dis);
+}
+function updateCode(){
+  document.querySelectorAll('[data-code]').forEach(w=>{const inp=w.querySelector('input'),focused=document.activeElement===inp;
+    w.querySelectorAll('.box').forEach((b,i)=>{b.textContent=S.code[i]||'';b.classList.toggle('cur',focused&&i===Math.min(S.code.length,5));b.classList.toggle('err',!!S.err&&S.code.length===6)})});
+}
+setInterval(()=>{const el=$('[data-countdown]');if(el){const left=Math.max(0,120-Math.floor((Date.now()-S.t0)/1000));el.textContent=`${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}`}},1000);
+
+/* ================= 事件 ================= */
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-act]');if(!t)return;
+  const d=t.dataset,a=d.act;
+  if(a==='tab'){cur=d.k;try{localStorage.setItem('lab-v',cur)}catch(_){}clearTimers();S=fresh();render();$('#stage').scrollTop=0;return}
+  if(a==='reset'){clearTimers();S=fresh();return render()}
+  if(a==='notes'){notesOpen=!notesOpen;return renderNotes()}
+  if(a==='fav'){favs=favs.includes(cur)?favs.filter(x=>x!==cur):[...favs,cur];try{localStorage.setItem('lab-fav',JSON.stringify(favs))}catch(_){}return render()}
+  if(a==='toast')return toast(d.m);
+  if(a==='svc'){S.svc=d.k;return render()}
+  if(a==='method'){S.method=d.k;return render()}
+  if(a==='start'){startRequest();return render()}
+  if(a==='cancel'){clearTimers();S=fresh();return render()}
+  if(a==='ask'){ask(d.k);return render()}
+  if(a==='next'){go(1);return render()}
+  if(a==='prev'){go(-1);return render()}
+  if(a==='submit'){submit();return render()}
+  if(a==='end'){endSession();return render()}
+  if(a==='wiz'){const n=S.wiz+Number(d.d);if(n>=0&&n<=2){S.wiz=n;S.err=''}return render()}
+  if(a==='wizto'){S.wiz=Number(d.d);return render()}
+  if(a==='dnew'){if(S.screen!=='entry'&&S.screen!=='done'){toast('（示意）可以同時開好幾件，這裡先示範一件');return}clearTimers();S=fresh();return render()}
+  if(a==='dsel')return;
+  if(a==='cmdpick'||a==='cmdgo'){const it=cmdItems()[a==='cmdpick'?Number(d.i):S.cmdSel];return cmdRun(it)}
+});
+function cmdRun(it){
+  if(!it||it.dis)return;
+  if(it.k==='code'){S.svc=it.svc;S.code=S.cmd.trim();startRequest();if(!S.err)S.cmd='';return render()}
+  if(it.k==='svc'){S.svc=it.svc;S.cmd='';S.err='';const c=$('#cmdin');if(c){c.value='';c.placeholder=`已選「${svc().title}」，請輸入長輩念的 6 位數號碼`;c.focus()}toast(`已選「${svc().title}」`);return updateCmd()}
+  toast('（示意）切換頁面');
+}
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.id==='codein'){S.code=t.value.replace(/\D/g,'').slice(0,6);t.value=S.code;S.err='';
+    // A／D／E／F 打完 6 碼就把主要按鈕亮起來；不自動送出，避免念錯就送
+    const btn=$('#stage [data-act=start]')||$('#stage [data-act=wiz][data-d="1"]');
+    if(btn&&cur!=='B'||cur==='B'&&btn)btn.disabled=S.code.length!==6;
+    document.querySelectorAll('.errmsg').forEach(n=>n.remove());
+    return updateCode()}
+  if(t.id==='cmdin'){S.cmd=t.value;S.cmdSel=0;if(S.err){S.err='';document.querySelectorAll('.errmsg').forEach(n=>n.remove())}return updateCmd()}
+});
+document.addEventListener('change',e=>{if(e.target.dataset.act==='svcsel'){S.svc=e.target.value}});
+document.addEventListener('focusin',e=>{if(e.target.id==='codein')updateCode();if(e.target.id==='cmdin')updateCmd()});
+document.addEventListener('focusout',e=>{if(e.target.id==='codein')setTimeout(updateCode);if(e.target.id==='cmdin')setTimeout(()=>{if(!document.activeElement||!document.activeElement.closest('.cmd'))updateCmd()},150)});
+document.addEventListener('keydown',e=>{
+  const t=e.target;
+  if(t.id==='codein'&&e.key==='Enter'){e.preventDefault();if(cur==='B'){if(S.code.length===6){S.wiz=2;render()}}else{startRequest();render()}return}
+  if(t.id==='cmdin'){const items=cmdItems();
+    if(e.isComposing)return;
+    if(e.key==='ArrowDown'){e.preventDefault();S.cmdSel=Math.min(items.length-1,S.cmdSel+1);return updateCmd()}
+    if(e.key==='ArrowUp'){e.preventDefault();S.cmdSel=Math.max(0,S.cmdSel-1);return updateCmd()}
+    if(e.key==='Enter'){e.preventDefault();return cmdRun(items[S.cmdSel])}
+    if(e.key==='Escape'){S.cmd='';t.value='';t.blur();return updateCmd()}
+    return}
+  if(e.key==='/'&&cur==='C'&&!['INPUT','SELECT','TEXTAREA'].includes(t.tagName)){const c=$('#cmdin');if(c){e.preventDefault();c.focus()}}
+});
+render();
+</script>
+</body>
+</html>
