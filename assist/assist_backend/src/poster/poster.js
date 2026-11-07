@@ -228,12 +228,17 @@ export async function posterSvg(form, { layout = 'a4', url }) {
 /** 列印頁：直接內嵌 SVG，用瀏覽器「列印 → 存成 PDF」就是正確尺寸 */
 export function posterPage(form, svg, layout) {
   const L = LAYOUTS[layout] ?? LAYOUTS.a4;
+  // 一律印在 A4 上；比 A4 小的版型以實際尺寸置中，外框虛線是裁切線
+  const small = L.mm[0] < 210 || L.mm[1] < 297;
+  const printCss = small
+    ? `.sheet{width:210mm;height:297mm;padding:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8mm}.sheet svg{width:${L.mm[0]}mm;height:${L.mm[1]}mm;box-shadow:none;outline:0.2mm dashed #888}.cut{display:block}`
+    : `.sheet{padding:0}.sheet svg{width:210mm;height:297mm;box-shadow:none}`;
   return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(form.title)}｜${L.name}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <style>
-@page{size:${L.mm[0]}mm ${L.mm[1]}mm;margin:0}
+@page{size:A4 portrait;margin:0}
 html,body{margin:0;background:#E3E7E9;font-family:${FONT}}
 .bar{position:sticky;top:0;display:flex;gap:8px;align-items:center;padding:12px 16px;background:#fff;border-bottom:1px solid #CAD1D5;z-index:2;flex-wrap:wrap}
 .bar b{margin-right:auto;color:#22474E}
@@ -241,12 +246,13 @@ html,body{margin:0;background:#E3E7E9;font-family:${FONT}}
 .bar .primary{background:#5AB4C5;color:#fff}
 .sheet{padding:24px 16px;display:flex;justify-content:center}
 .sheet svg{width:min(100%,${L.mm[0] * 3.2}px);height:auto;box-shadow:0 8px 30px rgba(0,0,0,.18);background:#fff}
-@media print{.bar{display:none}.sheet{padding:0}.sheet svg{width:${L.mm[0]}mm;height:${L.mm[1]}mm;box-shadow:none}html,body{background:#fff}}
+.cut{display:none;font-size:9pt;color:#666;text-align:center}
+@media print{.bar{display:none}${printCss}html,body{background:#fff}}
 </style></head><body>
 <div class="bar"><b>${esc(form.title)}｜${L.name}</b>
 ${Object.entries(LAYOUTS).map(([k, v]) => `<a href="?layout=${k}"${k === layout ? ' class="primary"' : ''}>${v.name}</a>`).join('')}
 <a href="/api/forms/${encodeURIComponent(form.id)}/poster.pdf?layout=${layout}">下載 PDF</a><button onclick="png()">下載 PNG</button><button class="primary" onclick="print()">列印／存成 PDF</button></div>
-<div class="sheet">${svg}</div>
+<div class="sheet">${svg}${small ? `<div class="cut">沿虛線剪下，成品寬 ${L.mm[0] / 10} × 高 ${L.mm[1] / 10} cm。列印時請選「實際大小」或縮放 100%。</div>` : ''}</div>
 <script>
 function png(){const s=document.querySelector('.sheet svg');const vb=s.viewBox.baseVal;const c=document.createElement('canvas');const k=3;c.width=vb.width*k/1.0;c.height=vb.height*k/1.0;
 const x=new XMLSerializer().serializeToString(s);const img=new Image();img.onload=()=>{const g=c.getContext('2d');g.drawImage(img,0,0,c.width,c.height);c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=${JSON.stringify(`${form.title}_${L.name}.png`)};a.click()})};
