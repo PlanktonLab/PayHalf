@@ -411,7 +411,9 @@ class _NewRequestViewState extends State<_NewRequestView> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                '${r.elderName} 請您幫忙',
+                                r.serviceTitle != null
+                                    ? '${r.elderName} 在填「${r.serviceTitle}」時請您幫忙（已填的會直接帶入）'
+                                    : '${r.elderName} 請您幫忙',
                                 style: CText.body.copyWith(fontWeight: FontWeight.w600),
                               ),
                             ),
@@ -421,6 +423,10 @@ class _NewRequestViewState extends State<_NewRequestView> {
                                 byIdentity = false;
                                 error = null;
                                 elderId = r.elderId;
+                                if (r.serviceId != null &&
+                                    widget.c.serviceSummaries.any((s) => s['id'] == r.serviceId)) {
+                                  serviceId = r.serviceId;
+                                }
                               }),
                             ),
                           ],

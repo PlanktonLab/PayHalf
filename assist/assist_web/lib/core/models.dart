@@ -194,6 +194,10 @@ class HelpRequest {
   String get elderId => (raw['elder'] as Map)['id'] as String;
   String get elderName => (raw['elder'] as Map)['displayName'] as String;
   HelperInfo get helper => HelperInfo(Map<String, dynamic>.from(raw['helper'] as Map));
+
+  /// 長輩在某份表單裡求助：帶著那份表單
+  String? get serviceId => raw['serviceId'] as String?;
+  String? get serviceTitle => raw['serviceTitle'] as String?;
 }
 
 /// 可以加為信任的人：陪長輩辦過的人
