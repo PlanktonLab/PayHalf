@@ -56,7 +56,7 @@ class _Body extends StatelessWidget {
         const SizedBox(height: 14),
         Semantics(
           header: true,
-          child: Text(assistHelperDisplayName(h), textAlign: TextAlign.center, style: AssistText.largeTitle),
+          child: AssistHelperName(h, trusted: s.helperTrusted, textAlign: TextAlign.center, style: AssistText.largeTitle),
         ),
         const SizedBox(height: 8),
         Center(child: AssistHelperBadge(helper: h)),
@@ -70,10 +70,9 @@ class _Body extends StatelessWidget {
             id: 'request-${s.id}',
             text: () =>
                 '${assistHelperDisplayName(h)}想陪您辦理${s.serviceTitle}。'
-                '${h.verified ? '這是市府認證的身分。' : '對方不是公務人員，請確認您認識他。'}'
-                '對方看不到您的身分證、地址、電話，這些資料會直接填進申請表，交給承辦機關。每一項都會先問過您，最後也只有您能按送出。'
-                '市府、里長、一九九九都不會要您轉帳、給密碼或簡訊驗證碼。'
-                '要接受協助，請按好，請他幫我。不要的話，請按不要。',
+                '${s.helperTrusted ? '這是您信任的人。' : h.verified ? '這是市府認證的身分。' : '對方不是公務人員，請確認您認識他。'}'
+                '資料會一項一項先問您，送出也只有您能按。'
+                '要接受，請按好，請他幫我。不要的話，請按不要。',
           ),
         ),
         const SizedBox(height: 20),
@@ -87,35 +86,19 @@ class _Body extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        if (s.helperTrusted) ...[
-          AssistNotice(
-            icon: Icons.favorite_rounded,
-            color: AssistColors.green700,
-            background: AssistColors.green50,
-            title: '這是您信任的人',
-            text: '您之前把 ${h.name} 加為信任的人，所以他不用配對碼就能找您。不想再這樣，可以到「歷程與授權管理」移除。',
-          ),
-          const SizedBox(height: 12),
-        ] else if (!h.verified) ...[
+        // 一個畫面只留一個提醒：信任的人／不是公務人員。資料保護與防詐，在真正要提供資料時再講
+        if (!s.helperTrusted && !h.verified) ...[
           const AssistNotice(
             icon: Icons.info_rounded,
             color: TPColors.secondary800,
             background: TPColors.secondary100,
             title: '對方不是公務人員',
-            text: '請確認您認識他，而且是您自己想辦這件事。',
+            text: '請確認您認識他。',
           ),
           const SizedBox(height: 12),
         ],
-        const AssistNotice(
-          icon: Icons.visibility_off_rounded,
-          color: AssistColors.green700,
-          background: AssistColors.green50,
-          title: '您的資料由您決定',
-          text: '對方看不到您的身分證、地址、電話，這些資料會直接填進申請表，交給承辦機關。每一項都會先問過您，最後也只有您能按「送出」。',
-        ),
+        const Text('資料會一項一項先問您，送出也只有您能按。', textAlign: TextAlign.center, style: AssistText.callout),
         const SizedBox(height: 12),
-        AssistNotice.fraud(),
-        const SizedBox(height: 16),
         Semantics(
           label: '這個請求還有 ${assistSpokenDuration(left)} 會自動取消',
           child: ExcludeSemantics(

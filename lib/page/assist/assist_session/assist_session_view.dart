@@ -137,7 +137,7 @@ class _HelperStrip extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(assistHelperDisplayName(h), style: AssistText.headline.copyWith(fontSize: 18)),
+                AssistHelperName(h, trusted: s.helperTrusted, style: AssistText.headline.copyWith(fontSize: 18)),
                 const Text('正在陪您辦理', style: AssistText.footnote),
               ],
             ),
@@ -256,7 +256,6 @@ class _FieldCard extends StatefulWidget {
 }
 
 class _FieldCardState extends State<_FieldCard> {
-  bool reveal = false;
 
   @override
   Widget build(BuildContext context) {
@@ -289,13 +288,7 @@ class _FieldCardState extends State<_FieldCard> {
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: 4,
         children: [
-          Text(reveal ? (st.value ?? '') : assistMask(f.key, st.value), style: AssistText.headline),
-          IconButton(
-            tooltip: reveal ? '遮住${f.label}' : '顯示完整${f.label}',
-            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-            onPressed: () => setState(() => reveal = !reveal),
-            icon: Icon(reveal ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: context.iconSize(24)),
-          ),
+          AssistRevealValue(fieldKey: f.key, label: f.label, value: st.value, style: AssistText.headline),
           _EditButton(s: s, f: f, value: st.value ?? ''),
           TextButton(
             style: TextButton.styleFrom(minimumSize: const Size(44, 44), foregroundColor: TPColors.red600),
@@ -318,18 +311,18 @@ class _FieldCardState extends State<_FieldCard> {
       }
     } else if (f.sensitive && s.elderSelfAuth && s.pendingAuth == null && st.preview != null) {
       // 預設：長輩可以自己點開授權，不用等陪辦人員
+      // 直接講要做什麼：「填入我的姓名」。按下去還是會先看到確認畫面
       body = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            st.status == 'denied' ? '您剛才選擇不提供。改變主意也可以再提供。' : '不用等，按下面就能自己提供。',
-            style: AssistText.callout,
-          ),
-          const SizedBox(height: 10),
+          if (st.status == 'denied') ...[
+            const Text('您剛才選擇不提供，想提供也可以。', style: AssistText.callout),
+            const SizedBox(height: 10),
+          ] else
+            const SizedBox(height: 4),
           AssistButton(
-            '確認並提供',
+            '填入我的${f.label}',
             style: AssistButtonStyle.secondary,
-            icon: Icons.lock_open_rounded,
             onPressed: () {
               HapticFeedback.selectionClick();
               service.selfAuthKey.value = f.key;
@@ -465,7 +458,6 @@ class _AuthSheet extends StatefulWidget {
 }
 
 class _AuthSheetState extends State<_AuthSheet> {
-  bool reveal = false;
   bool busy = false;
   // 長輩改過的內容；null 代表用帳號裡的資料
   String? edited;
@@ -491,7 +483,6 @@ class _AuthSheetState extends State<_AuthSheet> {
     if (v != null && mounted) {
       setState(() {
         edited = v == widget.f.value ? null : v;
-        reveal = true;
       });
     }
   }
@@ -587,30 +578,20 @@ class _AuthSheetState extends State<_AuthSheet> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
                     decoration: BoxDecoration(color: TPColors.grayscale50, borderRadius: BorderRadius.circular(16)),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(edited == null ? '將提供' : '將提供（您修改過）', style: AssistText.callout),
-                              Text(
-                                reveal ? (edited ?? f.value ?? '') : assistMask(f.key, edited ?? f.value),
-                                style: AssistText.title.copyWith(fontSize: 22),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: reveal ? '遮住內容' : '顯示完整內容',
-                          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                          onPressed: () => setState(() => reveal = !reveal),
-                          icon: Icon(
-                            reveal ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                            size: context.iconSize(26),
-                          ),
+                        Text(edited == null ? '將提供' : '將提供（您修改過）', style: AssistText.callout),
+                        AssistRevealValue(
+                          key: ValueKey(edited),
+                          fieldKey: f.key,
+                          label: f.label,
+                          value: edited ?? f.value,
+                          style: AssistText.title.copyWith(fontSize: 22),
+                          // 剛改過的內容直接顯示，讓長輩確認改對了
+                          initiallyRevealed: edited != null,
                         ),
                       ],
                     ),
@@ -677,7 +658,6 @@ class _Review extends StatefulWidget {
 }
 
 class _ReviewState extends State<_Review> {
-  bool reveal = false;
   bool busy = false;
 
   @override
@@ -718,14 +698,15 @@ class _ReviewState extends State<_Review> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(fields[i].label, style: AssistText.callout),
-                              Text(
-                                fields[i].type == 'choice'
-                                    ? fields[i].optionLabel(s.field(fields[i].key).value)
-                                    : reveal
-                                    ? (s.field(fields[i].key).value ?? '')
-                                    : assistMask(fields[i].key, s.field(fields[i].key).value),
-                                style: AssistText.headline,
-                              ),
+                              if (fields[i].type == 'choice')
+                                Text(fields[i].optionLabel(s.field(fields[i].key).value), style: AssistText.headline)
+                              else
+                                AssistRevealValue(
+                                  fieldKey: fields[i].key,
+                                  label: fields[i].label,
+                                  value: s.field(fields[i].key).value,
+                                  style: AssistText.headline,
+                                ),
                             ],
                           ),
                         ),
@@ -738,12 +719,6 @@ class _ReviewState extends State<_Review> {
               ],
             ],
           ),
-        ),
-        AssistButton(
-          reveal ? '遮住資料' : '顯示完整資料',
-          style: AssistButtonStyle.plain,
-          icon: reveal ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-          onPressed: () => setState(() => reveal = !reveal),
         ),
         AssistNotice(
           icon: Icons.send_rounded,
@@ -860,12 +835,8 @@ class _Result extends StatelessWidget {
             text: () => ok ? '$message案件編號：${(s.caseNo ?? '').split('').join(' ')}。' : message,
           ),
         ),
-        if (s.startedAt != null && s.helper != null && s.endReason != 'blocked') ...[
-          const SizedBox(height: 16),
-          _TrustCard(s: s),
-        ],
         const SizedBox(height: 18),
-        const Text('這次是誰陪您、您提供了哪些資料，都可以在「我的帳戶 › 歷程與授權管理」查看。', textAlign: TextAlign.center, style: AssistText.callout),
+        const Text('這次的紀錄在「歷程與授權管理」。', textAlign: TextAlign.center, style: AssistText.callout),
       ],
       actions: [
         AssistButton(
@@ -891,54 +862,6 @@ class _Result extends StatelessWidget {
 // ═════════════════════════════════════════════ 小元件
 
 /// 辦完後：把這次陪辦的人加為「信任的人」，下次對方不用配對碼就能找您
-class _TrustCard extends StatelessWidget {
-  const _TrustCard({required this.s});
-  final AssistSession s;
-
-  @override
-  Widget build(BuildContext context) {
-    final service = Get.find<AssistService>();
-    final h = s.helper!;
-    return Obx(() {
-      final trusted = service.trusted.any((t) => t.helper.id == h.id);
-      if (trusted) {
-        return AssistNotice(
-          icon: Icons.favorite_rounded,
-          color: AssistColors.green700,
-          background: AssistColors.green50,
-          title: '${h.name} 是您信任的人',
-          text: '下次他不用配對碼就能找您，您一樣要按同意才會開始。',
-        );
-      }
-      return AssistCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('下次直接找 ${h.name}？', style: AssistText.headline),
-            const SizedBox(height: 4),
-            const Text('加為信任的人，下次他不用掃 QR Code 就能請求陪您辦。每次一樣要您按同意，資料也一樣一項一項問您。', style: AssistText.callout),
-            const SizedBox(height: 12),
-            AssistButton(
-              '加為信任的人',
-              style: AssistButtonStyle.secondary,
-              icon: Icons.favorite_border_rounded,
-              onPressed: () async {
-                final ok = await assistConfirm(
-                  title: '把 ${h.name} 加為信任的人？',
-                  message: '只加您信得過的人，例如子女。\n電話裡有人要您加他，就是詐騙。',
-                  confirmLabel: '加入',
-                  destructive: false,
-                );
-                if (ok) await assistRun(() => service.addTrusted(s.id));
-              },
-            ),
-          ],
-        ),
-      );
-    });
-  }
-}
-
 /// 「修改」：把要送出的資料改成正確的內容
 class _EditButton extends StatelessWidget {
   const _EditButton({required this.s, required this.f, required this.value});

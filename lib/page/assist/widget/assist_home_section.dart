@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:town_pass/bean/assist.dart';
 import 'package:town_pass/gen/assets.gen.dart';
 import 'package:town_pass/page/assist/assist_help_others/assist_help_others_view.dart';
+import 'package:town_pass/page/assist/widget/assist_help_call_sheet.dart';
 import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
@@ -62,11 +63,7 @@ class _IncomingBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final h = s.helper!;
     final left = s.expiresAt!.difference(now);
-    final total = s.expiresAt!.difference(s.createdAt).inSeconds.clamp(1, 1 << 30);
-    final progress = (left.inSeconds / total).clamp(0.0, 1.0);
     final urgent = left.inSeconds <= 30;
-    // 無障礙大字時，把「查看並回應」放在最上面，不用往下捲才找得到
-    final big = context.largeText;
     final respond = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 56, minWidth: double.infinity),
       child: TextButton(
@@ -87,62 +84,17 @@ class _IncomingBadge extends StatelessWidget {
         container: true,
         label:
             '協助請求。${assistHelperDisplayName(h)} 想陪您辦理${s.serviceTitle}。'
-            '${s.helperTrusted ? '這是您信任的人。' : ''}${h.verified ? '市府認證身分。' : '對方不是公務人員。'}剩下 ${assistSpokenDuration(left)}。',
+            '${h.verified ? '市府認證身分。' : '對方不是公務人員。'}剩下 ${assistSpokenDuration(left)}。',
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(gradient: AssistColors.brandGradient, borderRadius: BorderRadius.circular(24)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ExcludeSemantics(
-                child: Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 12,
-                  runSpacing: 8,
-                  children: [
-                    // 用 Text.rich 讓圖示跟文字一起換行，最大字級時不會溢出
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          WidgetSpan(
-                            alignment: PlaceholderAlignment.middle,
-                            child: Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: Icon(
-                                Icons.notifications_active_rounded,
-                                color: TPColors.white,
-                                size: context.iconSize(22),
-                              ),
-                            ),
-                          ),
-                          const TextSpan(text: '有人想協助您'),
-                        ],
-                      ),
-                      style: AssistText.headline.copyWith(color: TPColors.white),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: urgent ? TPColors.secondary500 : TPColors.white,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        '剩 ${assistMmss(left)}',
-                        textScaler: context.cappedScaler,
-                        style: AssistText.headline.copyWith(
-                          color: urgent ? TPColors.grayscale900 : TPColors.primary800,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (big) ...[const SizedBox(height: 14), respond],
-              const SizedBox(height: 16),
+              // 只講三件事：誰、要辦什麼、按哪裡。倒數縮成右上角的小膠囊
               ExcludeSemantics(
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
                       decoration: const BoxDecoration(shape: BoxShape.circle, color: TPColors.white),
@@ -154,23 +106,31 @@ class _IncomingBadge extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(assistHelperDisplayName(h), style: AssistText.title.copyWith(color: TPColors.white)),
-                          const SizedBox(height: 4),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: [
-                              if (s.helperTrusted)
-                                const AssistPill(
-                                  '您信任的人',
-                                  color: AssistColors.green700,
-                                  background: AssistColors.green50,
-                                  icon: Icons.favorite_rounded,
-                                ),
-                              AssistHelperBadge(helper: h),
-                            ],
+                          AssistHelperName(
+                            h,
+                            trusted: s.helperTrusted,
+                            style: AssistText.headline.copyWith(color: TPColors.white),
                           ),
+                          const SizedBox(height: 4),
+                          AssistHelperBadge(helper: h),
                         ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: urgent ? TPColors.secondary500 : TPColors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        assistMmss(left),
+                        textScaler: context.cappedScaler,
+                        style: AssistText.callout.copyWith(
+                          color: urgent ? TPColors.grayscale900 : TPColors.white,
+                          fontWeight: FontWeight.w600,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
                       ),
                     ),
                   ],
@@ -178,21 +138,10 @@ class _IncomingBadge extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               ExcludeSemantics(
-                child: Text('想陪您辦理「${s.serviceTitle}」', style: AssistText.body.copyWith(color: TPColors.white)),
+                child: Text('想陪您辦理「${s.serviceTitle}」', style: AssistText.title.copyWith(color: TPColors.white)),
               ),
-              const SizedBox(height: 14),
-              ExcludeSemantics(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 6,
-                    backgroundColor: TPColors.white.withValues(alpha: 0.3),
-                    valueColor: AlwaysStoppedAnimation(urgent ? TPColors.secondary500 : TPColors.white),
-                  ),
-                ),
-              ),
-              if (!big) ...[const SizedBox(height: 16), respond],
+              const SizedBox(height: 16),
+              respond,
             ],
           ),
         ),
@@ -228,7 +177,12 @@ class _ActiveBadge extends StatelessWidget {
                 AssistHelperAvatar(helper: h, size: 48),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text('${assistHelperDisplayName(h)} 正在陪您辦理「${s.serviceTitle}」', style: AssistText.headline),
+                  child: AssistHelperName(
+                    h,
+                    trusted: s.helperTrusted,
+                    suffix: ' 正在陪您辦理「${s.serviceTitle}」',
+                    style: AssistText.headline,
+                  ),
                 ),
               ],
             ),
@@ -337,5 +291,58 @@ class _EntryTile extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 首頁（協助者身分）：信任我的長輩按了「請他來幫我」才出現，回應後就消失。
+class AssistHelpCallCard extends StatelessWidget {
+  const AssistHelpCallCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final service = Get.find<AssistService>();
+    return Obx(() {
+      final list = service.helpForMe.toList();
+      if (list.isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          children: [
+            for (final r in list)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Material(
+                  color: TPColors.secondary100,
+                  borderRadius: BorderRadius.circular(18),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () => AssistHelpCallSheet.go(r.elderId),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.notifications_active_rounded, color: TPColors.secondary800),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              '${r.elderName} 請您幫忙',
+                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: TPColors.grayscale900),
+                            ),
+                          ),
+                          const Text(
+                            '去幫他',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: TPColors.secondary800),
+                          ),
+                          const Icon(Icons.chevron_right_rounded, color: TPColors.secondary800),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    });
   }
 }

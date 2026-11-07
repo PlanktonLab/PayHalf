@@ -1,7 +1,9 @@
+import 'dart:ui' show ImageFilter;
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/bean/assist.dart';
 import 'package:town_pass/gen/fonts.gen.dart';
@@ -647,3 +649,147 @@ class _EditValueSheetState extends State<_EditValueSheet> {
 /// 說明資料去哪裡：陪辦的人看不到，但會直接填進申請表交給承辦機關
 String assistWhereDataGoes(String helperName, String? recipient) =>
     '$helperName 看不到內容。這項資料會直接填進申請表，交給${recipient ?? '承辦機關'}。';
+
+
+/// 敏感資料：整格模糊，中間寫「點一下查看{label}」，點了才顯示；再點一下又遮起來。
+/// 比「遮一半＋眼睛圖示」直覺：長輩不用猜眼睛是什麼意思。
+/// 不需要遮的欄位（例如姓名）直接顯示。
+class AssistRevealValue extends StatefulWidget {
+  const AssistRevealValue({
+    super.key,
+    required this.fieldKey,
+    required this.label,
+    required this.value,
+    required this.style,
+    this.initiallyRevealed = false,
+  });
+  final String fieldKey;
+  final String label;
+  final String? value;
+  final TextStyle style;
+  final bool initiallyRevealed;
+  @override
+  State<AssistRevealValue> createState() => _AssistRevealValueState();
+}
+
+class _AssistRevealValueState extends State<AssistRevealValue> {
+  late bool reveal = widget.initiallyRevealed;
+
+  @override
+  Widget build(BuildContext context) {
+    final v = widget.value ?? '';
+    if (assistMask(widget.fieldKey, v) == v) return Text(v, style: widget.style);
+    return Semantics(
+      button: true,
+      label: reveal ? '${widget.label}：$v。點兩下遮住' : '${widget.label}已遮住。點兩下查看',
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() => reveal = !reveal);
+        },
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48, minWidth: double.infinity),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: ImageFiltered(
+                  enabled: !reveal,
+                  imageFilter: ImageFilter.blur(sigmaX: 9, sigmaY: 9, tileMode: TileMode.decal),
+                  child: Text(v, style: widget.style),
+                ),
+              ),
+              if (!reveal)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: TPColors.white.withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(99),
+                    boxShadow: const [BoxShadow(color: Color(0x1A000000), blurRadius: 8, offset: Offset(0, 2))],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.touch_app_rounded, size: context.iconSize(20), color: TPColors.primary700),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          '點一下查看${widget.label}',
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: TPColors.primary700),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Positioned(
+                  right: 0,
+                  child: Text('點一下遮住', style: TextStyle(fontSize: 14, color: TPColors.grayscale500)),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// 協助者名字；是長輩信任的人就在名字後面加一顆愛心（像社群平台的認證勾勾），不另外寫一段說明。
+class AssistHelperName extends StatelessWidget {
+  const AssistHelperName(
+    this.helper, {
+    super.key,
+    required this.style,
+    this.trusted = false,
+    this.suffix = '',
+    this.textAlign,
+  });
+  final HelperInfo helper;
+  final TextStyle style;
+  final bool trusted;
+  final String suffix;
+  final TextAlign? textAlign;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = (style.fontSize ?? 20) * 0.8;
+    return Semantics(
+      label: '${assistHelperDisplayName(helper)}${trusted ? '，您信任的人' : ''}$suffix',
+      excludeSemantics: true,
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(text: assistHelperDisplayName(helper)),
+            if (trusted)
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: AssistTrustedMark(size: size),
+                ),
+              ),
+            if (suffix.isNotEmpty) TextSpan(text: suffix),
+          ],
+        ),
+        style: style,
+        textAlign: textAlign,
+      ),
+    );
+  }
+}
+
+/// 「信任的人」標記：白底圓圈裡一顆紅色愛心
+class AssistTrustedMark extends StatelessWidget {
+  const AssistTrustedMark({super.key, this.size = 18});
+  final double size;
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: EdgeInsets.all(size * 0.18),
+    decoration: const BoxDecoration(color: TPColors.white, shape: BoxShape.circle),
+    child: Icon(Icons.favorite_rounded, size: size, color: TPColors.red500),
+  );
+}

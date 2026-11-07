@@ -2,12 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:town_pass/bean/assist.dart';
+import 'package:town_pass/page/assist/widget/assist_help_call_sheet.dart';
 import 'package:town_pass/page/assist/widget/assist_incoming_sheet.dart';
+import 'package:town_pass/page/assist/widget/assist_trust_request_sheet.dart';
 import 'package:town_pass/service/account_service.dart';
 import 'package:town_pass/service/notification_service.dart';
 import 'package:town_pass/service/shared_preferences_service.dart';
@@ -81,6 +84,28 @@ class AssistService extends GetxService {
 
   /// 信任的人：不用配對碼就能請求陪辦（長輩仍要同意）
   final RxList<TrustedHelper> trusted = <TrustedHelper>[].obs;
+
+  /// 長輩：家人掃了我的邀請碼、等我確認要不要加他
+  final RxList<TrustRequest> trustRequests = <TrustRequest>[].obs;
+  final Set<String> _trustShown = {};
+
+  /// 長輩：已經發出、對方還沒回應的「請他來幫我」
+  final RxList<HelpRequest> myHelpRequests = <HelpRequest>[].obs;
+
+  /// 協助者身分：有長輩請我去幫忙（推播＋彈窗＋首頁提示）
+  final RxList<HelpRequest> helpForMe = <HelpRequest>[].obs;
+  final Set<String> _helpNotified = {};
+
+  // 這支手機的「協助者身分」也保持一條即時連線，才收得到長輩的求助推播
+  io.Socket? _helperSocket;
+  String? _helperToken;
+
+  /// 目前的頁面路由（由 GetMaterialApp.routingCallback 更新）
+  final RxString route = ''.obs;
+
+  /// 用「幫別人辦」的身分（helperId）登入時，有哪些長輩把我加為信任的人。
+  /// 首頁用它顯示「幫某某辦事」的捷徑；一支手機同時當長輩與協助者是 demo 才有的情境。
+  final RxList<({String elderId, String displayName})> helperTrusting = <({String elderId, String displayName})>[].obs;
   final Set<String> _sheetShown = {};
 
   /// 這支手機以「協助者」身分開的案件。測試時同一支手機常常同時是長輩與協助者（同一位長輩），
@@ -142,9 +167,143 @@ class AssistService extends GetxService {
     await _relink();
   }
 
+  /// 目前長輩身分的顯示名稱（左上角切換鈕用）
+  String get elderName => elderAccounts.firstWhereOrNull((a) => a.id == elderId.value)?.name ?? elderId.value;
+
+  /// Demo：讓預設信任的人直接向這支手機的長輩發出請求（不用配對碼），回傳新 session 的 id
+  Future<String> demoTrustedRequest(String helperId, String serviceId) async {
+    final res = await _request('POST', '/demo/trusted-request', {
+      'helperId': helperId,
+      'elderId': elderId.value,
+      'serviceId': serviceId,
+    }, false) as Map;
+    return res['id'] as String;
+  }
+
+  /// 可申辦的業務清單（id／名稱）
+  Future<List<({String id, String title})>> listServices() async {
+    final list = await _request('GET', '/services') as List;
+    return [for (final e in list) (id: (e as Map)['id'] as String, title: e['title'] as String)];
+  }
+
   Future<void> useHelper(String id) async {
     await Get.find<SharedPreferencesService>().instance.setString(_helperKey, id);
     helperId.value = id;
+    await _linkHelper();
+  }
+
+  /// 以協助者身分登入並連上即時通道：收長輩的求助、知道哪些長輩信任我
+  Future<void> _linkHelper() async {
+    final gen = _generation;
+    _helperSocket?.dispose();
+    _helperSocket = null;
+    _helperToken = null;
+    helpForMe.clear();
+    try {
+      final login = await _send('POST', '/auth/demo-login', {'userId': helperId.value}, false) as Map;
+      if (gen != _generation) return;
+      _helperToken = login['token'] as String;
+      await refreshHelperTrusting();
+      final socket = io.io(
+        apiBase,
+        io.OptionBuilder()
+            .setTransports(['websocket'])
+            .setAuth({'token': _helperToken})
+            .enableForceNew()
+            .disableAutoConnect()
+            .build(),
+      );
+      socket.on('help:update', (data) {
+        try {
+          _onHelpForMe(HelpRequest(Map<String, dynamic>.from(data as Map)));
+        } catch (_) {}
+      });
+      socket.on('trusted:update', (_) => refreshHelperTrusting());
+      socket.on('trust:request', (data) {
+        try {
+          final r = TrustRequest(Map<String, dynamic>.from(data as Map));
+          if (r.status == 'accepted' || r.status == 'rejected') {
+            Get.closeAllSnackbars();
+            Get.snackbar(
+              r.status == 'accepted' ? '${r.elderName} 已把您加為信任的人' : '${r.elderName} 這次沒有加您',
+              r.status == 'accepted' ? '之後他可以直接請您幫忙，您也不用再掃配對碼。' : '需要的話，請長輩再給您一次邀請碼。',
+              snackPosition: SnackPosition.TOP,
+              margin: const EdgeInsets.all(12),
+              backgroundColor: const Color(0xFF2E3A40),
+              colorText: const Color(0xFFFFFFFF),
+            );
+          }
+        } catch (_) {}
+      });
+      socket.onConnect((_) async {
+        try {
+          final list = await _helperGet('/helper/help-requests') as List;
+          for (final e in list) {
+            _onHelpForMe(HelpRequest(Map<String, dynamic>.from(e as Map)));
+          }
+        } catch (_) {}
+      });
+      socket.connect();
+      _helperSocket = socket;
+    } catch (_) {}
+  }
+
+  /// 協助者：掃了（或輸入）長輩的加好友邀請碼。回傳長輩遮罩後的姓名與狀態
+  Future<TrustRequest?> acceptTrustInvite(String code) async {
+    if (_helperToken == null) await _linkHelper();
+    final res = await http
+        .post(
+          Uri.parse('$apiBase/api/helper/trust-invite/accept'),
+          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $_helperToken'},
+          body: jsonEncode({'code': code}),
+        )
+        .timeout(const Duration(seconds: 8));
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    if (res.statusCode >= 400) {
+      final err = (data is Map ? data['error'] : null) as Map?;
+      throw AssistApiException(res.statusCode, err?['code'] as String? ?? 'ERROR', err?['message'] as String? ?? '系統忙碌中');
+    }
+    final m = Map<String, dynamic>.from(data as Map);
+    return m['status'] == 'already' ? null : TrustRequest(m);
+  }
+
+  Future<dynamic> _helperGet(String path) async {
+    final res = await http
+        .get(Uri.parse('$apiBase/api$path'), headers: {'Authorization': 'Bearer $_helperToken'})
+        .timeout(const Duration(seconds: 8));
+    if (res.statusCode >= 400) throw AssistApiException(res.statusCode, 'ERROR', '');
+    return jsonDecode(utf8.decode(res.bodyBytes));
+  }
+
+  void _onHelpForMe(HelpRequest r) {
+    helpForMe.removeWhere((e) => e.id == r.id);
+    if (!r.isPending || !r.expiresAt.isAfter(DateTime.now())) return;
+    // 這支手機自己就是那位長輩（同一支手機兩種身分）：不要通知自己
+    if (r.elderId == elderId.value) return;
+    helpForMe.add(r);
+    if (_helpNotified.add(r.id)) {
+      HapticFeedback.heavyImpact();
+      NotificationService.showNotification(
+        title: '${r.elderName} 請您幫忙',
+        content: '他把您加為信任的人。打開台北通，就能陪他一起辦。',
+      );
+      AssistHelpCallSheet.show(r.id);
+    }
+  }
+
+  /// 以協助者身分問後端：哪些長輩信任我。失敗就當作沒有，不影響長輩端功能
+  Future<void> refreshHelperTrusting() async {
+    final gen = _generation;
+    try {
+      if (_helperToken == null) return;
+      final list = await _helperGet('/helper/trusted-elders') as List;
+      if (gen != _generation) return;
+      helperTrusting.assignAll([
+        for (final e in list) (elderId: (e as Map)['elderId'] as String, displayName: e['displayName'] as String),
+      ]);
+    } catch (_) {
+      if (gen == _generation) helperTrusting.clear();
+    }
   }
 
   /// 掃到長輩的配對 QR Code：用選定的協助者開工作台，並把配對碼填好
@@ -153,6 +312,10 @@ class AssistService extends GetxService {
       '${code == null ? '' : '&code=${Uri.encodeQueryComponent(code)}'}#/console';
 
   /// 從 QR Code 內容取出配對碼（townpass-assist:123456）
+  /// 從 QR Code 內容取出加好友邀請碼（townpass-trust:123456）
+  static String? trustCodeFrom(String? raw) =>
+      RegExp(r'^townpass-trust:(\d{6})$').firstMatch(raw?.trim() ?? '')?.group(1);
+
   static String? pairingCodeFrom(String? raw) =>
       RegExp(r'^townpass-assist:(\d{6})$').firstMatch(raw?.trim() ?? '')?.group(1);
 
@@ -169,6 +332,14 @@ class AssistService extends GetxService {
     resultId.value = null;
     audit.clear();
     applications.clear();
+    trusted.clear();
+    helperTrusting.clear();
+    myHelpRequests.clear();
+    helpForMe.clear();
+    trustRequests.clear();
+    _helperSocket?.dispose();
+    _helperSocket = null;
+    _helperToken = null;
     auditStatus.value = null;
     legal.value = null;
     serviceDefs.clear();
@@ -234,6 +405,7 @@ class AssistService extends GetxService {
       if (gen != _generation) return;
       legal.value = legalInfo;
       await refresh();
+      _linkHelper();
     } catch (_) {
       if (gen != _generation) return;
       linked.value = false;
@@ -260,6 +432,18 @@ class AssistService extends GetxService {
       } catch (_) {}
     });
     socket.on('trusted:update', (_) => refreshTrusted());
+    socket.on('trust:request', (data) {
+      try {
+        _onTrustRequest(TrustRequest(Map<String, dynamic>.from(data as Map)));
+      } catch (_) {}
+    });
+    socket.on('help:update', (data) {
+      try {
+        final r = HelpRequest(Map<String, dynamic>.from(data as Map));
+        myHelpRequests.removeWhere((e) => e.id == r.id);
+        if (r.isPending) myHelpRequests.add(r);
+      } catch (_) {}
+    });
     socket.onConnect((_) {
       connected.value = true;
       refresh();
@@ -399,6 +583,64 @@ class AssistService extends GetxService {
     }
     await refreshRecords();
     await refreshTrusted();
+    await refreshMyHelp();
+    for (final e in await _request('GET', '/elder/trust-requests') as List) {
+      _onTrustRequest(TrustRequest(Map<String, dynamic>.from(e as Map)));
+    }
+  }
+
+  /// 長輩：可以加為信任的人（陪我辦過的人）
+  Future<List<TrustCandidate>> trustCandidates() async {
+    final list = await _request('GET', '/elder/trusted/candidates') as List;
+    return [for (final e in list) TrustCandidate(Map<String, dynamic>.from(e as Map))];
+  }
+
+  Future<void> addTrustedHelper(String helperId) async {
+    final list = await _request('POST', '/elder/trusted', {'helperId': helperId}) as List;
+    trusted.assignAll(list.map((e) => TrustedHelper(Map<String, dynamic>.from(e as Map))));
+  }
+
+  /// 長輩：產生「加信任的人」邀請碼（QR Code＋6 位數）
+  Future<({String code, String qrPayload, DateTime expiresAt})> createTrustInvite() async {
+    final m = await _request('POST', '/elder/trust-invite') as Map;
+    return (
+      code: m['code'] as String,
+      qrPayload: m['qrPayload'] as String,
+      expiresAt: DateTime.fromMillisecondsSinceEpoch((m['expiresAt'] as num).toInt()),
+    );
+  }
+
+  void _onTrustRequest(TrustRequest r) {
+    trustRequests.removeWhere((e) => e.id == r.id);
+    if (!r.isPending) return;
+    trustRequests.add(r);
+    if (_trustShown.add(r.id)) {
+      HapticFeedback.heavyImpact();
+      Future.delayed(const Duration(milliseconds: 350), () => AssistTrustRequestSheet.show(r.id));
+    }
+  }
+
+  Future<void> respondTrustRequest(String id, bool accept) async {
+    final list = await _request('POST', '/elder/trust-requests/$id/respond', {'accept': accept}) as List;
+    trusted.assignAll(list.map((e) => TrustedHelper(Map<String, dynamic>.from(e as Map))));
+    trustRequests.removeWhere((e) => e.id == id);
+  }
+
+  /// 長輩：請信任的人來幫忙（對方手機會跳通知）
+  Future<void> requestHelp(String helperId) async {
+    final r = HelpRequest(Map<String, dynamic>.from(await _request('POST', '/elder/help-requests', {'helperId': helperId}) as Map));
+    myHelpRequests.removeWhere((e) => e.id == r.id);
+    if (r.isPending) myHelpRequests.add(r);
+  }
+
+  Future<void> cancelHelp(String id) async {
+    await _request('POST', '/elder/help-requests/$id/cancel');
+    myHelpRequests.removeWhere((e) => e.id == id);
+  }
+
+  Future<void> refreshMyHelp() async {
+    final list = await _request('GET', '/elder/help-requests') as List;
+    myHelpRequests.assignAll(list.map((e) => HelpRequest(Map<String, dynamic>.from(e as Map))));
   }
 
   Future<void> refreshTrusted() async {

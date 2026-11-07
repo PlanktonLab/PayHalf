@@ -8,6 +8,7 @@ import 'package:town_pass/util/tp_text.dart';
 // appbar leading IconButton cannot be change
 class TPAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Widget? leading;
+  final double? leadingWidth;
   final PreferredSizeWidget? bottom;
   final String? title;
   final List<Widget>? actions;
@@ -22,6 +23,7 @@ class TPAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.backgroundColor,
     this.foregroundColor,
     this.leading,
+    this.leadingWidth,
     this.bottom,
     this.title,
     this.actions,
@@ -38,6 +40,7 @@ class TPAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       key: key,
       leading: leading,
+      leadingWidth: leadingWidth,
       title: _titleWidget(),
       actions: actions ?? [const SizedBox(width: 56)],
       backgroundColor: backgroundColor ?? TPColors.white,

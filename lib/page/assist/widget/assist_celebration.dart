@@ -8,22 +8,28 @@ import 'package:town_pass/util/tp_colors.dart';
 ///
 /// M3 的載入指示器會在形狀庫的幾個形狀之間「彈簧式」變形，每換一個形狀就轉 90°：
 ///   柔和爆炸星 → 九瓣餅乾 → 圓角五邊形 → 膠囊 → 太陽 → 四瓣餅乾
-/// 這裡依序跑一輪，最後停在四瓣餅乾，畫出勾勾。底下有 M3「contained」樣式的圓形底。
+/// 長輩端停在四瓣形狀畫出勾勾，協助者端則變成一枚手托愛心的花形徽章。
 class AssistCelebration extends StatefulWidget {
-  const AssistCelebration({super.key, this.size = 156});
+  const AssistCelebration({super.key, this.size = 156}) : _gratitude = false, animate = true;
+  const AssistCelebration.gratitude({super.key, this.size = 156, this.animate = true}) : _gratitude = true;
   final double size;
+  final bool _gratitude;
+  final bool animate;
 
   @override
   State<AssistCelebration> createState() => _AssistCelebrationState();
 }
 
 class _AssistCelebrationState extends State<AssistCelebration> with SingleTickerProviderStateMixin {
-  late final AnimationController a = AnimationController(vsync: this, duration: _Timeline.total);
+  late final AnimationController a = AnimationController(
+    vsync: this,
+    duration: (widget._gratitude ? _helperTimeline : _elderTimeline).total,
+  );
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (!widget.animate || MediaQuery.disableAnimationsOf(context)) {
       a.value = 1;
     } else if (!a.isAnimating && a.value == 0) {
       a.forward();
@@ -45,7 +51,7 @@ class _AssistCelebrationState extends State<AssistCelebration> with SingleTicker
         height: s * 1.4,
         child: AnimatedBuilder(
           animation: a,
-          builder: (context, _) => CustomPaint(painter: _Painter(t: a.value, size: s)),
+          builder: (context, _) => CustomPaint(painter: _Painter(t: a.value, size: s, gratitude: widget._gratitude)),
         ),
       ),
     );
@@ -144,14 +150,19 @@ final List<List<double>> _shapes = [
 
 // ═════════════════════════════════════════════ 時間軸
 
-abstract final class _Timeline {
-  static const pop = 0.32; // 秒：從 0 彈出來
-  static const step = 0.5; // 秒：每次變形
-  static const check = 0.5; // 秒：畫勾勾
-  static final morphs = _shapes.length - 1;
-  static final Duration total = Duration(milliseconds: ((pop + step * morphs + check + 0.4) * 1000).round());
-  static double get totalSec => total.inMilliseconds / 1000;
+class _Timeline {
+  _Timeline(this.shapes, {required this.pop, required this.step, required this.reveal, double hold = 0})
+    : total = Duration(milliseconds: ((pop + step * (shapes.length - 1) + reveal + hold) * 1000).round());
+  final List<List<double>> shapes;
+  final double pop, step, reveal; // 秒
+  final Duration total;
+  int get morphs => shapes.length - 1;
+  double get revealStart => pop + step * morphs;
 }
+
+final _elderTimeline = _Timeline(_shapes, pop: 0.32, step: 0.5, reveal: 0.5, hold: 0.4);
+// 只變形一次，將最後 640 ms 留給掌心與愛心。
+final _helperTimeline = _Timeline([_roundedPolygon(5, 0.24), _star(8, 0.83, 0.85)], pop: 0.22, step: 0.54, reveal: 0.64);
 
 /// M3 用彈簧（damping 約 0.6），會稍微衝過頭再回來
 double _spring(double x) {
@@ -163,39 +174,42 @@ double _spring(double x) {
 }
 
 class _Painter extends CustomPainter {
-  _Painter({required this.t, required this.size});
+  _Painter({required this.t, required this.size, required this.gratitude});
   final double t;
   final double size;
+  final bool gratitude;
 
   @override
   void paint(Canvas canvas, Size box) {
-    final sec = t * _Timeline.totalSec;
+    final timeline = gratitude ? _helperTimeline : _elderTimeline;
+    final sec = t * timeline.total.inMilliseconds / 1000;
     final c = box.center(Offset.zero);
     final base = size / 2;
 
     // 出場
-    final pop = _spring((sec / _Timeline.pop).clamp(0.0, 1.0) * 0.9 + (sec > 0 ? 0.1 : 0));
+    final pop = _spring((sec / timeline.pop).clamp(0.0, 1.0) * 0.9 + (sec > 0 ? 0.1 : 0));
 
     // 目前在第幾段變形、段內進度（彈簧）
-    final morphSec = (sec - _Timeline.pop).clamp(0.0, _Timeline.step * _Timeline.morphs);
-    final idx = math.min((morphSec / _Timeline.step).floor(), _Timeline.morphs - 1);
-    final local = ((morphSec - idx * _Timeline.step) / _Timeline.step).clamp(0.0, 1.0);
+    final morphSec = (sec - timeline.pop).clamp(0.0, timeline.step * timeline.morphs);
+    final idx = math.min((morphSec / timeline.step).floor(), timeline.morphs - 1);
+    final local = ((morphSec - idx * timeline.step) / timeline.step).clamp(0.0, 1.0);
     final p = _spring(local);
-    final from = _shapes[idx];
-    final to = _shapes[idx + 1];
+    final from = timeline.shapes[idx];
+    final to = timeline.shapes[idx + 1];
     // 每換一個形狀轉 90°（跟著彈簧）
     final rotation = (idx + p) * math.pi / 2;
 
-    final done = sec >= _Timeline.pop + _Timeline.step * _Timeline.morphs;
-    final checkT = ((sec - _Timeline.pop - _Timeline.step * _Timeline.morphs) / _Timeline.check).clamp(0.0, 1.0);
+    final done = sec >= timeline.revealStart;
+    final revealT = t == 1 ? 1.0 : ((sec - timeline.revealStart) / timeline.reveal).clamp(0.0, 1.0);
 
     // M3 contained 樣式：淡色圓形底；完成時底色淡出、形狀放大
-    final grow = _spring(checkT);
+    final grow = _spring(revealT);
     final containerR = base * pop;
     canvas.drawCircle(
       c,
       containerR,
-      Paint()..color = TPColors.primary100.withValues(alpha: (1 - grow * 0.85).clamp(0.0, 1.0)),
+      Paint()..color = (gratitude ? TPColors.secondary100 : TPColors.primary100)
+          .withValues(alpha: (1 - grow * 0.85).clamp(0.0, 1.0)),
     );
 
     final shapeR = base * pop * lerpDouble(0.72, 0.96, grow)!;
@@ -208,17 +222,33 @@ class _Painter extends CustomPainter {
       i == 0 ? path.moveTo(pt.dx, pt.dy) : path.lineTo(pt.dx, pt.dy);
     }
     path.close();
-    if (done) canvas.drawShadow(path, TPColors.primary800.withValues(alpha: 0.4 * grow), 6, false);
-    canvas.drawPath(path, Paint()..color = Color.lerp(TPColors.primary500, TPColors.primary600, grow)!);
+    if (done) {
+      if (gratitude) {
+        // 徽章下用柔和的圓影，避免每一幀都為多瓣輪廓計算陰影。
+        canvas.drawCircle(
+          c + Offset(0, shapeR * 0.06),
+          shapeR * 0.88,
+          Paint()
+            ..color = TPColors.primary800.withValues(alpha: 0.22 * grow)
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, shapeR * 0.09),
+        );
+      } else {
+        canvas.drawShadow(path, TPColors.primary800.withValues(alpha: 0.4 * grow), 6, false);
+      }
+    }
+    final ink = Color.lerp(TPColors.primary500, gratitude ? TPColors.primary700 : TPColors.primary600, grow)!;
+    canvas.drawPath(path, Paint()..color = ink);
 
-    // 勾勾
-    if (checkT > 0) {
+    if (revealT <= 0) return;
+    if (gratitude) {
+      _drawGratitude(canvas, c, shapeR, revealT);
+    } else {
       final s = shapeR;
       final a = c + Offset(-0.33, 0.02) * s;
       final b = c + Offset(-0.09, 0.25) * s;
       final e = c + Offset(0.35, -0.21) * s;
       final l1 = (b - a).distance, l2 = (e - b).distance;
-      final len = (l1 + l2) * Curves.easeOutCubic.transform(checkT);
+      final len = (l1 + l2) * Curves.easeOutCubic.transform(revealT);
       final cp = Path()..moveTo(a.dx, a.dy);
       if (len <= l1) {
         final q = Offset.lerp(a, b, len / l1)!;
@@ -240,6 +270,48 @@ class _Painter extends CustomPainter {
     }
   }
 
+  // 掌心先攤開，金色的心再從掌心升起。圖案保持正向，不隨外圈旋轉。
+  static void _drawGratitude(Canvas canvas, Offset center, double radius, double progress) {
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(radius);
+    final palm = Path()
+      ..moveTo(-0.57, 0.28)
+      ..quadraticBezierTo(-0.42, 0.08, -0.24, 0.10)
+      ..lineTo(0.06, 0.17)
+      ..quadraticBezierTo(0.21, 0.20, 0.15, 0.30)
+      ..lineTo(-0.09, 0.29)
+      ..quadraticBezierTo(0.09, 0.36, 0.24, 0.28)
+      ..lineTo(0.48, 0.12)
+      ..quadraticBezierTo(0.60, 0.04, 0.60, 0.18)
+      ..quadraticBezierTo(0.41, 0.39, 0.15, 0.51)
+      ..quadraticBezierTo(0.06, 0.55, -0.05, 0.52)
+      ..lineTo(-0.33, 0.45)
+      ..lineTo(-0.41, 0.51)
+      ..close();
+    final handT = Curves.easeOut.transform((progress / 0.6).clamp(0.0, 1.0));
+    canvas.save();
+    canvas.translate(0, 0.12 * (1 - handT));
+    canvas.drawPath(palm, Paint()..color = TPColors.white.withValues(alpha: handT));
+    canvas.restore();
+
+    final heartT = ((progress - 0.18) / 0.82).clamp(0.0, 1.0);
+    if (heartT > 0) {
+      final lift = _spring(heartT);
+      canvas.translate(0, -0.19 + 0.22 * (1 - lift));
+      canvas.scale(0.60 + 0.40 * lift);
+      final heart = Path()
+        ..moveTo(0, 0.23)
+        ..cubicTo(-0.07, 0.18, -0.34, 0.00, -0.34, -0.16)
+        ..cubicTo(-0.34, -0.36, -0.12, -0.41, 0, -0.25)
+        ..cubicTo(0.12, -0.41, 0.34, -0.36, 0.34, -0.16)
+        ..cubicTo(0.34, 0.00, 0.07, 0.18, 0, 0.23)
+        ..close();
+      canvas.drawPath(heart, Paint()..color = TPColors.secondary300.withValues(alpha: Curves.easeOut.transform(heartT)));
+    }
+    canvas.restore();
+  }
+
   @override
-  bool shouldRepaint(_Painter old) => old.t != t || old.size != size;
+  bool shouldRepaint(_Painter old) => old.t != t || old.size != size || old.gratitude != gratitude;
 }

@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -204,6 +206,10 @@ class _ElderRoot extends StatelessWidget {
     } else if (c.incoming != null) {
       screen = _IncomingScreen(c: c, s: c.incoming!);
       key = 'incoming-${c.incoming!.id}';
+    } else if (c.trustRequests.isNotEmpty) {
+      final r = c.trustRequests.first;
+      screen = _TrustRequestScreen(c: c, r: r);
+      key = 'trust-${r.id}';
     } else if (c.result != null) {
       screen = _ResultScreen(c: c, s: c.result!);
       key = 'result';
@@ -493,6 +499,8 @@ class _HomeTab extends StatelessWidget {
           curve: Curves.easeOutCubic,
           child: c.pairing == null ? _AskHelpCard(c: c) : _PairingCard(c: c),
         ),
+        // 信任的人只在按了「請人陪我辦」之後出現，跟 QR Code 放在一起
+        if (c.pairing != null) ...[const SizedBox(height: 18), _TrustedSection(c: c)],
         const SizedBox(height: 18),
         Container(
           padding: const EdgeInsets.all(18),
@@ -717,7 +725,11 @@ class _IncomingScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 Center(
-                  child: Text(h.name, style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w600)),
+                  child: _NameWithHeart(
+                    h.name,
+                    trusted: s.helperTrusted,
+                    style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w600),
+                  ),
                 ),
                 Center(
                   child: Text(h.title, style: const TextStyle(fontSize: 21, color: TPColors.grayscale600)),
@@ -745,7 +757,7 @@ class _IncomingScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-                if (!h.verified)
+                if (!s.helperTrusted && !h.verified)
                   const _Warn(
                     icon: Icons.info_rounded,
                     color: TPColors.secondary800,
@@ -872,8 +884,10 @@ class _HelperBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${h.name}${h.helperType == 'village_chief' ? '里長' : ''} 正在陪您',
+                _NameWithHeart(
+                  '${h.name}${h.helperType == 'village_chief' ? '里長' : ''}',
+                  trusted: s.helperTrusted,
+                  suffix: ' 正在陪您',
                   style: const TextStyle(color: TPColors.white, fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 Text(s.serviceTitle, style: const TextStyle(color: TPColors.primary50, fontSize: 15)),
@@ -995,7 +1009,6 @@ class _ElderField extends StatefulWidget {
 }
 
 class _ElderFieldState extends State<_ElderField> {
-  bool reveal = false;
 
   @override
   Widget build(BuildContext context) {
@@ -1023,15 +1036,12 @@ class _ElderFieldState extends State<_ElderField> {
       body = Row(
         children: [
           Expanded(
-            child: Text(
-              reveal ? (st.value ?? '') : maskValue(f.key, st.value),
+            child: _RevealValue(
+              fieldKey: f.key,
+              label: f.label,
+              value: st.value,
               style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w500),
             ),
-          ),
-          IconButton(
-            tooltip: reveal ? '遮住' : '顯示',
-            onPressed: () => setState(() => reveal = !reveal),
-            icon: Icon(reveal ? Icons.visibility_off_rounded : Icons.visibility_rounded),
           ),
           _EditButton(c: widget.c, s: s, f: f, value: st.value ?? ''),
           TextButton(
@@ -1045,13 +1055,13 @@ class _ElderFieldState extends State<_ElderField> {
       body = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            st.status == 'denied' ? '您剛才選擇不提供。改變主意也可以再提供。' : '不用等，按下面就能自己提供。',
-            style: const TextStyle(fontSize: 18, color: TPColors.grayscale600),
-          ),
-          const SizedBox(height: 10),
+          if (st.status == 'denied') ...[
+            const Text('您剛才選擇不提供，想提供也可以。', style: TextStyle(fontSize: 18, color: TPColors.grayscale600)),
+            const SizedBox(height: 10),
+          ] else
+            const SizedBox(height: 4),
           _BigButton(
-            '確認並提供',
+            '填入我的${f.label}',
             outlined: true,
             color: TPColors.primary600,
             onPressed: () => widget.c.openSelfAuth(f.key),
@@ -1168,7 +1178,6 @@ class _AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<_AuthScreen> {
-  bool reveal = false;
   bool busy = false;
   String? edited;
 
@@ -1189,7 +1198,6 @@ class _AuthScreenState extends State<_AuthScreen> {
     if (v != null && mounted) {
       setState(() {
         edited = v == widget.f.value ? null : v;
-        reveal = true;
       });
     }
   }
@@ -1252,24 +1260,22 @@ class _AuthScreenState extends State<_AuthScreen> {
               padding: const EdgeInsets.fromLTRB(24, 18, 24, 12),
               children: [
                 Container(
-                  padding: const EdgeInsets.fromLTRB(18, 10, 8, 10),
+                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
                   decoration: BoxDecoration(color: TPColors.grayscale50, borderRadius: BorderRadius.circular(16)),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        edited == null ? '將提供：' : '將提供（已修改）：',
+                        edited == null ? '將提供' : '將提供（已修改）',
                         style: const TextStyle(fontSize: 18, color: TPColors.grayscale500),
                       ),
-                      Expanded(
-                        child: Text(
-                          reveal ? (edited ?? f.value ?? '') : maskValue(f.key, edited ?? f.value),
-                          style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: reveal ? '遮住' : '顯示完整內容',
-                        onPressed: () => setState(() => reveal = !reveal),
-                        icon: Icon(reveal ? Icons.visibility_off_rounded : Icons.visibility_rounded),
+                      _RevealValue(
+                        key: ValueKey(edited),
+                        fieldKey: f.key,
+                        label: f.label,
+                        value: edited ?? f.value,
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                        initiallyRevealed: edited != null,
                       ),
                     ],
                   ),
@@ -1392,7 +1398,6 @@ class _ReviewScreen extends StatefulWidget {
 }
 
 class _ReviewScreenState extends State<_ReviewScreen> {
-  bool reveal = false;
   bool busy = false;
 
   @override
@@ -1431,14 +1436,18 @@ class _ReviewScreenState extends State<_ReviewScreen> {
                                         children: [
                                           Text(f.label, style: const TextStyle(fontSize: 17, color: TPColors.grayscale500)),
                                           const SizedBox(height: 2),
-                                          Text(
-                                            f.type == 'choice'
-                                                ? f.optionLabel(s.field(f.key).value)
-                                                : reveal
-                                                ? (s.field(f.key).value ?? '')
-                                                : maskValue(f.key, s.field(f.key).value),
-                                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
-                                          ),
+                                          if (f.type == 'choice')
+                                            Text(
+                                              f.optionLabel(s.field(f.key).value),
+                                              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                                            )
+                                          else
+                                            _RevealValue(
+                                              fieldKey: f.key,
+                                              label: f.label,
+                                              value: s.field(f.key).value,
+                                              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -1451,11 +1460,6 @@ class _ReviewScreenState extends State<_ReviewScreen> {
                             ],
                           ],
                         ),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => setState(() => reveal = !reveal),
-                        icon: Icon(reveal ? Icons.visibility_off_rounded : Icons.visibility_rounded),
-                        label: Text(reveal ? '遮住資料' : '顯示完整資料', style: const TextStyle(fontSize: 18)),
                       ),
                       const SizedBox(height: 4),
                       _Warn(
@@ -1904,4 +1908,413 @@ class _StepNav extends StatelessWidget {
       ],
     );
   }
+}
+
+
+// ═════════════════════════════════════════════ 信任的人
+
+/// 名字後面加一顆愛心：是長輩信任的人（像社群平台的認證勾勾）
+class _NameWithHeart extends StatelessWidget {
+  const _NameWithHeart(this.name, {required this.trusted, required this.style, this.suffix = ''});
+  final String name;
+  final bool trusted;
+  final TextStyle style;
+  final String suffix;
+  @override
+  Widget build(BuildContext context) {
+    final size = (style.fontSize ?? 20) * 0.75;
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(text: name),
+          if (trusted)
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Container(
+                margin: const EdgeInsets.only(left: 6),
+                padding: EdgeInsets.all(size * 0.18),
+                decoration: const BoxDecoration(color: TPColors.white, shape: BoxShape.circle),
+                child: Icon(Icons.favorite_rounded, size: size, color: TPColors.red500),
+              ),
+            ),
+          if (suffix.isNotEmpty) TextSpan(text: suffix),
+        ],
+      ),
+      style: style,
+      semanticsLabel: '$name${trusted ? '，您信任的人' : ''}$suffix',
+    );
+  }
+}
+
+/// 「請人陪我辦」底下：點信任的人請他來幫忙；加人、移除也在這裡
+class _TrustedSection extends StatefulWidget {
+  const _TrustedSection({required this.c});
+  final ElderController c;
+  @override
+  State<_TrustedSection> createState() => _TrustedSectionState();
+}
+
+class _TrustedSectionState extends State<_TrustedSection> {
+  bool editing = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.c;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(color: TPColors.white, borderRadius: BorderRadius.circular(18)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Expanded(child: Text('找信任的人', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w600))),
+              if (c.trusted.isNotEmpty)
+                TextButton(
+                  onPressed: () => setState(() => editing = !editing),
+                  child: Text(editing ? '完成' : '編輯', style: const TextStyle(fontSize: 17)),
+                ),
+            ],
+          ),
+          Text(
+            c.trusted.isEmpty ? '把常幫您的家人加進來，下次不用掃 QR Code。' : '按一下，對方手機會收到通知來幫您。',
+            style: const TextStyle(fontSize: 17, height: 1.5, color: TPColors.grayscale600),
+          ),
+          for (final t in c.trusted) ...[const SizedBox(height: 10), _trustedRow(context, t)],
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: () => _showAddTrusted(context, c),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: TPColors.primary700,
+                side: const BorderSide(color: TPColors.primary300, width: 1.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              icon: const Icon(Icons.person_add_alt_1_rounded),
+              label: const Text('加信任的人', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _trustedRow(BuildContext context, TrustedHelper t) {
+    final c = widget.c;
+    final h = t.helper;
+    final waiting = c.waitingFor(h.id);
+    final canCall = !editing && waiting == null;
+    final Widget action;
+    if (editing) {
+      action = TextButton(
+        onPressed: () => _confirmRemoveTrusted(context, c, h),
+        child: const Text('移除', style: TextStyle(fontSize: 18, color: TPColors.red600)),
+      );
+    } else if (waiting != null) {
+      action = Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          const Text('已通知，等他回應', style: TextStyle(fontSize: 15, color: TPColors.secondary800, fontWeight: FontWeight.w600)),
+          TextButton(
+            onPressed: () => _run(context, () => c.cancelHelp(waiting.id)),
+            child: const Text('取消', style: TextStyle(fontSize: 16, color: TPColors.grayscale600)),
+          ),
+        ],
+      );
+    } else {
+      action = const Icon(Icons.chevron_right_rounded, color: TPColors.primary600, size: 30);
+    }
+    return Material(
+      color: TPColors.grayscale50,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: canCall ? () => _run(context, () => c.requestHelp(h.id)) : null,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: TPColors.primary50,
+                child: Icon(helperIcon(h.helperType), color: TPColors.primary600),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _NameWithHeart(h.name, trusted: true, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                    if (canCall)
+                      const Text('請他來幫我', style: TextStyle(fontSize: 16, color: TPColors.primary700, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+              action,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _showAddTrusted(BuildContext context, ElderController c) async {
+  Map<String, dynamic> inv;
+  try {
+    inv = await c.createTrustInvite();
+  } catch (e) {
+    if (context.mounted) showApiError(context, e);
+    return;
+  }
+  if (!context.mounted) return;
+  final code = inv['code'] as String;
+  final expires = DateTime.fromMillisecondsSinceEpoch((inv['expiresAt'] as num).toInt());
+  await showDialog<void>(
+    context: context,
+    useRootNavigator: false,
+    builder: (ctx) => ListenableBuilder(
+      listenable: c,
+      builder: (ctx, _) {
+        // 家人掃了：關掉 QR，讓「要加他嗎？」的畫面出來
+        if (c.trustRequests.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (ctx.mounted && (ModalRoute.of(ctx)?.isCurrent ?? false)) Navigator.pop(ctx);
+          });
+        }
+        return AlertDialog(
+          title: const Text('加信任的人', textAlign: TextAlign.center, style: TextStyle(fontSize: 24)),
+          content: SizedBox(
+            width: 320,
+            child: EverySecond(
+              builder: (_, now) {
+                final left = expires.difference(now);
+                final expired = left.isNegative;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      '請家人用台北通掃這個 QR Code，\n或輸入下面的號碼。',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 17, height: 1.5, color: TPColors.grayscale600),
+                    ),
+                    const SizedBox(height: 12),
+                    Opacity(
+                      opacity: expired ? 0.15 : 1,
+                      child: QrImageView(
+                        data: inv['qrPayload'] as String,
+                        size: 170,
+                        eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.circle, color: TPColors.red700),
+                        dataModuleStyle: const QrDataModuleStyle(
+                          dataModuleShape: QrDataModuleShape.circle,
+                          color: TPColors.red700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      expired ? '------' : '${code.substring(0, 3)} ${code.substring(3)}',
+                      style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w600, letterSpacing: 6, color: TPColors.red700),
+                    ),
+                    Text(
+                      expired ? '號碼已失效，請關掉再按一次' : '${mmss(left)} 後失效',
+                      style: TextStyle(fontSize: 16, color: expired ? TPColors.red600 : TPColors.grayscale600),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      '只給您信得過的家人。對方掃了之後，您還要再按一次「加入」才算數。',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 15, height: 1.5, color: TPColors.red700),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('關閉', style: TextStyle(fontSize: 18))),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+/// 家人掃了邀請碼：問長輩「要把他加為信任的人嗎？」一定要長輩本人按「加入」
+class _TrustRequestScreen extends StatelessWidget {
+  const _TrustRequestScreen({required this.c, required this.r});
+  final ElderController c;
+  final TrustRequest r;
+
+  @override
+  Widget build(BuildContext context) {
+    final h = r.helper;
+    return Scaffold(
+      backgroundColor: TPColors.white,
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(24, 48, 24, 12),
+              children: [
+                Center(
+                  child: CircleAvatar(
+                    radius: 46,
+                    backgroundColor: h.verified ? TPColors.primary100 : TPColors.secondary100,
+                    child: Icon(helperIcon(h.helperType), size: 50, color: h.verified ? TPColors.primary600 : TPColors.secondary700),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '${h.name}\n想成為您信任的人',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w600, height: 1.35),
+                ),
+                const SizedBox(height: 8),
+                Center(child: Text(h.title, style: const TextStyle(fontSize: 19, color: TPColors.grayscale600))),
+                const SizedBox(height: 10),
+                Center(child: HelperBadge(helperType: h.helperType, verified: h.verified, large: true)),
+                const SizedBox(height: 22),
+                const Text(
+                  '加入後，您可以直接請他來幫忙。\n電話裡有人要您加他，就是詐騙。',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 19, height: 1.6, color: TPColors.grayscale700),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+            child: Column(
+              children: [
+                _BigButton(
+                  '加入',
+                  icon: Icons.favorite_rounded,
+                  onPressed: () => _run(context, () => c.respondTrustRequest(r.id, true)),
+                ),
+                const SizedBox(height: 12),
+                _BigButton(
+                  '不要',
+                  outlined: true,
+                  color: TPColors.grayscale600,
+                  onPressed: () => _run(context, () => c.respondTrustRequest(r.id, false)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+/// 敏感資料：整格模糊，中間寫「點一下查看{label}」，點了才顯示；再點一下又遮起來。
+/// 比「遮一半＋眼睛圖示」直覺：長輩不用猜眼睛是什麼意思。
+/// 不需要遮的欄位（例如姓名）直接顯示。
+class _RevealValue extends StatefulWidget {
+  const _RevealValue({
+    super.key,
+    required this.fieldKey,
+    required this.label,
+    required this.value,
+    required this.style,
+    this.initiallyRevealed = false,
+  });
+  final String fieldKey;
+  final String label;
+  final String? value;
+  final TextStyle style;
+  final bool initiallyRevealed;
+  @override
+  State<_RevealValue> createState() => __RevealValueState();
+}
+
+class __RevealValueState extends State<_RevealValue> {
+  late bool reveal = widget.initiallyRevealed;
+
+  @override
+  Widget build(BuildContext context) {
+    final v = widget.value ?? '';
+    if (maskValue(widget.fieldKey, v) == v) return Text(v, style: widget.style);
+    return Semantics(
+      button: true,
+      label: reveal ? '${widget.label}：$v。點兩下遮住' : '${widget.label}已遮住。點兩下查看',
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          
+          setState(() => reveal = !reveal);
+        },
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48, minWidth: double.infinity),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: ImageFiltered(
+                  enabled: !reveal,
+                  imageFilter: ImageFilter.blur(sigmaX: 9, sigmaY: 9, tileMode: TileMode.decal),
+                  child: Text(v, style: widget.style),
+                ),
+              ),
+              if (!reveal)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: TPColors.white.withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(99),
+                    boxShadow: const [BoxShadow(color: Color(0x1A000000), blurRadius: 8, offset: Offset(0, 2))],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.touch_app_rounded, size: 20, color: TPColors.primary700),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          '點一下查看${widget.label}',
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: TPColors.primary700),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Positioned(
+                  right: 0,
+                  child: Text('點一下遮住', style: TextStyle(fontSize: 14, color: TPColors.grayscale500)),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _confirmRemoveTrusted(BuildContext context, ElderController c, HelperInfo h) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    useRootNavigator: false,
+    builder: (ctx) => AlertDialog(
+      title: Text('移除 ${h.name}？', style: const TextStyle(fontSize: 24)),
+      content: const Text('之後他要找您，就要重新掃 QR Code。', style: _tBody),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('取消', style: TextStyle(fontSize: 18)),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: TPColors.red500),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('移除', style: TextStyle(fontSize: 18)),
+        ),
+      ],
+    ),
+  );
+  if (ok == true && context.mounted) await _run(context, () => c.removeTrusted(h.id));
 }

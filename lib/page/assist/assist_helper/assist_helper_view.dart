@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:town_pass/page/assist/widget/assist_scan.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/bean/assist.dart';
+import 'package:town_pass/page/assist/widget/assist_celebration.dart';
 import 'package:town_pass/page/assist/widget/assist_ui.dart' show AssistTicker, assistMmss;
 import 'package:town_pass/service/assist_helper_controller.dart';
 import 'package:town_pass/service/assist_service.dart';
@@ -11,11 +13,14 @@ import 'package:town_pass/util/tp_colors.dart';
 /// 協助者（里長、家人、1999 客服）用手機陪長輩辦事的畫面。
 /// 由首頁「掃描」掃到長輩的配對 QR Code 進來（帶入配對碼），或從「設定 › 測試身分」打開。
 class AssistHelperView extends StatefulWidget {
-  const AssistHelperView({super.key, this.code});
+  const AssistHelperView({super.key, this.code, this.elderId});
   final String? code;
 
-  static Future<void> open([String? code]) async {
-    await Get.to(() => AssistHelperView(code: code), routeName: '/assist_helper');
+  /// 從首頁「幫某某辦事」進來：直接選好這位信任我的長輩
+  final String? elderId;
+
+  static Future<void> open({String? code, String? elderId}) async {
+    await Get.to(() => AssistHelperView(code: code, elderId: elderId), routeName: '/assist_helper');
   }
 
   @override
@@ -24,6 +29,7 @@ class AssistHelperView extends StatefulWidget {
 
 class _AssistHelperViewState extends State<AssistHelperView> {
   late final AssistHelperController c;
+  String? _pastResultId;
 
   @override
   void initState() {
@@ -56,7 +62,15 @@ class _AssistHelperViewState extends State<AssistHelperView> {
         );
       } else if (s == null) {
         title = '新陪辦';
-        body = _NewRequest(c: c, code: widget.code);
+        body = _NewRequest(
+          c: c,
+          code: widget.code,
+          elderId: widget.elderId,
+          onOpenRecent: (session) {
+            _pastResultId = session.isOpen ? null : session.id;
+            c.focusedId.value = session.id;
+          },
+        );
       } else if (s.isPending) {
         title = '等待長輩回應';
         body = _Waiting(c: c, s: s);
@@ -65,7 +79,7 @@ class _AssistHelperViewState extends State<AssistHelperView> {
         body = _Session(c: c, s: s);
       } else {
         title = s.serviceTitle;
-        body = _Done(c: c, s: s);
+        body = _Done(c: c, s: s, animate: s.id != _pastResultId);
       }
       return PopScope(
         // 案件開著時，返回鍵先回到新陪辦／列表，不直接離開
@@ -137,11 +151,14 @@ class _Card extends StatelessWidget {
   final EdgeInsets padding;
   final Color color;
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => SizedBox(
     width: double.infinity,
-    padding: padding,
-    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(_cardRadius)),
-    child: child,
+    child: Material(
+      color: color,
+      borderRadius: BorderRadius.circular(_cardRadius),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(padding: padding, child: child),
+    ),
   );
 }
 
@@ -221,9 +238,11 @@ ButtonStyle _secondary() => OutlinedButton.styleFrom(
 // ═════════════════════════════════════════════ 新陪辦
 
 class _NewRequest extends StatefulWidget {
-  const _NewRequest({required this.c, this.code});
+  const _NewRequest({required this.c, this.code, this.elderId, required this.onOpenRecent});
   final AssistHelperController c;
   final String? code;
+  final String? elderId;
+  final ValueChanged<AssistSession> onOpenRecent;
   @override
   State<_NewRequest> createState() => _NewRequestState();
 }
@@ -243,7 +262,9 @@ class _NewRequestState extends State<_NewRequest> {
     if (widget.c.services.isNotEmpty) serviceId = widget.c.services.first['id'] as String;
     if (widget.code == null) {
       final trusted = widget.c.trustedElders;
-      if (trusted.length == 1) {
+      if (widget.elderId != null && trusted.any((e) => e['elderId'] == widget.elderId)) {
+        elderId = widget.elderId;
+      } else if (trusted.length == 1) {
         // 只有一位信任您的長輩：直接選好，按一下就能送出
         elderId = trusted.first['elderId'] as String;
       } else if (trusted.isEmpty) {
@@ -323,7 +344,7 @@ class _NewRequestState extends State<_NewRequest> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _Label('信任您的長輩・不用配對碼'),
+                    const _Label('信任您的長輩・按一下就通知，不用配對碼'),
                     for (final e in trusted) ...[
                       _TrustedElderTile(
                         name: e['displayName'] as String,
@@ -368,7 +389,15 @@ class _NewRequestState extends State<_NewRequest> {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: assistEnterTrustCode,
+                  icon: const Icon(Icons.favorite_border_rounded, size: 18),
+                  label: const Text('長輩給您的是「加信任的人」號碼？'),
+                ),
+              ),
+              const SizedBox(height: 4),
               const _Label('要陪長輩辦什麼'),
               for (final sv in c.services) ...[
                 _ServiceTile(
@@ -410,7 +439,7 @@ class _NewRequestState extends State<_NewRequest> {
                     children: [
                       for (var i = 0; i < recent.length; i++) ...[
                         if (i > 0) const Divider(height: 1, indent: 16),
-                        _CaseRow(s: recent[i], onTap: () => c.focusedId.value = recent[i].id),
+                        _CaseRow(s: recent[i], onTap: () => widget.onOpenRecent(recent[i])),
                       ],
                     ],
                   ),
@@ -428,7 +457,7 @@ class _NewRequestState extends State<_NewRequest> {
                 icon: busy
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: TPColors.white))
                     : const Icon(Icons.send_rounded),
-                label: Text(elderId != null ? '請長輩確認' : '送出陪辦請求'),
+                label: Text(elderId != null ? '通知長輩確認' : '送出陪辦請求'),
               ),
             ),
           ],
@@ -1054,9 +1083,10 @@ class _TimelineState extends State<_Timeline> {
 // ═════════════════════════════════════════════ 結果
 
 class _Done extends StatelessWidget {
-  const _Done({required this.c, required this.s});
+  const _Done({required this.c, required this.s, required this.animate});
   final AssistHelperController c;
   final AssistSession s;
+  final bool animate;
   @override
   Widget build(BuildContext context) {
     final ok = s.status == 'completed';
@@ -1064,29 +1094,36 @@ class _Done extends StatelessWidget {
       children: [
         Expanded(
           child: Center(
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 88,
-                    height: 88,
-                    decoration: BoxDecoration(color: ok ? TPColors.green50 : TPColors.grayscale100, shape: BoxShape.circle),
-                    child: Icon(
-                      ok ? Icons.check_rounded : Icons.info_outline_rounded,
-                      size: 44,
-                      color: ok ? TPColors.green500 : TPColors.grayscale500,
+                  if (ok)
+                    AssistCelebration.gratitude(key: ValueKey(s.id), animate: animate)
+                  else
+                    Container(
+                      width: 88,
+                      height: 88,
+                      decoration: const BoxDecoration(color: TPColors.grayscale100, shape: BoxShape.circle),
+                      child: const Icon(Icons.info_outline_rounded, size: 44, color: TPColors.grayscale500),
+                    ),
+                  const SizedBox(height: 18),
+                  Semantics(
+                    header: true,
+                    liveRegion: true,
+                    child: Text(
+                      ok ? '謝謝您的陪伴！' : statusLabel(s),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  Text(
-                    ok ? '${s.elderDisplayName} 已經送出申請' : statusLabel(s),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                  ),
                   const SizedBox(height: 6),
-                  Text('「${s.serviceTitle}」', style: const TextStyle(fontSize: 14, color: TPColors.grayscale500)),
+                  Text(
+                    ok ? '${s.elderDisplayName} 已送出「${s.serviceTitle}」。' : '「${s.serviceTitle}」',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 15, color: TPColors.grayscale600),
+                  ),
                   if (ok && s.caseNo != null) ...[
                     const SizedBox(height: 16),
                     _Card(
@@ -1098,18 +1135,28 @@ class _Done extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    const Text('謝謝您陪長輩完成！', style: TextStyle(fontSize: 15, color: TPColors.grayscale600)),
                   ],
                 ],
               ),
             ),
           ),
         ),
+        // 多數情況幫完一位就結束了，主按鈕回首頁；連續服務（里長、1999）再用次要鈕
         _BottomBar(
           children: [
             Expanded(
-              child: FilledButton(style: _primary(), onPressed: () => c.focusedId.value = null, child: const Text('新陪辦')),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FilledButton(style: _primary(), onPressed: Get.back, child: const Text('回到首頁')),
+                  const SizedBox(height: 6),
+                  TextButton(
+                    onPressed: () => c.focusedId.value = null,
+                    style: TextButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+                    child: const Text('再陪辦另一位', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

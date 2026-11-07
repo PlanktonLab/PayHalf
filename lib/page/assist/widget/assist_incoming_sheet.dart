@@ -135,24 +135,16 @@ class _AssistIncomingSheetState extends State<AssistIncomingSheet> with SingleTi
             Semantics(
               header: true,
               liveRegion: true,
-              child: Text('${assistHelperDisplayName(h)}\n想協助您', textAlign: TextAlign.center, style: AssistText.largeTitle),
+              child: AssistHelperName(
+                h,
+                trusted: s.helperTrusted,
+                suffix: '\n想協助您',
+                textAlign: TextAlign.center,
+                style: AssistText.largeTitle,
+              ),
             ),
             const SizedBox(height: 10),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                if (s.helperTrusted)
-                  const AssistPill(
-                    '您信任的人',
-                    color: AssistColors.green700,
-                    background: AssistColors.green50,
-                    icon: Icons.favorite_rounded,
-                  ),
-                AssistHelperBadge(helper: h),
-              ],
-            ),
+            Center(child: AssistHelperBadge(helper: h)),
             const SizedBox(height: 16),
             AssistCard(
               color: TPColors.primary50,
@@ -166,7 +158,7 @@ class _AssistIncomingSheetState extends State<AssistIncomingSheet> with SingleTi
             ),
             const SizedBox(height: 12),
             Text(
-              '${assistMmss(left)} 後自動取消・先關掉也可以，首頁上方會一直留著',
+              '先關掉也沒關係，首頁上方會留著（${assistMmss(left)}）',
               textAlign: TextAlign.center,
               style: AssistText.footnote.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
             ),

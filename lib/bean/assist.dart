@@ -168,3 +168,38 @@ class TrustedHelper {
   HelperInfo get helper => HelperInfo(Map<String, dynamic>.from(raw['helper'] as Map));
   DateTime get since => DateTime.fromMillisecondsSinceEpoch((raw['since'] as num).toInt());
 }
+
+/// 長輩主動請信任的人來幫忙
+class HelpRequest {
+  HelpRequest(this.raw);
+  final Map<String, dynamic> raw;
+  String get id => raw['id'] as String;
+  String get status => raw['status'] as String;
+  bool get isPending => status == 'pending';
+  String get elderId => (raw['elder'] as Map)['id'] as String;
+  /// 協助者看到的長輩姓名（遮罩過）
+  String get elderName => (raw['elder'] as Map)['displayName'] as String;
+  HelperInfo get helper => HelperInfo(Map<String, dynamic>.from(raw['helper'] as Map));
+  DateTime get expiresAt => DateTime.fromMillisecondsSinceEpoch((raw['expiresAt'] as num).toInt());
+}
+
+/// 可以加為信任的人：陪長輩辦過的人
+class TrustCandidate {
+  TrustCandidate(this.raw);
+  final Map<String, dynamic> raw;
+  HelperInfo get helper => HelperInfo(Map<String, dynamic>.from(raw['helper'] as Map));
+  String? get serviceTitle => raw['serviceTitle'] as String?;
+  DateTime get lastHelpedAt => DateTime.fromMillisecondsSinceEpoch((raw['lastHelpedAt'] as num).toInt());
+}
+
+/// 加好友：家人掃了長輩的邀請碼，等長輩確認
+class TrustRequest {
+  TrustRequest(this.raw);
+  final Map<String, dynamic> raw;
+  String get id => raw['id'] as String;
+  String get status => raw['status'] as String;
+  bool get isPending => status == 'pending';
+  HelperInfo get helper => HelperInfo(Map<String, dynamic>.from(raw['helper'] as Map));
+  String get elderName => (raw['elder'] as Map)['displayName'] as String;
+  DateTime get expiresAt => DateTime.fromMillisecondsSinceEpoch((raw['expiresAt'] as num).toInt());
+}

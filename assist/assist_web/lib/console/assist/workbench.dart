@@ -6,7 +6,7 @@ import '../../core/format.dart';
 import '../../core/models.dart';
 import '../../helper/helper_controller.dart';
 import '../../shared/console_kit.dart';
-import '../../shared/widgets.dart' show EverySecond;
+import '../../shared/widgets.dart' show EverySecond, showApiError;
 
 void showApiErr(BuildContext context, Object e) => cToast(context, e is ApiException ? e.message : '連線失敗，請確認後端是否啟動');
 
@@ -235,9 +235,9 @@ class _NewRequestViewState extends State<_NewRequestView> {
       serviceId != null &&
       !busy &&
       (elderId != null ||
-          byIdentity
-          ? name.text.trim().isNotEmpty && birthday.text.trim().isNotEmpty && last4.text.length == 4
-          : code.text.length == 6);
+          (byIdentity
+              ? name.text.trim().isNotEmpty && birthday.text.trim().isNotEmpty && last4.text.length == 4
+              : code.text.length == 6));
 
   Future<void> submit() async {
     if (!ready) return;
@@ -379,6 +379,34 @@ class _NewRequestViewState extends State<_NewRequestView> {
                       style: CText.secondary.copyWith(color: C.ink3),
                     ),
                     const SizedBox(height: 24),
+                    // 信任我的長輩按了「請他來幫我」：一鍵選好他
+                    for (final r in c.helpRequests)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF4DE),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFF5BA4B)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.notifications_active_rounded, size: 20, color: Color(0xFF9A6A10)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text('${r.elderName} 請您幫忙', style: CText.body.copyWith(fontWeight: FontWeight.w600)),
+                            ),
+                            CButton.primary(
+                              '選他',
+                              onPressed: () => setState(() {
+                                byIdentity = false;
+                                error = null;
+                                elderId = r.elderId;
+                              }),
+                            ),
+                          ],
+                        ),
+                      ),
                     if (c.trustedElders.isNotEmpty && !byIdentity) ...[
                       const Text('信任您的長輩・不用配對碼', style: CText.label),
                       const SizedBox(height: 8),
@@ -443,7 +471,27 @@ class _NewRequestViewState extends State<_NewRequestView> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      // Demo 用：一鍵帶入王大明（虛構測試資料），不搶眼
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () => setState(() {
+                            name.text = '王大明';
+                            birthday.text = '1948-03-15';
+                            last4.text = '7499';
+                            error = null;
+                          }),
+                          style: TextButton.styleFrom(
+                            foregroundColor: C.ink3,
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            minimumSize: const Size(0, 30),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          icon: const Icon(Icons.bolt_rounded, size: 16),
+                          label: const Text('Demo：帶入王大明', style: TextStyle(fontSize: 12.5)),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
                       const CNotice(
                         icon: Icons.shield_outlined,
                         text: '為保護長輩，系統不會告訴您是否找到這個人。資料正確時，長輩手機才會收到通知；每次查找都會留下紀錄。',
@@ -463,6 +511,12 @@ class _NewRequestViewState extends State<_NewRequestView> {
                       ),
                     ],
                     const SizedBox(height: 10),
+                    TextButton.icon(
+                      onPressed: () => _enterTrustCode(context, widget.c),
+                      icon: const Icon(Icons.favorite_border_rounded, size: 16),
+                      label: const Text('長輩給您的是「加信任的人」號碼？'),
+                      style: TextButton.styleFrom(foregroundColor: C.accentInk, padding: EdgeInsets.zero),
+                    ),
                     TextButton(
                       onPressed: () => setState(() {
                         byIdentity = !byIdentity;
@@ -481,7 +535,7 @@ class _NewRequestViewState extends State<_NewRequestView> {
                     SizedBox(width: 360, child: service),
                     const SizedBox(height: 24),
                     CButton.primary(
-                      busy ? '送出中…' : (elderId != null ? '請長輩確認' : '送出請求'),
+                      busy ? '送出中…' : (elderId != null ? '通知長輩確認' : '送出請求'),
                       icon: Icons.send_rounded,
                       large: true,
                       onPressed: ready ? submit : null,
@@ -1187,7 +1241,7 @@ class _ResultView extends StatelessWidget {
                   const Text('長輩的個資已直接送到受理機關，這次陪辦的連線紀錄中不保留任何個資。', textAlign: TextAlign.center, style: CText.small),
                 ],
                 const SizedBox(height: 24),
-                CButton.primary('開始新的陪辦', icon: Icons.add_rounded, large: true, onPressed: () => c.focus(null)),
+                CButton.primary('完成，回到工作台', icon: Icons.check_rounded, large: true, onPressed: () => c.focus(null)),
               ],
             ),
           ),
@@ -1395,5 +1449,62 @@ class _TrustedChip extends StatelessWidget {
         ),
       ),
     ),
+  );
+}
+
+
+/// 輸入長輩給的「加信任的人」邀請碼：送給長輩確認
+Future<void> _enterTrustCode(BuildContext context, HelperController c) async {
+  final code = await showDialog<String>(context: context, builder: (_) => const _TrustCodeDialog());
+  if (code == null || !RegExp(r'^\d{6}$').hasMatch(code) || !context.mounted) return;
+  try {
+    final r = await c.acceptTrustInvite(code);
+    final name = (r['elder'] as Map?)?['displayName'] ?? '長輩';
+    if (!context.mounted) return;
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(r['status'] == 'already' ? '您已經是 $name 信任的人' : '已送出，等 $name 在手機上按「加入」'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  } catch (e) {
+    if (context.mounted) showApiError(context, e);
+  }
+}
+
+class _TrustCodeDialog extends StatefulWidget {
+  const _TrustCodeDialog();
+  @override
+  State<_TrustCodeDialog> createState() => _TrustCodeDialogState();
+}
+
+class _TrustCodeDialogState extends State<_TrustCodeDialog> {
+  final controller = TextEditingController();
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('輸入長輩給的邀請碼'),
+    content: TextField(
+      controller: controller,
+      autofocus: true,
+      keyboardType: TextInputType.number,
+      maxLength: 6,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      style: const TextStyle(fontSize: 26, letterSpacing: 6),
+      decoration: const InputDecoration(hintText: '6 位數字', counterText: ''),
+      onSubmitted: (v) => Navigator.pop(context, v.trim()),
+    ),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+      FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('加好友')),
+    ],
   );
 }
