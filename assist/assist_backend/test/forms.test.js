@@ -199,6 +199,10 @@ test('請旁邊的人幫我：配對碼綁定這份表單；信任的人收到�
     const family = await h.login('helper-family');
     const list = await family.get('/helper/help-requests');
     assert.equal(list.body[0].serviceTitle, '長者流感疫苗預約');
+    // 家人就算選錯業務，也會陪辦長輩求助的那份表單
+    const go = await family.post('/helper/requests', { method: 'trusted', serviceId: 'senior-card', elderId: 'elder-wang' });
+    assert.equal(go.status, 202, JSON.stringify(go.body));
+    assert.equal(go.body.serviceId, 'form-flu-shot');
   } finally {
     await h.close();
   }

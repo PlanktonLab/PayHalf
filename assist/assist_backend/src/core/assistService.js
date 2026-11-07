@@ -663,7 +663,14 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
 
   /** 信任的人直接發起請求：不用配對碼，長輩一樣要按同意、一樣逐項授權。 */
   function requestTrusted(helper, { serviceId, elderId }) {
-    const service = requireService(serviceId);
+    // 長輩是在某份表單裡按「找人幫我」：一律陪辦那份表單（已填的答案才帶得進來），不管協助者選了什麼
+    let asked = null;
+    for (const r of helpRequests.values()) {
+      if (r.elderId === elderId && r.helperId === helper.id && r.status === 'pending' && r.expiresAt > now() && r.serviceId) {
+        asked = r.serviceId;
+      }
+    }
+    const service = requireService(asked && findService(asked) ? asked : serviceId);
     if (!isTrusted(elderId, helper.id) || isBlocked(elderId, helper.id)) {
       throw forbidden('對方沒有把您加為信任的人，請改用配對碼', 'NOT_TRUSTED');
     }

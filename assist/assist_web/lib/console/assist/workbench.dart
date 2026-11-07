@@ -446,6 +446,14 @@ class _NewRequestViewState extends State<_NewRequestView> {
                               onTap: () => setState(() {
                                 error = null;
                                 elderId = elderId == e['elderId'] ? null : e['elderId'] as String;
+                                // 這位長輩是在某份表單裡求助：直接選好那份表單
+                                final asked = widget.c.helpRequests
+                                    .where((r) => r.elderId == elderId && r.serviceId != null)
+                                    .map((r) => r.serviceId!)
+                                    .firstOrNull;
+                                if (asked != null && widget.c.serviceSummaries.any((s) => s['id'] == asked)) {
+                                  serviceId = asked;
+                                }
                               }),
                             ),
                         ],
