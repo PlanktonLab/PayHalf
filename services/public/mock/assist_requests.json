@@ -1,0 +1,53 @@
+{
+  "_note": "示意資料,全部為虛構,非真實個資。expiresInMinutes 會在載入時換算成實際時間。",
+  "requests": [
+    {
+      "id": "ar-1001",
+      "elderId": "elder-001",
+      "helperType": "CS_1999",
+      "helperName": "1999 客服",
+      "serviceId": "elderBonus",
+      "status": "PENDING",
+      "expiresInMinutes": 60,
+      "elderLang": "zh-Hant",
+      "fields": [
+        { "key": "name", "value": "王大明" },
+        { "key": "idNumber", "value": "A12****789" },
+        { "key": "birthday", "value": "民國 40 年 5 月 3 日" },
+        { "key": "bank", "value": "範例銀行 中山分行" },
+        { "key": "account", "value": "000-123-456789" }
+      ]
+    },
+    {
+      "id": "ar-1002",
+      "elderId": "elder-001",
+      "helperType": "FAMILY",
+      "helperName": "王小明(兒子)",
+      "serviceId": "elderBonus",
+      "status": "PENDING",
+      "expiresInMinutes": 30,
+      "elderLang": "zh-Hant",
+      "fields": [
+        { "key": "name", "value": "王大明" },
+        { "key": "idNumber", "value": "A12****789" },
+        { "key": "birthday", "value": "民國 40 年 5 月 3 日" },
+        { "key": "bank", "value": "範例銀行 中山分行" },
+        { "key": "account", "value": "000-123-456789" }
+      ]
+    }
+  ],
+  "delegations": [
+    {
+      "id": "dg-1",
+      "helperType": "FAMILY",
+      "helperName": "王小明(兒子)",
+      "daysValid": 365
+    },
+    {
+      "id": "dg-2",
+      "helperType": "CAREGIVER",
+      "helperName": "Sari",
+      "daysValid": 30
+    }
+  ]
+}
