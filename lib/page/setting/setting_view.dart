@@ -1,3 +1,4 @@
+import 'package:town_pass/page/setting/assist_identity_view.dart';
 import 'package:town_pass/page/setting/assist_server_view.dart';
 import 'package:town_pass/page/setting/setting_view_controller.dart';
 import 'package:town_pass/service/assist_service.dart';
@@ -56,6 +57,15 @@ class SettingView extends GetView<SettingViewController> {
                 onTap: () => Get.toNamed(TPRoute.suspendAccount),
               ),
               TPSettingListTile.header(title: '開發測試'),
+              TPSettingListTile.navigate(
+                title: '測試身分',
+                content: AssistIdentityView.summary(Get.find<AssistService>()),
+                onTap: () async {
+                  await Get.to(() => const AssistIdentityView());
+                  controller.update();
+                },
+              ),
+              TPSettingListTile.line(),
               TPSettingListTile.navigate(
                 title: '陪辦伺服器',
                 content: AssistServerView.labelFor(Get.find<AssistService>().server.value),

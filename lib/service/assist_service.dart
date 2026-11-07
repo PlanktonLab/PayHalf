@@ -47,6 +47,25 @@ class AssistService extends GetxService {
   static const String _apiOverride = String.fromEnvironment('ASSIST_API');
   static const String _prefKey = 'assist_api_base';
 
+  /// 測試用身分（對應後端 demo 帳號）。王大明是台北通模擬帳號本人，走正式的 townpass-login
+  static const elderAccounts = [
+    (id: 'elder-wang', name: '王大明', note: '台北通帳號本人'),
+    (id: 'elder-lee', name: '李秀英', note: '另一位長輩'),
+  ];
+  static const helperAccounts = [
+    (id: 'helper-chief', name: '陳美玲', note: '里長・市府認證'),
+    (id: 'helper-family', name: '王小華', note: '家人／親友'),
+    (id: 'helper-1999', name: '林志明', note: '1999 客服・市府認證'),
+  ];
+  static const _elderKey = 'assist_elder_id';
+  static const _helperKey = 'assist_helper_id';
+
+  /// 這支手機接受協助時是哪位長輩
+  final RxString elderId = 'elder-wang'.obs;
+
+  /// 用這支手機掃 QR Code 協助別人時，以哪位協助者登入工作台
+  final RxString helperId = 'helper-chief'.obs;
+
   /// 目前連線的後端位址
   final RxString server = ''.obs;
   String get apiBase => server.value;
@@ -73,7 +92,10 @@ class AssistService extends GetxService {
   int _generation = 0;
 
   AssistService init() {
-    final saved = Get.find<SharedPreferencesService>().instance.getString(_prefKey);
+    final prefs = Get.find<SharedPreferencesService>().instance;
+    elderId.value = prefs.getString(_elderKey) ?? elderId.value;
+    helperId.value = prefs.getString(_helperKey) ?? helperId.value;
+    final saved = prefs.getString(_prefKey);
     server.value = normalizeBase(saved ?? (_apiOverride.isNotEmpty ? _apiOverride : localBase));
     _link();
     return this;
@@ -98,6 +120,33 @@ class AssistService extends GetxService {
       throw const FormatException('網址格式不正確');
     }
     await Get.find<SharedPreferencesService>().instance.setString(_prefKey, base);
+    server.value = base;
+    await _relink();
+  }
+
+  /// 換成另一位長輩：清掉狀態後重新登入
+  Future<void> useElder(String id) async {
+    if (id == elderId.value) return;
+    await Get.find<SharedPreferencesService>().instance.setString(_elderKey, id);
+    elderId.value = id;
+    await _relink();
+  }
+
+  Future<void> useHelper(String id) async {
+    await Get.find<SharedPreferencesService>().instance.setString(_helperKey, id);
+    helperId.value = id;
+  }
+
+  /// 掃到長輩的配對 QR Code：用選定的協助者開工作台，並把配對碼填好
+  String helperConsoleUrl([String? code]) =>
+      '$apiBase/?as=${Uri.encodeQueryComponent(helperId.value)}'
+      '${code == null ? '' : '&code=${Uri.encodeQueryComponent(code)}'}#/console';
+
+  /// 從 QR Code 內容取出配對碼（townpass-assist:123456）
+  static String? pairingCodeFrom(String? raw) =>
+      RegExp(r'^townpass-assist:(\d{6})$').firstMatch(raw?.trim() ?? '')?.group(1);
+
+  Future<void> _relink() async {
     _generation++;
     _retry?.cancel();
     _socket?.dispose();
@@ -116,7 +165,6 @@ class AssistService extends GetxService {
     _watchingId = null;
     _notifiedRequests.clear();
     _notifiedAuth.clear();
-    server.value = base;
     await _link();
   }
 
@@ -151,8 +199,14 @@ class AssistService extends GetxService {
 
   /// 以台北通帳號換取陪辦 token。後端重啟後舊 token 會失效，也會從這裡重新登入。
   Future<void> _login() async {
-    final accountId = Get.find<AccountService>().account?.id;
-    final res = await _request('POST', '/auth/townpass-login', {'accountId': accountId}, false) as Map;
+    final Map res;
+    if (elderId.value == 'elder-wang') {
+      final accountId = Get.find<AccountService>().account?.id;
+      res = await _request('POST', '/auth/townpass-login', {'accountId': accountId}, false) as Map;
+    } else {
+      // 測試其他長輩：用 demo 帳號登入
+      res = await _request('POST', '/auth/demo-login', {'userId': elderId.value}, false) as Map;
+    }
     _token = res['token'] as String;
   }
 

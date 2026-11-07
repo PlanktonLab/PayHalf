@@ -32,6 +32,13 @@ class _ConsoleAppState extends State<ConsoleApp> {
   void initState() {
     super.initState();
     c.loadDemoAccounts();
+    // 台北通 App 掃到長輩的 QR Code 後會開 /?as=<協助者>&code=<配對碼>#/console：
+    // 直接以該協助者登入，並把配對碼填好
+    final q = Uri.base.queryParameters;
+    final code = q['code'];
+    if (code != null && RegExp(r'^\d{6}$').hasMatch(code)) c.pendingCode = code;
+    final as = q['as'];
+    if (as != null && as.startsWith('helper-')) c.login(as).catchError((Object _) {});
   }
 
   @override

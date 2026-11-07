@@ -215,6 +215,10 @@ class _NewRequestViewState extends State<_NewRequestView> {
   void initState() {
     super.initState();
     if (widget.c.serviceSummaries.isNotEmpty) serviceId = widget.c.serviceSummaries.first['id'] as String;
+    if (widget.c.pendingCode != null) {
+      code.text = widget.c.pendingCode!;
+      widget.c.pendingCode = null;
+    }
   }
 
   @override
@@ -351,7 +355,8 @@ class _NewRequestViewState extends State<_NewRequestView> {
     return LayoutBuilder(
       builder: (context, box) {
         final pad = box.maxWidth < 640 ? 16.0 : 32.0;
-        final boxSize = box.maxWidth < 480 ? 40.0 : 52.0;
+        // 6 格 + 間距（4×10 + 中間 20）要塞得進可用寬度，手機上自動縮小
+        final boxSize = ((box.maxWidth - pad * 2 - 60) / 6).clamp(32.0, 52.0);
         return ListView(
           padding: EdgeInsets.fromLTRB(pad, 28, pad, 48),
           children: [
