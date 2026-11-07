@@ -63,7 +63,7 @@ class QRCodeScanView extends GetView<QRCodeScanController> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const TPText(
-                  '請掃描繳費單的 QR Code',
+                  '請掃描 QR Code',
                   style: TPTextStyles.h2SemiBold,
                   color: TPColors.white,
                 ),
