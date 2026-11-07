@@ -1348,3 +1348,128 @@ class CMenuItem {
   final bool selected;
   final bool divider;
 }
+
+// ═════════════════════════════════════════════ 配對碼
+
+/// 6 格配對碼輸入。外觀是 6 個方格，實際上是一個輸入框：
+/// 貼上、刪除、螢幕報讀都和一般輸入框一樣。
+class CCodeInput extends StatefulWidget {
+  const CCodeInput({
+    super.key,
+    required this.controller,
+    this.onSubmitted,
+    this.onChanged,
+    this.autofocus = true,
+    this.error = false,
+    this.box = 52,
+  });
+  final TextEditingController controller;
+  final ValueChanged<String>? onSubmitted;
+  final ValueChanged<String>? onChanged;
+  final bool autofocus;
+  final bool error;
+  final double box;
+
+  @override
+  State<CCodeInput> createState() => _CCodeInputState();
+}
+
+class _CCodeInputState extends State<CCodeInput> {
+  final node = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    node.addListener(_tick);
+    widget.controller.addListener(_tick);
+    if (widget.autofocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) node.requestFocus();
+      });
+    }
+  }
+
+  void _tick() => setState(() {});
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_tick);
+    node.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = widget.controller.text;
+    final s = widget.box;
+    final current = text.length.clamp(0, 5);
+    return GestureDetector(
+      onTap: node.requestFocus,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.text,
+        child: Stack(
+          children: [
+            ExcludeSemantics(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < 6; i++) ...[
+                    if (i > 0) SizedBox(width: i == 3 ? 20 : 10),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 120),
+                      width: s,
+                      height: s * 1.18,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: C.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: widget.error && text.length == 6
+                              ? C.danger
+                              : (node.hasFocus && i == current ? C.accent : C.borderStrong),
+                          width: 1.5,
+                        ),
+                        boxShadow: node.hasFocus && i == current && !widget.error
+                            ? const [BoxShadow(color: C.accentSoft2, spreadRadius: 4)]
+                            : null,
+                      ),
+                      child: Text(
+                        i < text.length ? text[i] : '',
+                        style: TextStyle(fontSize: s * 0.52, fontWeight: FontWeight.w600, fontFeatures: CText.tabular),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Positioned.fill(
+              child: Opacity(
+                opacity: 0,
+                child: TextField(
+                  controller: widget.controller,
+                  focusNode: node,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  showCursor: false,
+                  enableInteractiveSelection: false,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: widget.onChanged,
+                  onSubmitted: widget.onSubmitted,
+                  decoration: const InputDecoration(
+                    counterText: '',
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    filled: false,
+                    semanticCounterText: '',
+                    labelText: '配對碼，6 位數字',
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

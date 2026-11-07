@@ -17,24 +17,185 @@ CTone sessionTone(AssistSession s) => switch (s.status) {
   _ => CTone.neutral,
 };
 
-/// 工作台：依目前聚焦的協辦狀態切換畫面。
+/// 工作台（方案 D「案件列表」）：左邊是今天的案件，右邊是內容。
+/// 沒有選取案件時，右邊就是輸入配對碼的地方。
 class Workbench extends StatelessWidget {
   const Workbench({super.key, required this.c});
   final HelperController c;
-  @override
-  Widget build(BuildContext context) {
+
+  Widget _right() {
     final s = c.focused;
-    if (s == null) return _NewRequestView(c: c);
+    if (s == null) return _NewRequestView(key: const ValueKey('new'), c: c);
     if (s.isPending) return _WaitingView(c: c, s: s);
     if (s.isActive) return _SessionConsole(c: c, s: s);
     return _ResultView(c: c, s: s);
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, box) {
+        if (box.maxWidth >= 860) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                width: 300,
+                decoration: const BoxDecoration(
+                  border: Border(right: BorderSide(color: C.border)),
+                ),
+                child: _CaseList(c: c),
+              ),
+              Expanded(child: _right()),
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _CaseStrip(c: c),
+            const Divider(),
+            Expanded(child: _right()),
+          ],
+        );
+      },
+    );
+  }
 }
 
-// ═════════════════════════════════════════════ 發起新協辦
+class _CaseList extends StatelessWidget {
+  const _CaseList({required this.c});
+  final HelperController c;
+
+  @override
+  Widget build(BuildContext context) {
+    final all = c.sortedSessions;
+    final open = all.where((s) => s.isOpen).toList();
+    final now = DateTime.now();
+    bool today(AssistSession s) =>
+        s.createdAt.year == now.year && s.createdAt.month == now.month && s.createdAt.day == now.day;
+    final closedToday = all.where((s) => !s.isOpen && today(s)).toList();
+    final earlier = all.where((s) => !s.isOpen && !today(s)).take(10).toList();
+
+    Widget group(String title, List<AssistSession> list) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(6, 20, 6, 8),
+          child: Text(title, style: CText.caption),
+        ),
+        CPanel(
+          padding: EdgeInsets.zero,
+          clip: true,
+          child: Column(
+            children: [
+              for (var i = 0; i < list.length; i++) ...[if (i > 0) const Divider(), _CaseRow(c: c, s: list[i])],
+            ],
+          ),
+        ),
+      ],
+    );
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+      children: [
+        CButton.primary('新陪辦', icon: Icons.add_rounded, large: true, expand: true, onPressed: () => c.focus(null)),
+        if (open.isNotEmpty) group('進行中　${open.length}', open),
+        if (closedToday.isNotEmpty) group('今天', closedToday),
+        if (earlier.isNotEmpty) group('稍早', earlier),
+        if (all.isEmpty)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(6, 24, 6, 0),
+            child: Text('今天還沒有陪辦。完成的案件會留在這裡，方便回頭查看。', style: CText.small),
+          ),
+      ],
+    );
+  }
+}
+
+class _CaseRow extends StatelessWidget {
+  const _CaseRow({required this.c, required this.s});
+  final HelperController c;
+  final AssistSession s;
+  @override
+  Widget build(BuildContext context) {
+    final selected = c.focusedSessionId == s.id;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '${s.serviceTitle}，${s.elderDisplayName}，${statusLabel(s)}',
+      excludeSemantics: true,
+      child: Material(
+        color: selected ? C.accentSoft : C.surface,
+        child: InkWell(
+          onTap: () => c.focus(s.id),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        s.serviceTitle,
+                        overflow: TextOverflow.ellipsis,
+                        style: CText.bodyStrong.copyWith(fontSize: 14),
+                      ),
+                    ),
+                    Text(hm(s.createdAt), style: CText.caption.copyWith(fontFeatures: CText.tabular)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(s.elderDisplayName, style: CText.small),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: CStatus(statusLabel(s), tone: sessionTone(s), size: 12, pulse: s.isPending),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 窄螢幕：案件列表改成上方一排
+class _CaseStrip extends StatelessWidget {
+  const _CaseStrip({required this.c});
+  final HelperController c;
+  @override
+  Widget build(BuildContext context) {
+    final open = c.sortedSessions.where((s) => s.isOpen).toList();
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Row(
+        children: [
+          CButton.primary('新陪辦', icon: Icons.add_rounded, onPressed: () => c.focus(null)),
+          for (final s in open) ...[
+            const SizedBox(width: 8),
+            CButton(
+              '${s.elderDisplayName}・${s.serviceTitle}',
+              kind: c.focusedSessionId == s.id ? CButtonKind.secondary : CButtonKind.ghost,
+              onPressed: () => c.focus(s.id),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════ 新陪辦
 
 class _NewRequestView extends StatefulWidget {
-  const _NewRequestView({required this.c});
+  const _NewRequestView({super.key, required this.c});
   final HelperController c;
   @override
   State<_NewRequestView> createState() => _NewRequestViewState();
@@ -42,12 +203,13 @@ class _NewRequestView extends StatefulWidget {
 
 class _NewRequestViewState extends State<_NewRequestView> {
   String? serviceId;
-  String method = 'pairing_code';
+  bool byIdentity = false;
   final code = TextEditingController();
   final name = TextEditingController();
   final birthday = TextEditingController();
   final last4 = TextEditingController();
   bool busy = false;
+  String? error;
 
   @override
   void initState() {
@@ -63,303 +225,33 @@ class _NewRequestViewState extends State<_NewRequestView> {
     super.dispose();
   }
 
+  bool get ready =>
+      serviceId != null &&
+      !busy &&
+      (byIdentity
+          ? name.text.trim().isNotEmpty && birthday.text.trim().isNotEmpty && last4.text.length == 4
+          : code.text.length == 6);
+
   Future<void> submit() async {
-    if (serviceId == null || busy) return;
-    setState(() => busy = true);
+    if (!ready) return;
+    setState(() {
+      busy = true;
+      error = null;
+    });
     try {
-      if (method == 'pairing_code') {
-        await widget.c.requestByCode(serviceId!, code.text.trim());
-      } else {
+      if (byIdentity) {
         await widget.c.requestByIdentity(serviceId!, name.text.trim(), birthday.text.trim(), last4.text.trim());
+      } else {
+        await widget.c.requestByCode(serviceId!, code.text.trim());
       }
     } catch (e) {
-      if (mounted) showApiErr(context, e);
+      if (mounted) setState(() => error = e is ApiException ? e.message : '連線失敗，請確認後端是否啟動');
     } finally {
       if (mounted) setState(() => busy = false);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final c = widget.c;
-    final all = c.sessions.values;
-    final open = c.sortedSessions.where((s) => s.isOpen).toList();
-    final today = DateTime.now();
-    final doneToday = all
-        .where((s) => s.status == 'completed' && s.createdAt.year == today.year && s.createdAt.day == today.day)
-        .length;
-
-    final services = CPanel(
-      padding: EdgeInsets.zero,
-      clip: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 18, 20, 12),
-            child: CPanelHeader(title: '1　選擇要陪辦的業務', subtitle: '長輩手機上會顯示同一個業務的申辦畫面'),
-          ),
-          const Divider(),
-          for (var i = 0; i < c.serviceSummaries.length; i++) ...[
-            if (i > 0) const Divider(),
-            _ServiceRow(
-              s: c.serviceSummaries[i],
-              selected: c.serviceSummaries[i]['id'] == serviceId,
-              onTap: () => setState(() => serviceId = c.serviceSummaries[i]['id'] as String),
-            ),
-          ],
-        ],
-      ),
-    );
-
-    final find = CPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CPanelHeader(
-            title: '2　找到長輩',
-            subtitle: '長輩同意後才會開始，您看不到長輩的個資內容',
-            trailing: CSegmented<String>(
-              value: method,
-              onChanged: (v) => setState(() => method = v),
-              options: const [('pairing_code', '配對碼', Icons.pin_outlined), ('identity', '身分資料', Icons.badge_outlined)],
-            ),
-          ),
-          const SizedBox(height: 18),
-          if (method == 'pairing_code') ...[
-            const Text('請長輩打開台北通首頁的「請人陪我辦」，念出畫面上的 6 位數配對碼。', style: CText.secondary),
-            const SizedBox(height: 14),
-            CField(
-              label: '配對碼',
-              controller: code,
-              width: 280,
-              autofocus: true,
-              hint: '000000',
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              textAlign: TextAlign.center,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              style: const TextStyle(
-                fontSize: 28,
-                letterSpacing: 10,
-                fontWeight: FontWeight.w600,
-                fontFeatures: CText.tabular,
-              ),
-              help: '配對碼 2 分鐘內有效，只能使用一次。',
-              onSubmitted: (_) => submit(),
-            ),
-          ] else ...[
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                CField(label: '長輩姓名', controller: name, width: 180),
-                CField(label: '出生日期', controller: birthday, width: 180, hint: '1948-03-15'),
-                CField(
-                  label: '身分證末四碼',
-                  controller: last4,
-                  width: 150,
-                  maxLength: 4,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onSubmitted: (_) => submit(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            const CNotice(
-              icon: Icons.shield_outlined,
-              text: '為保護長輩，系統不會告訴您是否找到這個人。資料正確時，長輩手機才會收到通知。每 10 分鐘最多查找 5 次，每次查找都會留下紀錄，長輩本人也看得到。',
-            ),
-          ],
-          const SizedBox(height: 20),
-          CButton.primary(
-            busy ? '送出中…' : '送出陪辦請求',
-            icon: Icons.send_rounded,
-            large: true,
-            onPressed: busy || serviceId == null ? null : submit,
-          ),
-        ],
-      ),
-    );
-
-    final side = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (open.isNotEmpty) ...[
-          CPanel(
-            padding: EdgeInsets.zero,
-            clip: true,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
-                  child: CPanelHeader(title: '進行中', subtitle: '${open.length} 件，點一下回到協辦畫面'),
-                ),
-                const Divider(),
-                for (final s in open)
-                  InkWell(
-                    onTap: () => c.focus(s.id),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 12, 14, 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  s.serviceTitle,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: CText.bodyStrong.copyWith(fontSize: 14),
-                                ),
-                                const SizedBox(height: 2),
-                                CStatus('${s.elderDisplayName}・${statusLabel(s)}', tone: sessionTone(s), size: 13),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.chevron_right_rounded, color: C.ink4),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-        const _SafetyRules(),
-      ],
-    );
-
-    return LayoutBuilder(
-      builder: (context, box) {
-        final wide = box.maxWidth >= 1040;
-        final pad = box.maxWidth < 640 ? 16.0 : 32.0;
-        return ListView(
-          padding: EdgeInsets.fromLTRB(pad, 28, pad, 48),
-          children: [
-            const CPageHeader(title: '工作台', subtitle: '選擇業務、找到長輩。長輩在自己的手機上同意後，您就能一步一步陪他完成申辦。'),
-            const SizedBox(height: 24),
-            CStatStrip(
-              items: [
-                CStat(icon: Icons.sync_rounded, label: '進行中', value: '${all.where((s) => s.isActive).length}'),
-                CStat(
-                  icon: Icons.hourglass_top_rounded,
-                  label: '等待長輩回應',
-                  value: '${all.where((s) => s.isPending).length}',
-                ),
-                CStat(icon: Icons.task_alt_rounded, label: '今日完成', value: '$doneToday'),
-                CStat(
-                  icon: Icons.link_rounded,
-                  label: '稽核紀錄',
-                  value: '${c.auditStatus?['length'] ?? '—'}',
-                  note: c.auditStatus?['ok'] == true ? '雜湊鏈完整' : null,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (wide)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: Column(children: [services, const SizedBox(height: 16), find])),
-                  const SizedBox(width: 16),
-                  SizedBox(width: 340, child: side),
-                ],
-              )
-            else ...[
-              services,
-              const SizedBox(height: 16),
-              find,
-              const SizedBox(height: 16),
-              side,
-            ],
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _ServiceRow extends StatelessWidget {
-  const _ServiceRow({required this.s, required this.selected, required this.onTap});
-  final Map<String, dynamic> s;
-  final bool selected;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      inMutuallyExclusiveGroup: true,
-      checked: selected,
-      button: true,
-      child: Material(
-        color: selected ? C.accentSoft : C.surface,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Icon(
-                    selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                    size: 20,
-                    color: selected ? C.accentStrong : C.ink4,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(s['title'] as String, style: CText.bodyStrong),
-                          CTag(s['category'] as String),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(s['summary'] as String, style: CText.small),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 16,
-                        children: [
-                          _meta(Icons.schedule_rounded, '約 ${s['estMinutes']} 分鐘'),
-                          _meta(Icons.lock_outline_rounded, '${s['sensitiveFieldCount']} 項個資需長輩授權'),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _meta(IconData i, String t) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(i, size: 14, color: C.ink4),
-      const SizedBox(width: 4),
-      Text(t, style: CText.caption),
-    ],
-  );
-}
-
-class _SafetyRules extends StatelessWidget {
-  const _SafetyRules();
-  @override
-  Widget build(BuildContext context) {
+  void _rules() {
     const rules = [
       (Icons.visibility_off_outlined, '您看不到長輩個資的內容', '只會看到「已授權／未授權」等狀態，這是刻意的設計。'),
       (Icons.touch_app_outlined, '授權與送出只有長輩能按', '請引導長輩自己看、自己按，不要拿長輩的手機代按。'),
@@ -367,34 +259,221 @@ class _SafetyRules extends StatelessWidget {
       (Icons.link_rounded, '所有操作都有不可竄改的紀錄', '每一步都寫入雜湊鏈稽核紀錄，長輩也能查看。'),
       (Icons.money_off_rounded, '絕不要求轉帳、密碼或驗證碼', '流程中沒有任何步驟需要這些資料。'),
     ];
-    return CPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const CPanelHeader(title: '陪辦守則', icon: Icons.shield_outlined),
-          const SizedBox(height: 14),
-          for (final r in rules)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 14),
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Theme(
+        data: buildConsoleTheme(),
+        child: CDialog(
+          title: '陪辦守則',
+          body: Column(
+            children: [
+              for (final r in rules)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CIconTile(r.$1, size: 32),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(r.$2, style: CText.bodyStrong.copyWith(fontSize: 14)),
+                            Text(r.$3, style: CText.small),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          actions: [CButton.primary('我知道了', onPressed: () => Navigator.pop(ctx))],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.c;
+    final svc = c.serviceSummaries.where((s) => s['id'] == serviceId).firstOrNull;
+
+    final service = CMenu(
+      items: [
+        for (final s in c.serviceSummaries)
+          CMenuItem(
+            '${s['title']}（約 ${s['estMinutes']} 分鐘）',
+            selected: s['id'] == serviceId,
+            onTap: () => setState(() => serviceId = s['id'] as String),
+          ),
+      ],
+      builder: (context, toggle) => Semantics(
+        button: true,
+        label: '業務：${svc?['title'] ?? '請選擇'}',
+        excludeSemantics: true,
+        child: Material(
+          color: C.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(C.rControl),
+            side: const BorderSide(color: C.borderStrong),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(C.rControl),
+            onTap: toggle,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CIconTile(r.$1, size: 32),
-                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(r.$2, style: CText.bodyStrong.copyWith(fontSize: 14)),
-                        Text(r.$3, style: CText.small),
+                        Text(svc?['title'] as String? ?? '請選擇業務', style: CText.bodyStrong),
+                        if (svc != null)
+                          Text(
+                            '約 ${svc['estMinutes']} 分鐘・${svc['sensitiveFieldCount']} 項個資需長輩授權',
+                            style: CText.caption,
+                          ),
                       ],
                     ),
                   ),
+                  const Icon(Icons.expand_more_rounded, color: C.ink3),
                 ],
               ),
             ),
-        ],
+          ),
+        ),
       ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, box) {
+        final pad = box.maxWidth < 640 ? 16.0 : 32.0;
+        final boxSize = box.maxWidth < 480 ? 40.0 : 52.0;
+        return ListView(
+          padding: EdgeInsets.fromLTRB(pad, 28, pad, 48),
+          children: [
+            Align(
+              alignment: Alignment.topLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('新陪辦', style: CText.pageTitle),
+                    const SizedBox(height: 4),
+                    Text(
+                      byIdentity ? '輸入長輩的姓名、生日與身分證末四碼。' : '請長輩打開台北通首頁的「請人陪我辦」，念出畫面上的 6 位數號碼。',
+                      style: CText.secondary.copyWith(color: C.ink3),
+                    ),
+                    const SizedBox(height: 24),
+                    if (!byIdentity) ...[
+                      CCodeInput(
+                        controller: code,
+                        box: boxSize,
+                        error: error != null,
+                        onChanged: (_) => setState(() => error = null),
+                        onSubmitted: (_) => submit(),
+                      ),
+                    ] else ...[
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          CField(
+                            label: '長輩姓名',
+                            controller: name,
+                            width: 170,
+                            autofocus: true,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          CField(
+                            label: '出生日期',
+                            controller: birthday,
+                            width: 170,
+                            hint: '1948-03-15',
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          CField(
+                            label: '身分證末四碼',
+                            controller: last4,
+                            width: 150,
+                            maxLength: 4,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            onChanged: (_) => setState(() {}),
+                            onSubmitted: (_) => submit(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const CNotice(
+                        icon: Icons.shield_outlined,
+                        text: '為保護長輩，系統不會告訴您是否找到這個人。資料正確時，長輩手機才會收到通知；每次查找都會留下紀錄。',
+                      ),
+                    ],
+                    if (error != null) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.error_outline_rounded, size: 18, color: C.dangerInk),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(error!, style: CText.secondary.copyWith(color: C.dangerInk)),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    TextButton(
+                      onPressed: () => setState(() {
+                        byIdentity = !byIdentity;
+                        error = null;
+                      }),
+                      style: TextButton.styleFrom(foregroundColor: C.accentInk, padding: EdgeInsets.zero),
+                      child: Text(
+                        byIdentity ? '改用配對碼' : '長輩找不到號碼？改用身分資料查找',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text('業務', style: CText.label),
+                    const SizedBox(height: 6),
+                    SizedBox(width: 360, child: service),
+                    const SizedBox(height: 24),
+                    CButton.primary(
+                      busy ? '送出中…' : '送出請求',
+                      icon: Icons.send_rounded,
+                      large: true,
+                      onPressed: ready ? submit : null,
+                    ),
+                    const SizedBox(height: 28),
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      children: [
+                        const Icon(Icons.shield_outlined, size: 16, color: C.ink4),
+                        const Text('您看不到長輩個資，授權與送出只有長輩能按。', style: CText.small),
+                        TextButton(
+                          onPressed: _rules,
+                          style: TextButton.styleFrom(
+                            foregroundColor: C.accentInk,
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                          ),
+                          child: const Text('陪辦守則', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -447,7 +526,7 @@ class _WaitingView extends StatelessWidget {
                   runSpacing: 8,
                   alignment: WrapAlignment.center,
                   children: [
-                    CButton('先回工作台', kind: CButtonKind.ghost, onPressed: () => c.focus(null)),
+                    CButton('先處理別的案件', kind: CButtonKind.ghost, onPressed: () => c.focus(null)),
                     CButton(
                       '取消請求',
                       onPressed: () => c.end().catchError((Object e) {
@@ -529,6 +608,7 @@ class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
 
 // ═════════════════════════════════════════════ 同步導覽主控台
 
+/// 陪辦進行中：單欄、只留步驟、目前這一步與建議台詞；動態收在最下面。
 class _SessionConsole extends StatelessWidget {
   const _SessionConsole({required this.c, required this.s});
   final HelperController c;
@@ -550,204 +630,70 @@ class _SessionConsole extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, box) {
-        final tight = box.maxWidth < 760;
-        final three = box.maxWidth >= 1180;
+        final tight = box.maxWidth < 700;
         final pad = tight ? 16.0 : 32.0;
-        final endBtn = CButton(
-          '結束陪辦',
-          icon: Icons.power_settings_new_rounded,
-          kind: CButtonKind.danger,
-          onPressed: () async {
-            final ok = await cConfirm(
-              context,
-              title: '結束這次陪辦？',
-              body: '結束後您就無法再引導長輩，長輩手機上的協助畫面也會關閉。已授權的資料不會送出。',
-              confirm: '結束陪辦',
-              danger: true,
-            );
-            if (ok) run(() => c.end());
-          },
-        );
-        final header = Padding(
-          padding: EdgeInsets.fromLTRB(pad, 22, pad, 18),
-          child: CPageHeader(
-            title: s.serviceTitle,
-            subtitle: '陪辦對象：${s.elderDisplayName}　·　受理機關：${def.agency}',
-            leading: CIconButton(
-              icon: Icons.arrow_back_rounded,
-              tooltip: '回到工作台',
-              bordered: true,
-              onPressed: () => c.focus(null),
-            ),
-            actions: [
-              EverySecond(
-                builder: (_, now) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+        return ListView(
+          padding: EdgeInsets.fromLTRB(pad, 24, pad, 48),
+          children: [
+            Align(
+              alignment: Alignment.topLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 820),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    CStatus(statusLabel(s), tone: sessionTone(s), pulse: true, size: 13),
-                    const SizedBox(height: 4),
-                    Text(
-                      '已進行 ${mmss(now.difference(s.startedAt ?? now))}　閒置 ${mmss(now.difference(s.lastActivityAt ?? now))}／30:00',
-                      style: CText.caption.copyWith(fontFeatures: CText.tabular),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(s.serviceTitle, style: CText.pageTitle.copyWith(fontSize: 22)),
+                              const SizedBox(height: 2),
+                              EverySecond(
+                                builder: (_, now) => Text(
+                                  '陪辦對象 ${s.elderDisplayName}　·　已進行 ${mmss(now.difference(s.startedAt ?? now))}',
+                                  style: CText.small.copyWith(fontFeatures: CText.tabular),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, right: 12),
+                          child: CStatus(statusLabel(s), tone: sessionTone(s), pulse: true, size: 13),
+                        ),
+                        CButton(
+                          '結束',
+                          icon: Icons.power_settings_new_rounded,
+                          kind: CButtonKind.danger,
+                          onPressed: () async {
+                            final ok = await cConfirm(
+                              context,
+                              title: '結束這次陪辦？',
+                              body: '結束後您就無法再引導長輩，長輩手機上的協助畫面也會關閉。已授權的資料不會送出。',
+                              confirm: '結束陪辦',
+                              danger: true,
+                            );
+                            if (ok) run(() => c.end());
+                          },
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 16),
+                    _StepChips(def: def, s: s),
+                    const SizedBox(height: 14),
+                    _CurrentStep(c: c, s: s, def: def, step: step, run: run, tight: tight),
+                    const SizedBox(height: 20),
+                    _TimelinePanel(s: s),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              endBtn,
-            ],
-          ),
-        );
-
-        final main = _CurrentStep(c: c, s: s, def: def, step: step, run: run, tight: tight);
-        final script = _ScriptPanel(step: step);
-        final timeline = _TimelinePanel(s: s);
-        final steps = _StepList(def: def, s: s, onTap: (i) => run(() => c.gotoStep(i)));
-
-        Widget body;
-        if (three) {
-          body = Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(width: 248, child: steps),
-              const SizedBox(width: 16),
-              Expanded(child: main),
-              const SizedBox(width: 16),
-              SizedBox(width: 320, child: Column(children: [script, const SizedBox(height: 16), timeline])),
-            ],
-          );
-        } else if (!tight) {
-          body = Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(width: 232, child: steps),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  children: [main, const SizedBox(height: 16), script, const SizedBox(height: 16), timeline],
-                ),
-              ),
-            ],
-          );
-        } else {
-          body = Column(
-            children: [
-              _StepChips(def: def, s: s),
-              const SizedBox(height: 14),
-              main,
-              const SizedBox(height: 16),
-              script,
-              const SizedBox(height: 16),
-              timeline,
-            ],
-          );
-        }
-
-        return ListView(
-          padding: EdgeInsets.only(bottom: 48),
-          children: [
-            header,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: pad),
-              child: body,
             ),
           ],
         );
       },
-    );
-  }
-}
-
-class _StepList extends StatelessWidget {
-  const _StepList({required this.def, required this.s, required this.onTap});
-  final ServiceDef def;
-  final AssistSession s;
-  final ValueChanged<int> onTap;
-  @override
-  Widget build(BuildContext context) {
-    final locked = s.pendingAuth != null || s.isReviewing;
-    return CPanel(
-      padding: const EdgeInsets.fromLTRB(10, 16, 10, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(10, 0, 10, 10),
-            child: Text('申辦步驟', style: CText.caption),
-          ),
-          for (var i = 0; i < def.steps.length; i++)
-            Builder(
-              builder: (context) {
-                final step = def.steps[i];
-                final current = i == s.currentStep;
-                final done = step.fields.where((f) => s.field(f.key).done).length;
-                final complete = step.fields.isEmpty ? i < s.currentStep : done == step.fields.length;
-                return Semantics(
-                  button: true,
-                  selected: current,
-                  label: '第 ${i + 1} 步 ${step.title}${complete ? '，已完成' : ''}',
-                  excludeSemantics: true,
-                  child: Material(
-                    color: current ? C.inset : Colors.transparent,
-                    borderRadius: BorderRadius.circular(C.rControl),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(C.rControl),
-                      onTap: locked || current ? null : () => onTap(i),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 24,
-                              height: 24,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: complete ? C.accentStrong : C.surface,
-                                border: Border.all(
-                                  color: complete || current ? C.accentStrong : C.borderStrong,
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: complete
-                                  ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
-                                  : Text(
-                                      '${i + 1}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: current ? C.accentInk : C.ink3,
-                                      ),
-                                    ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    step.title,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: current ? FontWeight.w600 : FontWeight.w400,
-                                      color: current ? C.ink : C.ink2,
-                                    ),
-                                  ),
-                                  if (step.fields.isNotEmpty)
-                                    Text('$done／${step.fields.length} 項完成', style: CText.caption),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-        ],
-      ),
     );
   }
 }
@@ -758,21 +704,42 @@ class _StepChips extends StatelessWidget {
   final AssistSession s;
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: [
-          for (var i = 0; i < def.steps.length; i++)
-            CTag(
-              '${i + 1} ${def.steps[i].title}',
-              icon: i < s.currentStep ? Icons.check_rounded : (i == s.currentStep ? Icons.arrow_right_rounded : null),
-              tone: i == s.currentStep ? CTone.accent : null,
-              size: 13,
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (var i = 0; i < def.steps.length; i++)
+          Semantics(
+            label:
+                '第 ${i + 1} 步 ${def.steps[i].title}${i < s.currentStep ? '，已完成' : (i == s.currentStep ? '，目前這一步' : '')}',
+            excludeSemantics: true,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: i == s.currentStep ? C.surface : C.inset,
+                borderRadius: BorderRadius.circular(99),
+                border: Border.all(color: i == s.currentStep ? C.accent : Colors.transparent),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (i < s.currentStep) ...[
+                    const Icon(Icons.check_rounded, size: 14, color: C.ink2),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    i < s.currentStep ? def.steps[i].title : '${i + 1} ${def.steps[i].title}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: i == s.currentStep ? FontWeight.w600 : FontWeight.w400,
+                      color: i == s.currentStep ? C.accentInk : (i < s.currentStep ? C.ink2 : C.ink3),
+                    ),
+                  ),
+                ],
+              ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }
@@ -832,6 +799,7 @@ class _CurrentStep extends StatelessWidget {
                   ],
                 ),
               ),
+              if (step.helperScript.isNotEmpty) ...[const SizedBox(height: 10), _ScriptPanel(step: step)],
             ],
           ),
         ),
@@ -844,7 +812,7 @@ class _CurrentStep extends StatelessWidget {
             text: '長輩正在手機上檢查所有資料。送出鍵只有長輩能按，請耐心等候，必要時口頭協助說明。',
           )
         else if (step.fields.isEmpty)
-          const CNotice(icon: Icons.record_voice_over_outlined, text: '這一步沒有需要填寫的欄位。請依「建議您這樣說」向長輩說明，再按「下一步」。')
+          const SizedBox.shrink()
         else
           CPanel(
             padding: EdgeInsets.zero,
@@ -1018,41 +986,57 @@ class _ScriptPanel extends StatelessWidget {
   final StepDef step;
   @override
   Widget build(BuildContext context) {
-    return CPanel(
-      color: C.accentSoft,
-      borderColor: C.accentSoft2,
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: C.accentSoft, borderRadius: BorderRadius.circular(10)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.record_voice_over_outlined, size: 18, color: C.accentInk),
-              SizedBox(width: 8),
-              Text(
-                '建議您這樣說',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: C.accentInk),
-              ),
-            ],
+          const Text(
+            '建議您這樣說',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: C.accentInk),
           ),
-          const SizedBox(height: 10),
-          Text(step.helperScript, style: CText.body.copyWith(height: 1.7)),
+          const SizedBox(height: 2),
+          Text(step.helperScript, style: CText.body),
         ],
       ),
     );
   }
 }
 
-class _TimelinePanel extends StatelessWidget {
+class _TimelinePanel extends StatefulWidget {
   const _TimelinePanel({required this.s});
   final AssistSession s;
   @override
+  State<_TimelinePanel> createState() => _TimelinePanelState();
+}
+
+class _TimelinePanelState extends State<_TimelinePanel> {
+  bool open = false;
+  @override
   Widget build(BuildContext context) {
+    final s = widget.s;
     final items = s.timeline.reversed.take(12).toList();
+    final toggle = Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: () => setState(() => open = !open),
+        style: TextButton.styleFrom(foregroundColor: C.ink3, padding: const EdgeInsets.symmetric(horizontal: 4)),
+        icon: Icon(open ? Icons.expand_less_rounded : Icons.history_rounded, size: 18),
+        label: Text('即時動態（${s.timeline.length}）', style: const TextStyle(fontSize: 13)),
+      ),
+    );
+    if (!open) return toggle;
     return CPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const CPanelHeader(title: '即時動態'),
+          Row(
+            children: [
+              const Expanded(child: CPanelHeader(title: '即時動態')),
+              CIconButton(icon: Icons.close_rounded, tooltip: '收起動態', onPressed: () => setState(() => open = false)),
+            ],
+          ),
           const SizedBox(height: 8),
           const Wrap(
             spacing: 14,
