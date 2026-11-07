@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../shared/tp_colors.dart';
+import '../shared/console_kit.dart';
 import '../shared/widgets.dart';
 
 class LandingPage extends StatelessWidget {
@@ -9,81 +8,60 @@ class LandingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget entry(IconData icon, String title, String desc, String route, {bool primary = false}) => SizedBox(
-      width: 300,
-      child: TPCard(
-        onTap: () => route.startsWith('/admin')
-            ? launchUrl(Uri.parse('${Uri.base.origin}$route'), webOnlyWindowName: '_self')
-            : Navigator.of(context).pushNamed(route),
-        color: primary ? TPColors.primary50 : TPColors.white,
-        border: primary ? Border.all(color: TPColors.primary300, width: 2) : null,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(gradient: TPColors.brandGradient, borderRadius: BorderRadius.circular(14)),
-              child: Icon(icon, color: TPColors.white, size: 28),
+    Widget entry(IconData icon, String title, String desc, String route, {String? kbd}) => CPanel(
+      onTap: () => Navigator.of(context).pushNamed(route),
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          CIconTile(icon, size: 42),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: CText.bodyStrong),
+                const SizedBox(height: 2),
+                Text(desc, style: CText.small),
+              ],
             ),
-            const SizedBox(height: 18),
-            Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            Text(desc, style: const TextStyle(color: TPColors.grayscale600, height: 1.6)),
-            const SizedBox(height: 14),
-            Text(
-              '開啟 →',
-              style: TextStyle(color: TPColors.primary600, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right_rounded, color: C.ink4),
+        ],
       ),
     );
 
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [TPColors.primary50, TPColors.grayscale50],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Center(
+    return Theme(
+      data: buildConsoleTheme(),
+      child: Scaffold(
+        backgroundColor: C.canvas,
+        body: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(40),
+            padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 980),
+              constraints: const BoxConstraints(maxWidth: 620),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Row(
                     children: [
-                      TownPassLogo(size: 30),
-                      SizedBox(width: 12),
-                      Text('台北通　陪辦', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w600)),
+                      TownPassLogo(size: 26),
+                      SizedBox(width: 10),
+                      Text('台北通　陪辦', style: CText.title),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    '不是代填，是陪填。協助者帶著走每一步，所有資料的授權與送出，只發生在長輩本人已實名登入的手機上。',
-                    style: TextStyle(fontSize: 17, color: TPColors.grayscale700, height: 1.7),
-                  ),
-                  const SizedBox(height: 32),
-                  Wrap(
-                    spacing: 20,
-                    runSpacing: 20,
-                    children: [
-                      entry(Icons.view_column_rounded, '並排示範', '一個畫面同時看協助者工作台與長輩手機，適合評審展示。', '/demo', primary: true),
-                      entry(Icons.desktop_windows_rounded, '協助者工作台', '里長、家人或 1999 客服使用的電腦版介面。', '/helper'),
-                      entry(Icons.phone_iphone_rounded, '長輩的手機', '模擬已登入台北通的長輩手機。可在另一台裝置開啟。', '/elder'),
-                      entry(Icons.dynamic_form_rounded, '承辦人表單後台', '各局處建立民眾要填的表單，並決定是否開放陪辦。', '/admin/'),
-                    ],
-                  ),
-                  const SizedBox(height: 28),
-                  const Text(
-                    '雙裝置示範：在電腦開「協助者工作台」，在手機瀏覽器開同一個網址的「長輩的手機」。',
-                    style: TextStyle(color: TPColors.grayscale500),
-                  ),
+                  const SizedBox(height: 24),
+                  const Text('不是代填，是陪填', style: CText.pageTitle),
+                  const SizedBox(height: 8),
+                  const Text('協助者帶著走每一步，所有資料的授權與送出，只發生在長輩本人已實名登入的手機上。', style: CText.secondary),
+                  const SizedBox(height: 24),
+                  entry(Icons.view_column_outlined, '並排示範', '同一個畫面看承辦工作台與長輩手機，適合評審展示。', '/demo'),
+                  const SizedBox(height: 10),
+                  entry(Icons.space_dashboard_outlined, '承辦工作台', '里長、家人或 1999 客服陪長輩辦；承辦人建立民眾表單。', '/console'),
+                  const SizedBox(height: 10),
+                  entry(Icons.phone_iphone_rounded, '長輩的手機', '模擬已登入台北通的長輩手機，可在另一台裝置開啟。', '/elder'),
+                  const SizedBox(height: 20),
+                  const Text('雙裝置示範：電腦開「承辦工作台」，手機瀏覽器開同一個網址的「長輩的手機」。', style: CText.small),
                 ],
               ),
             ),

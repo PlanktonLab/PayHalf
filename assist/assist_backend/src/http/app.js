@@ -186,9 +186,15 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
 
   app.use('/api', api);
 
-  // ── 承辦人表單後台
+  // ── 承辦人表單後台：已整合進承辦工作台的「表單」（/#/forms）。
+  //    舊版單檔原型保留在 /admin/legacy/ 供對照。
   if (config.adminDir && fs.existsSync(config.adminDir)) {
-    app.use('/admin', express.static(config.adminDir, { index: 'index.html' }));
+    app.use('/admin/legacy', express.static(config.adminDir, { index: 'index.html' }));
+  }
+  if (config.staticDir && fs.existsSync(config.staticDir)) {
+    app.get(['/admin', '/admin/'], (_req, res) => res.redirect('/#/forms'));
+  } else if (config.adminDir && fs.existsSync(config.adminDir)) {
+    app.get(['/admin', '/admin/'], (_req, res) => res.redirect('/admin/legacy/'));
   }
 
   // ── 前端靜態檔（Flutter Web build）

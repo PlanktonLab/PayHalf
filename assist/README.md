@@ -10,7 +10,7 @@
 | 資料夾 | 內容 |
 |---|---|
 | `assist/assist_backend/` | Node.js 後端：Express REST API + Socket.IO 即時推播 |
-| `assist/assist_web/` | Flutter Web 前端：協助者工作台（電腦版）與長輩手機模擬 |
+| `assist/assist_web/` | Flutter Web 前端：承辦工作台（陪辦＋表單，電腦版）與長輩手機模擬 |
 | repo 根目錄 | 台北通 App，長輩端功能在 `lib/page/assist/` |
 
 ## 啟動
@@ -21,10 +21,21 @@ cd assist/assist_backend && npm install && npm start
 
 開啟 http://localhost:3000，可選：
 
-- `/#/demo` 並排示範：左邊協助者工作台，右邊長輩手機，適合評審展示
-- `/#/helper` 協助者工作台（電腦版）
+- `/#/demo` 並排示範：左邊承辦工作台，右邊長輩手機，適合評審展示
+- `/#/console` 承辦工作台：側欄切換「工作台／陪辦紀錄／稽核紀錄／我的表單」（舊網址 `/#/helper` 仍可用）
+- `/#/forms` 直接開啟「我的表單」（`/admin/` 也會轉到這裡）
 - `/#/elder` 長輩的手機，可在另一台裝置用同一個區網網址開啟
-- `/admin/` 承辦人表單後台（repo 根目錄的 `admin-form-builder`）
+
+「我的表單」只開放給市府認證身分（里長、1999 客服）。舊版單檔表單後台保留在 `/admin/legacy/` 供對照。
+
+### 承辦工作台的設計語言
+
+元件集中在 `assist_web/lib/shared/console_kit.dart`：
+
+- 以灰階分層：畫布 `#F6F7F8` → 白色面板（細邊框、極淡陰影）→ 灰色內嵌區。
+- 台北通主題色只用在選取、焦點、主要按鈕與資料長條；按鈕底色用 primary600 以維持文字對比。
+- 狀態用「小圓點＋文字」表達，提示用淡底色區塊，**不使用彩色側條**。
+- 側欄單鍵切換：W 工作台、R 陪辦紀錄、A 稽核紀錄、F 我的表單（輸入文字時不觸發）；側欄另有「文字大小」切換。
 
 前端修改後要重新編譯，後端會直接提供 `assist/assist_web/build/web`：
 
@@ -36,7 +47,7 @@ cd assist/assist_web && fvm flutter build web --release --no-web-resources-cdn
 
 ## 台北通 App（長輩端）
 
-長輩端已直接接進這個 repo 的台北通 App。工作人員端仍使用網頁版協助者工作台。
+長輩端已直接接進這個 repo 的台北通 App。工作人員端使用網頁版承辦工作台。
 
 ```bash
 fvm flutter run   # 在 repo 根目錄執行
