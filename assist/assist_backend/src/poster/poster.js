@@ -23,7 +23,8 @@ const C = {
 
 export const LAYOUTS = {
   a4: { w: 1240, h: 1754, name: 'A4 海報', mm: [210, 297] },
-  stand: { w: 1050, h: 1480, name: '壓克力立牌（A6）', mm: [105, 148] },
+  // 壓克力立牌實際尺寸：寬 9.1 cm × 高 14.4 cm
+  stand: { w: 1092, h: 1728, name: '壓克力立牌（9.1 × 14.4 cm）', mm: [91, 144] },
   postcard: { w: 1480, h: 1000, name: '明信片', mm: [148, 100] },
 };
 
@@ -205,12 +206,14 @@ export async function posterSvg(form, { layout = 'a4', url }) {
     const k = w / 1240;
     const S = (n) => n * k;
     const cx = w / 2;
+    // 比 A4 細長的版面（壓克力立牌）：多出來的高度一部分放到上方，讓內容在畫面中間
+    const top = S(Math.max(0, h / k - 1754) * 0.65);
     parts.push(accents(w, h, k));
-    parts.push(brand(cx, S(250), S(44)));
+    parts.push(brand(cx, top + S(250), S(44)));
     const title = wrap(form.title, 9, 2);
     const tSize = S(104);
-    parts.push(textBlock(title, cx, S(420), tSize, { weight: 800, color: INK, anchor: 'middle', lh: 1.16 }));
-    let y = S(420) + (title.length - 1) * tSize * 1.16 + S(84);
+    parts.push(textBlock(title, cx, top + S(420), tSize, { weight: 800, color: INK, anchor: 'middle', lh: 1.16 }));
+    let y = top + S(420) + (title.length - 1) * tSize * 1.16 + S(84);
     parts.push(textBlock(['使用台北通來填寫表單'], cx, y, S(38), { weight: 500, color: GRAY, anchor: 'middle' }));
     y += S(90);
     const q = S(600);
@@ -242,7 +245,7 @@ html,body{margin:0;background:#E3E7E9;font-family:${FONT}}
 </style></head><body>
 <div class="bar"><b>${esc(form.title)}｜${L.name}</b>
 ${Object.entries(LAYOUTS).map(([k, v]) => `<a href="?layout=${k}"${k === layout ? ' class="primary"' : ''}>${v.name}</a>`).join('')}
-<button onclick="png()">下載 PNG</button><button class="primary" onclick="print()">列印／存成 PDF</button></div>
+<a href="/api/forms/${encodeURIComponent(form.id)}/poster.pdf?layout=${layout}">下載 PDF</a><button onclick="png()">下載 PNG</button><button class="primary" onclick="print()">列印／存成 PDF</button></div>
 <div class="sheet">${svg}</div>
 <script>
 function png(){const s=document.querySelector('.sheet svg');const vb=s.viewBox.baseVal;const c=document.createElement('canvas');const k=3;c.width=vb.width*k/1.0;c.height=vb.height*k/1.0;

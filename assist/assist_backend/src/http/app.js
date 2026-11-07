@@ -7,6 +7,7 @@ import { HELPERS, ELDERS, findUser, findElderByTownpassAccount, publicHelper, pu
 import { SERVICES, findService, serviceSummary } from '../data/services.js';
 import { LEGAL_INFO } from '../data/legal.js';
 import { posterSvg, posterPage, landingPage, LAYOUTS } from '../poster/poster.js';
+import { posterPdf } from '../poster/pdf.js';
 
 export const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 
@@ -130,6 +131,24 @@ export function buildHttpApp({ config, tokens, assist, audit, forms }) {
     }),
   );
   api.get('/legal', (_req, res) => res.json(LEGAL_INFO));
+
+  // ── 海報 PDF：實際尺寸，可直接送印（壓克力立牌 9.1 × 14.4 cm、A4、明信片）
+  api.get(
+    '/forms/:id/poster.pdf',
+    wrapAsync(async (req, res) => {
+      const form = forms.publicForm(req.params.id);
+      const layout = LAYOUTS[req.query.layout] ? req.query.layout : 'a4';
+      const svg = await posterSvg(form, { layout, url: formUrl(req, form.id) });
+      const pdf = await posterPdf(svg, layout, { fontDir: config.dataDir ? path.join(config.dataDir, 'fonts') : undefined });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader(
+        'Content-Disposition',
+        `${req.query.download ? 'attachment' : 'inline'}; filename*=UTF-8''${encodeURIComponent(`${form.title}_${LAYOUTS[layout].name}.pdf`)}`,
+      );
+      res.send(pdf);
+    }),
+  );
 
   // ── 靜態 QR Code 表單（公開：表單內容與海報）
   api.get('/forms/:id', wrap((req) => ({ ...forms.publicForm(req.params.id), url: formUrl(req, req.params.id) })));

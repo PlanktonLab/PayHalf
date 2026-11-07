@@ -10,7 +10,7 @@ import 'form_store.dart';
 /// 海報版型：和後端 src/poster/poster.js 的 LAYOUTS 對應（寬／高用來算預覽比例）
 const posterLayouts = <String, (String, double, double)>{
   'a4': ('A4 海報', 1240, 1754),
-  'stand': ('壓克力立牌', 1050, 1480),
+  'stand': ('壓克力立牌 9.1×14.4', 1092, 1728),
   'postcard': ('明信片', 1480, 1000),
 };
 
@@ -47,12 +47,15 @@ class _PosterDialogState extends State<_PosterDialog> {
 
   void _open(String href) => web.window.open(href, '_blank');
 
-  void _download() {
+  void _download([String? href]) {
     final a = web.HTMLAnchorElement()
-      ..href = svgUrl(download: true)
+      ..href = href ?? svgUrl(download: true)
       ..download = '';
     a.click();
   }
+
+  /// 實際尺寸的 PDF（壓克力立牌 9.1 × 14.4 cm、A4、明信片），可以直接送印
+  String get pdfUrl => '$base/api/forms/$id/poster.pdf?layout=$layout&download=1';
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +96,13 @@ class _PosterDialogState extends State<_PosterDialog> {
                   ),
                   const SizedBox(height: 18),
                   CButton.primary(
+                    '下載 PDF（實際尺寸，可直接送印）',
+                    icon: Icons.picture_as_pdf_outlined,
+                    expand: true,
+                    onPressed: () => _download(pdfUrl),
+                  ),
+                  const SizedBox(height: 8),
+                  CButton(
                     '開啟列印頁',
                     icon: Icons.print_outlined,
                     expand: true,
