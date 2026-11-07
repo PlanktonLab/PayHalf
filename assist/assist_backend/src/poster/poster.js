@@ -5,7 +5,7 @@ import QRCode from 'qrcode';
 
 /**
  * 靜態 QR Code 海報：後端直接產生 SVG（可印 A4 海報、明信片、壓克力立牌）。
- * 插圖都是原創向量圖（src/poster/art），沒有使用任何既有吉祥物。
+ * 點綴只用台北通 Logo（src/poster/art/townpass-mark.svg）與它的線條語彙。
  */
 const ART_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'art');
 const FONT = "-apple-system,'SF Pro Display','PingFang TC','Noto Sans TC','PingFang TC','Heiti TC','Microsoft JhengHei',sans-serif";
@@ -124,9 +124,61 @@ const deadlineText = (d) => {
 
 const INK = '#1D1D1F';
 const GRAY = '#6E6E73';
+const TEAL = '#2EB6C7'; // 台北通 Logo 的藍綠
+const LOGO_GRAY = '#959595'; // 台北通 Logo 的灰
+const PALE = '#D5EEF2';
+
+/** 以 (cx, cy) 為圓心的一段圓弧（角度用度數，0° 朝右、順時針） */
+function arc(cx, cy, r, a1, a2, color, width) {
+  const rad = (d) => (d * Math.PI) / 180;
+  const x1 = cx + r * Math.cos(rad(a1));
+  const y1 = cy + r * Math.sin(rad(a1));
+  const x2 = cx + r * Math.cos(rad(a2));
+  const y2 = cy + r * Math.sin(rad(a2));
+  const large = Math.abs(a2 - a1) > 180 ? 1 : 0;
+  return `<path d="M${x1.toFixed(1)} ${y1.toFixed(1)}A${r} ${r} 0 ${large} 1 ${x2.toFixed(1)} ${y2.toFixed(1)}" stroke="${color}" stroke-width="${width}" stroke-linecap="round" fill="none"/>`;
+}
+const dot = (x, y, r, color) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${color}"/>`;
+const bar = (x, y, len, width, color) =>
+  `<path d="M${x} ${y}V${y + len}" stroke="${color}" stroke-width="${width}" stroke-linecap="round"/>`;
+const polar = (cx, cy, r, deg) => [cx + r * Math.cos((deg * Math.PI) / 180), cy + r * Math.sin((deg * Math.PI) / 180)];
 
 /**
- * 產生海報 SVG（白底、簡約：大標題＋QR Code＋底部一排可愛的台北小夥伴）。
+ * 點綴線條：取自台北通 Logo 的語彙——圓頭直線、弧線、圓點（藍綠＋灰）。
+ * 左上一組同心弧、右下一組反向的弧，再加幾根圓頭直線，不搶 QR Code 的焦點。
+ */
+function accents(w, h, k) {
+  const S = (n) => n * k;
+  const out = [];
+  out.push(arc(0, 0, S(150), 8, 82, TEAL, S(14)));
+  out.push(arc(0, 0, S(205), 14, 70, PALE, S(14)));
+  out.push(arc(0, 0, S(260), 20, 58, LOGO_GRAY, S(6)));
+  out.push(dot(...polar(0, 0, S(260), 68), S(9), TEAL));
+  out.push(arc(w, h, S(170), 188, 262, TEAL, S(14)));
+  out.push(arc(w, h, S(225), 196, 250, PALE, S(14)));
+  out.push(arc(w, h, S(280), 204, 240, LOGO_GRAY, S(6)));
+  out.push(dot(...polar(w, h, S(280), 252), S(9), TEAL));
+  out.push(bar(w - S(120), S(110), S(90), S(12), PALE));
+  out.push(bar(w - S(86), S(140), S(60), S(12), TEAL));
+  out.push(bar(S(96), h - S(230), S(70), S(12), TEAL));
+  out.push(bar(S(130), h - S(205), S(110), S(12), PALE));
+  return out.join('');
+}
+
+/** 台北通 Logo 標誌＋「台北通」字樣 */
+function brand(x, y, size, anchor = 'middle') {
+  const markW = size * 1.15;
+  const gap = size * 0.35;
+  const textW = size * 3;
+  const left = anchor === 'middle' ? x - (markW + gap + textW) / 2 : x;
+  return (
+    place('townpass-mark', left, y - size * 0.95, markW) +
+    textBlock(['台北通'], left + markW + gap, y, size, { weight: 700, color: INK })
+  );
+}
+
+/**
+ * 產生海報 SVG：白底、簡約，大標題＋QR Code，用台北通 Logo 的線條點綴。
  * url 是 QR Code 的內容（表單的固定網址）。
  */
 export async function posterSvg(form, { layout = 'a4', url }) {
@@ -134,50 +186,39 @@ export async function posterSvg(form, { layout = 'a4', url }) {
   const { w, h } = L;
   const parts = [`<rect width="${w}" height="${h}" fill="#FFFFFF"/>`];
   const deadline = deadlineText(form.deadline);
-  const mascots = (cx, baseY, scale) => {
-    // 由左到右：101、藍鵲（主角，最大）、梅花，站在同一條線上
-    const s = (n) => n * scale;
-    return [
-      place('taipei101', cx - s(205), baseY - s(240), s(96)),
-      place('magpie', cx - s(105), baseY - s(190), s(238)),
-      place('blossom', cx + s(118), baseY - s(112), s(104)),
-      place('sparkles', cx + s(95), baseY - s(250), s(70)),
-    ].join('');
-  };
+  const sub = [deadline, '不會填？按「找人幫我」'].filter(Boolean).join('　·　');
 
   if (layout === 'postcard') {
-    // ── 橫式：左邊文字＋小夥伴，右邊 QR
-    const left = 96;
-    parts.push(textBlock(['台北通'], left, 140, 30, { weight: 700, color: C.teal }));
+    // ── 橫式：左邊文字，右邊 QR
+    parts.push(accents(w, h, 0.75));
+    const left = 120;
+    parts.push(brand(left, 300, 34, 'start'));
     const title = wrap(form.title, 8, 2);
-    parts.push(textBlock(title, left, 250, 78, { weight: 800, color: INK, lh: 1.18 }));
-    let y = 250 + (title.length - 1) * 78 * 1.18 + 70;
+    parts.push(textBlock(title, left, 420, 78, { weight: 800, color: INK, lh: 1.18 }));
+    let y = 420 + (title.length - 1) * 78 * 1.18 + 76;
     parts.push(textBlock(['打開台北通，掃描右邊的 QR Code'], left, y, 28, { weight: 500, color: GRAY }));
     y += 46;
-    if (deadline) parts.push(textBlock([deadline], left, y, 28, { weight: 500, color: GRAY }));
-    parts.push(mascots(330, h - 120, 0.95));
-    parts.push(textBlock([form.dept || '臺北市政府'], left, h - 70, 22, { weight: 500, color: GRAY }));
-    parts.push(await qr(url, 900, 230, 480));
-    parts.push(textBlock(['不會填？按「找人幫我」'], 1140, 790, 24, { weight: 500, color: GRAY, anchor: 'middle' }));
+    parts.push(textBlock([sub], left, y, 26, { weight: 500, color: GRAY }));
+    parts.push(textBlock([form.dept || '臺北市政府'], left, h - 120, 24, { weight: 500, color: GRAY }));
+    parts.push(await qr(url, 880, 250, 480));
   } else {
     // ── 直式：A4 海報／壓克力立牌（同版型、依尺寸縮放）
     const k = w / 1240;
     const S = (n) => n * k;
     const cx = w / 2;
-    parts.push(textBlock(['台北通'], cx, S(190), S(40), { weight: 700, color: C.teal, anchor: 'middle' }));
+    parts.push(accents(w, h, k));
+    parts.push(brand(cx, S(250), S(44)));
     const title = wrap(form.title, 9, 2);
     const tSize = S(104);
-    parts.push(textBlock(title, cx, S(340), tSize, { weight: 800, color: INK, anchor: 'middle', lh: 1.16 }));
-    let y = S(340) + (title.length - 1) * tSize * 1.16 + S(80);
+    parts.push(textBlock(title, cx, S(420), tSize, { weight: 800, color: INK, anchor: 'middle', lh: 1.16 }));
+    let y = S(420) + (title.length - 1) * tSize * 1.16 + S(84);
     parts.push(textBlock(['打開台北通，掃一掃就能填'], cx, y, S(38), { weight: 500, color: GRAY, anchor: 'middle' }));
-    y += S(80);
-    const q = S(560);
+    y += S(90);
+    const q = S(600);
     parts.push(await qr(url, cx - q / 2, y, q));
-    y += q + S(70);
-    const sub = [deadline, '不會填？按「找人幫我」'].filter(Boolean).join('　·　');
-    parts.push(textBlock([sub], cx, y, S(30), { weight: 500, color: GRAY, anchor: 'middle' }));
-    parts.push(mascots(cx, h - S(150), k * 1.15));
-    parts.push(textBlock([form.dept || '臺北市政府'], cx, h - S(80), S(26), { weight: 500, color: GRAY, anchor: 'middle' }));
+    y += q + S(80);
+    parts.push(textBlock([sub], cx, y, S(32), { weight: 500, color: GRAY, anchor: 'middle' }));
+    parts.push(textBlock([form.dept || '臺北市政府'], cx, h - S(150), S(28), { weight: 500, color: GRAY, anchor: 'middle' }));
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${L.mm[0]}mm" height="${L.mm[1]}mm">${parts.join('')}</svg>`;
 }
