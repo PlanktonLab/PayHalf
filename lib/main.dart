@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/gen/assets.gen.dart';
 import 'package:town_pass/service/account_service.dart';
+import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/service/device_service.dart';
 import 'package:town_pass/service/geo_locator_service.dart';
 import 'package:town_pass/service/notification_service.dart';
@@ -38,6 +39,8 @@ Future<void> initServices() async {
   await Get.putAsync<NotificationService>(() async => await NotificationService().init());
 
   Get.put<SubscriptionService>(SubscriptionService());
+  // 陪你辦：背景連線，不阻塞啟動
+  Get.put<AssistService>(AssistService().init());
 }
 
 class MyApp extends StatelessWidget {

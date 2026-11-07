@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:town_pass/page/assist/widget/assist_home_section.dart';
 import 'package:town_pass/gen/assets.gen.dart';
 import 'package:town_pass/page/home/widget/activity_info/activity_info_widget.dart';
 import 'package:town_pass/page/home/widget/city_news/city_news_widget.dart';
@@ -29,12 +30,16 @@ class HomeView extends StatelessWidget {
       ),
       body: const CustomScrollView(
         slivers: [
+          // 陪你辦：有人想協助時，首頁最上方出現持續性徽章
+          SliverToBoxAdapter(child: AssistHomeBadge()),
           _SliverGap(20),
           SliverToBoxAdapter(child: NewsBannerWidget()),
           _SliverGap(20),
           SliverToBoxAdapter(child: ActivityInfoWidget()),
           _SliverGap(8),
           SliverToBoxAdapter(child: CityNewsWidget()),
+          _SliverGap(12),
+          SliverToBoxAdapter(child: AssistEntryCard()),
           _SliverGap(16),
           SliverToBoxAdapter(child: SubscriptionWidget()),
           _SliverGap(32),
