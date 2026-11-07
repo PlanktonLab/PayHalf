@@ -1,6 +1,8 @@
 import 'dart:ui' show ImageFilter;
 
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../core/format.dart';
@@ -968,7 +970,7 @@ class _SessionScreen extends StatelessWidget {
         const SizedBox(height: 12),
         Text(step.elderGuide, style: _tBody.copyWith(fontSize: 22)),
         const SizedBox(height: 18),
-        for (final f in step.fields) _ElderField(c: c, s: s, f: f),
+        for (final f in step.fields) _ElderField(key: ValueKey('${s.id}-${f.key}'), c: c, s: s, f: f),
         if (step.fields.isEmpty)
           Container(
             padding: const EdgeInsets.all(18),
@@ -1000,7 +1002,7 @@ class _SessionScreen extends StatelessWidget {
 }
 
 class _ElderField extends StatefulWidget {
-  const _ElderField({required this.c, required this.s, required this.f});
+  const _ElderField({super.key, required this.c, required this.s, required this.f});
   final ElderController c;
   final AssistSession s;
   final FieldDef f;
@@ -1009,6 +1011,170 @@ class _ElderField extends StatefulWidget {
 }
 
 class _ElderFieldState extends State<_ElderField> {
+  /// 文字題：長輩正在打的字
+  final text = TextEditingController();
+  String? _synced;
+
+  /// 複選題：長輩勾了但還沒按「選好了」（null 表示跟伺服器一樣）
+  Set<String>? picked;
+  bool busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _sync(widget.s.field(widget.f.key).value);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ElderField old) {
+    super.didUpdateWidget(old);
+    _sync(widget.s.field(widget.f.key).value);
+  }
+
+  @override
+  void dispose() {
+    text.dispose();
+    super.dispose();
+  }
+
+  /// 伺服器上的值變了（例如長輩剛送出）才覆蓋輸入框，打字中不會被洗掉
+  void _sync(String? v) {
+    if (v == _synced) return;
+    _synced = v;
+    text.text = v ?? '';
+    picked = null;
+  }
+
+  Future<void> _send(String value) async {
+    setState(() => busy = true);
+    await _run(context, () => widget.c.input(widget.s.id, widget.f.key, value));
+    if (mounted) setState(() => busy = false);
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final d = await showDatePicker(
+      context: context,
+      useRootNavigator: false,
+      firstDate: DateTime(1900),
+      lastDate: DateTime(now.year + 3),
+      initialDate: DateTime.tryParse(text.text) ?? now,
+      helpText: '選一個日期',
+    );
+    if (d != null) setState(() => text.text = '${d.year}-${two(d.month)}-${two(d.day)}');
+  }
+
+  Widget _done() => const Padding(
+    padding: EdgeInsets.only(top: 4),
+    child: Row(
+      children: [
+        Icon(Icons.check_circle_rounded, color: TPColors.green500, size: 26),
+        SizedBox(width: 8),
+        Text(
+          '已經填好了',
+          style: TextStyle(fontSize: 19, color: TPColors.green700, fontWeight: FontWeight.w600),
+        ),
+      ],
+    ),
+  );
+
+  /// 文字題：輸入框＋「填好了」
+  Widget _textInput(FieldDef f, FieldState st) {
+    final it = f.inputType;
+    final saved = st.value ?? '';
+    final cur = text.text.trim();
+    final hint = f.hint ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (hint.isNotEmpty) ...[
+          Text(hint, style: const TextStyle(fontSize: 18, height: 1.5, color: TPColors.grayscale600)),
+          const SizedBox(height: 10),
+        ] else
+          const SizedBox(height: 4),
+        TextField(
+          controller: text,
+          readOnly: it == 'date',
+          onTap: it == 'date' ? _pickDate : null,
+          keyboardType: switch (it) {
+            'number' => TextInputType.number,
+            'phone' => TextInputType.phone,
+            'textarea' => TextInputType.multiline,
+            _ => TextInputType.text,
+          },
+          inputFormatters: it == 'number' ? [FilteringTextInputFormatter.digitsOnly] : null,
+          minLines: it == 'textarea' ? 3 : 1,
+          maxLines: it == 'textarea' ? 5 : 1,
+          maxLength: it == 'textarea' ? 500 : 100,
+          style: const TextStyle(fontSize: 22, height: 1.4),
+          decoration: InputDecoration(
+            hintText: it == 'date' ? '點這裡選日期' : '在這裡輸入',
+            hintStyle: const TextStyle(fontSize: 20, color: TPColors.grayscale400),
+            counterText: '',
+            filled: true,
+            fillColor: TPColors.grayscale50,
+            suffixIcon: it == 'date' ? const Icon(Icons.calendar_month_rounded, size: 28) : null,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: TPColors.grayscale200, width: 2),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: TPColors.primary500, width: 2),
+            ),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 12),
+        if (st.status == 'filled' && cur == saved)
+          _done()
+        else
+          _BigButton(
+            st.status == 'filled' ? '改好了' : '填好了',
+            icon: Icons.check_rounded,
+            onPressed: cur.isEmpty || busy ? null : () => _send(cur),
+          ),
+      ],
+    );
+  }
+
+  /// 複選題：可以勾好幾個，最後按「選好了」
+  Widget _multiChoice(FieldDef f, FieldState st) {
+    final saved = (st.value ?? '').split('、').where((v) => v.isNotEmpty).toSet();
+    final cur = picked ?? saved;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('可以選好幾個，選完按「選好了」', style: TextStyle(fontSize: 18, color: TPColors.grayscale600)),
+        for (final o in f.options)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: _ChoiceButton(
+              label: o.label,
+              multi: true,
+              selected: cur.contains(o.value),
+              onTap: () => setState(() {
+                final next = {...cur};
+                if (!next.remove(o.value)) next.add(o.value);
+                picked = next;
+              }),
+            ),
+          ),
+        const SizedBox(height: 14),
+        if (st.status == 'filled' && setEquals(cur, saved))
+          _done()
+        else
+          _BigButton(
+            st.status == 'filled' ? '改好了' : '選好了',
+            icon: Icons.check_rounded,
+            onPressed: cur.isEmpty || busy
+                ? null
+                : () => _send(f.options.where((o) => cur.contains(o.value)).map((o) => o.value).join('、')),
+          ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1018,7 +1184,11 @@ class _ElderFieldState extends State<_ElderField> {
     final focused = s.focusField == f.key;
 
     Widget body;
-    if (f.type == 'choice') {
+    if (f.type == 'text') {
+      body = _textInput(f, st);
+    } else if (f.type == 'choice' && f.multi) {
+      body = _multiChoice(f, st);
+    } else if (f.type == 'choice') {
       body = Column(
         children: [
           for (final o in f.options)
@@ -1037,7 +1207,7 @@ class _ElderFieldState extends State<_ElderField> {
         children: [
           Expanded(
             child: _RevealValue(
-              fieldKey: f.key,
+              fieldKey: f.profileKey ?? f.key,
               label: f.label,
               value: st.value,
               style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w500),
@@ -1108,7 +1278,11 @@ class _ElderFieldState extends State<_ElderField> {
           Row(
             children: [
               Icon(
-                f.sensitive ? Icons.lock_rounded : Icons.touch_app_rounded,
+                f.sensitive
+                    ? Icons.lock_rounded
+                    : f.type == 'text'
+                    ? Icons.edit_rounded
+                    : Icons.touch_app_rounded,
                 color: f.sensitive ? TPColors.secondary700 : TPColors.primary500,
                 size: 24,
               ),
@@ -1128,9 +1302,10 @@ class _ElderFieldState extends State<_ElderField> {
 }
 
 class _ChoiceButton extends StatelessWidget {
-  const _ChoiceButton({required this.label, required this.selected, required this.onTap});
+  const _ChoiceButton({required this.label, required this.selected, required this.onTap, this.multi = false});
   final String label;
   final bool selected;
+  final bool multi;
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
@@ -1150,12 +1325,21 @@ class _ChoiceButton extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                multi
+                    ? (selected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded)
+                    : (selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded),
                 color: selected ? TPColors.primary500 : TPColors.grayscale400,
                 size: 28,
               ),
               const SizedBox(width: 12),
-              Text(label, style: TextStyle(fontSize: 21, fontWeight: selected ? FontWeight.w600 : FontWeight.w400)),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 21, fontWeight: selected ? FontWeight.w600 : FontWeight.w400),
+                ),
+              ),
             ],
           ),
         ),
@@ -1171,6 +1355,7 @@ class _AuthScreen extends StatefulWidget {
   final ElderController c;
   final AssistSession s;
   final FieldDef f;
+
   /// 長輩自己點開的：按「先不要」只是關掉
   final bool self;
   @override
@@ -1271,7 +1456,7 @@ class _AuthScreenState extends State<_AuthScreen> {
                       ),
                       _RevealValue(
                         key: ValueKey(edited),
-                        fieldKey: f.key,
+                        fieldKey: f.profileKey ?? f.key,
                         label: f.label,
                         value: edited ?? f.value,
                         style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
@@ -1434,16 +1619,21 @@ class _ReviewScreenState extends State<_ReviewScreen> {
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(f.label, style: const TextStyle(fontSize: 17, color: TPColors.grayscale500)),
+                                          Text(
+                                            f.label,
+                                            style: const TextStyle(fontSize: 17, color: TPColors.grayscale500),
+                                          ),
                                           const SizedBox(height: 2),
-                                          if (f.type == 'choice')
+                                          if (f.type == 'choice' || f.type == 'text')
                                             Text(
-                                              f.optionLabel(s.field(f.key).value),
+                                              s.field(f.key).value == null || s.field(f.key).value!.isEmpty
+                                                  ? '（沒有填）'
+                                                  : f.displayValue(s.field(f.key).value),
                                               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
                                             )
                                           else
                                             _RevealValue(
-                                              fieldKey: f.key,
+                                              fieldKey: f.profileKey ?? f.key,
                                               label: f.label,
                                               value: s.field(f.key).value,
                                               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
@@ -1834,7 +2024,10 @@ Future<String?> _editValue(BuildContext context, String label, String initial) {
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('取消', style: TextStyle(fontSize: 18))),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: const Text('取消', style: TextStyle(fontSize: 18)),
+        ),
         FilledButton(
           onPressed: () => text.text.trim().isEmpty ? null : Navigator.of(ctx).pop(text.text.trim()),
           child: const Text('改好了', style: TextStyle(fontSize: 18)),
@@ -1857,7 +2050,10 @@ class _EditButton extends StatelessWidget {
       final v = await _editValue(context, f.label, value);
       if (v != null && v != value && context.mounted) await _run(context, () => c.editField(s.id, f.key, v));
     },
-    child: const Text('修改', style: TextStyle(fontSize: 17, color: TPColors.primary700, fontWeight: FontWeight.w600)),
+    child: const Text(
+      '修改',
+      style: TextStyle(fontSize: 17, color: TPColors.primary700, fontWeight: FontWeight.w600),
+    ),
   );
 }
 
@@ -1909,7 +2105,6 @@ class _StepNav extends StatelessWidget {
     );
   }
 }
-
 
 // ═════════════════════════════════════════════ 信任的人
 
@@ -1968,7 +2163,9 @@ class _TrustedSectionState extends State<_TrustedSection> {
         children: [
           Row(
             children: [
-              const Expanded(child: Text('找信任的人', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w600))),
+              const Expanded(
+                child: Text('找信任的人', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w600)),
+              ),
               if (c.trusted.isNotEmpty)
                 TextButton(
                   onPressed: () => setState(() => editing = !editing),
@@ -2015,7 +2212,10 @@ class _TrustedSectionState extends State<_TrustedSection> {
       action = Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          const Text('已通知，等他回應', style: TextStyle(fontSize: 15, color: TPColors.secondary800, fontWeight: FontWeight.w600)),
+          const Text(
+            '已通知，等他回應',
+            style: TextStyle(fontSize: 15, color: TPColors.secondary800, fontWeight: FontWeight.w600),
+          ),
           TextButton(
             onPressed: () => _run(context, () => c.cancelHelp(waiting.id)),
             child: const Text('取消', style: TextStyle(fontSize: 16, color: TPColors.grayscale600)),
@@ -2045,9 +2245,16 @@ class _TrustedSectionState extends State<_TrustedSection> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _NameWithHeart(h.name, trusted: true, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                    _NameWithHeart(
+                      h.name,
+                      trusted: true,
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                    ),
                     if (canCall)
-                      const Text('請他來幫我', style: TextStyle(fontSize: 16, color: TPColors.primary700, fontWeight: FontWeight.w600)),
+                      const Text(
+                        '請他來幫我',
+                        style: TextStyle(fontSize: 16, color: TPColors.primary700, fontWeight: FontWeight.w600),
+                      ),
                   ],
                 ),
               ),
@@ -2115,7 +2322,12 @@ Future<void> _showAddTrusted(BuildContext context, ElderController c) async {
                     const SizedBox(height: 8),
                     Text(
                       expired ? '------' : '${code.substring(0, 3)} ${code.substring(3)}',
-                      style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w600, letterSpacing: 6, color: TPColors.red700),
+                      style: const TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 6,
+                        color: TPColors.red700,
+                      ),
                     ),
                     Text(
                       expired ? '號碼已失效，請關掉再按一次' : '${mmss(left)} 後失效',
@@ -2133,7 +2345,10 @@ Future<void> _showAddTrusted(BuildContext context, ElderController c) async {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('關閉', style: TextStyle(fontSize: 18))),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('關閉', style: TextStyle(fontSize: 18)),
+            ),
           ],
         );
       },
@@ -2162,7 +2377,11 @@ class _TrustRequestScreen extends StatelessWidget {
                   child: CircleAvatar(
                     radius: 46,
                     backgroundColor: h.verified ? TPColors.primary100 : TPColors.secondary100,
-                    child: Icon(helperIcon(h.helperType), size: 50, color: h.verified ? TPColors.primary600 : TPColors.secondary700),
+                    child: Icon(
+                      helperIcon(h.helperType),
+                      size: 50,
+                      color: h.verified ? TPColors.primary600 : TPColors.secondary700,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -2172,9 +2391,13 @@ class _TrustRequestScreen extends StatelessWidget {
                   style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w600, height: 1.35),
                 ),
                 const SizedBox(height: 8),
-                Center(child: Text(h.title, style: const TextStyle(fontSize: 19, color: TPColors.grayscale600))),
+                Center(
+                  child: Text(h.title, style: const TextStyle(fontSize: 19, color: TPColors.grayscale600)),
+                ),
                 const SizedBox(height: 10),
-                Center(child: HelperBadge(helperType: h.helperType, verified: h.verified, large: true)),
+                Center(
+                  child: HelperBadge(helperType: h.helperType, verified: h.verified, large: true),
+                ),
                 const SizedBox(height: 22),
                 const Text(
                   '加入後，您可以直接請他來幫忙。\n電話裡有人要您加他，就是詐騙。',
@@ -2208,7 +2431,6 @@ class _TrustRequestScreen extends StatelessWidget {
     );
   }
 }
-
 
 /// 敏感資料：整格模糊，中間寫「點一下查看{label}」，點了才顯示；再點一下又遮起來。
 /// 比「遮一半＋眼睛圖示」直覺：長輩不用猜眼睛是什麼意思。
@@ -2245,7 +2467,6 @@ class __RevealValueState extends State<_RevealValue> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {
-          
           setState(() => reveal = !reveal);
         },
         child: ConstrainedBox(

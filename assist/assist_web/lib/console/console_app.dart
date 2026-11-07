@@ -214,13 +214,11 @@ class _ShellState extends State<_Shell> {
 
   HelperController get c => widget.c;
 
-  /// 表單後台只開放給市府認證身分（里長、1999 客服）
-  bool get canForms => c.me?['verified'] == true;
-
   @override
   void initState() {
     super.initState();
-    if (section == Section.forms && !canForms) section = Section.workbench;
+    // 表單存在後端：登入（或換身分）後重新載入；不是承辦人員時表單頁會說明原因
+    widget.forms.attach(c);
     HardwareKeyboard.instance.addHandler(_onKey);
   }
 
@@ -245,7 +243,7 @@ class _ShellState extends State<_Shell> {
       LogicalKeyboardKey.keyW => Section.workbench,
       LogicalKeyboardKey.keyR => Section.history,
       LogicalKeyboardKey.keyA => Section.audit,
-      LogicalKeyboardKey.keyF when canForms => Section.forms,
+      LogicalKeyboardKey.keyF => Section.forms,
       _ => null,
     };
     if (target == null) return false;
@@ -263,7 +261,6 @@ class _ShellState extends State<_Shell> {
 
   @override
   Widget build(BuildContext context) {
-    if (!canForms && section == Section.forms) section = Section.workbench;
     return LayoutBuilder(
       builder: (context, box) {
         final rail = widget.compact || box.maxWidth < 1000;
@@ -278,7 +275,6 @@ class _ShellState extends State<_Shell> {
                   c: c,
                   rail: rail,
                   section: section,
-                  canForms: canForms,
                   bigText: bigText,
                   onGo: go,
                   onHelp: () => _help(context),
@@ -367,7 +363,7 @@ class _ShellState extends State<_Shell> {
             children: [
               item(Icons.handshake_outlined, '工作台（W）', '選業務、輸入長輩念給您的配對碼。長輩同意後，您帶著他一步一步辦，個資由長輩自己授權。'),
               item(Icons.history_rounded, '陪辦紀錄（R）與稽核紀錄（A）', '查看過去的陪辦，以及不可竄改的操作紀錄。'),
-              if (canForms) item(Icons.description_outlined, '表單（F）', '從範本建立民眾要填的表單，點題目就能修改；右側即時預覽長輩看到的畫面，沒問題就按「發布」。'),
+              if (c.isStaff) item(Icons.description_outlined, '表單（F）', '從範本建立民眾要填的表單，點題目就能修改；右側即時預覽長輩看到的畫面，沒問題就按「發布」。'),
               const SizedBox(height: 4),
               const CNotice(icon: Icons.lightbulb_outline_rounded, text: '題目用日常說話的方式寫，例如「你住在哪裡」，而不是「戶籍所在地」。系統會幫你檢查。'),
             ],
@@ -384,7 +380,6 @@ class _Sidebar extends StatelessWidget {
     required this.c,
     required this.rail,
     required this.section,
-    required this.canForms,
     required this.bigText,
     required this.onGo,
     required this.onHelp,
@@ -393,7 +388,6 @@ class _Sidebar extends StatelessWidget {
   final HelperController c;
   final bool rail;
   final Section section;
-  final bool canForms;
   final bool bigText;
   final ValueChanged<Section> onGo;
   final VoidCallback onHelp;
@@ -519,17 +513,15 @@ class _Sidebar extends StatelessWidget {
             selected: section == Section.audit,
             onTap: () => onGo(Section.audit),
           ),
-          if (canForms) ...[
-            group('表單'),
-            _NavItem(
-              icon: Icons.description_outlined,
-              label: '我的表單',
-              kbd: 'F',
-              rail: rail,
-              selected: section == Section.forms,
-              onTap: () => onGo(Section.forms),
-            ),
-          ],
+          group('表單'),
+          _NavItem(
+            icon: Icons.description_outlined,
+            label: '我的表單',
+            kbd: 'F',
+            rail: rail,
+            selected: section == Section.forms,
+            onTap: () => onGo(Section.forms),
+          ),
           const Spacer(),
           _NavItem(
             icon: Icons.phone_iphone_rounded,

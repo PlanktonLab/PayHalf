@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../core/api.dart';
@@ -21,15 +23,28 @@ class HelperController extends ChangeNotifier {
   bool accountsLoading = true;
   bool accountsFailed = false;
   Map<String, dynamic>? auditStatus;
+
   /// 從台北通 App 掃 QR Code 進來時帶的配對碼，新陪辦畫面會自動填入
   String? pendingCode;
   List<Map<String, dynamic>> auditEntries = [];
+
   /// 把我加為「信任的人」的長輩：不用配對碼就能請求
   List<Map<String, dynamic>> trustedElders = [];
+
   /// 信任我的長輩按了「請他來幫我」
   List<HelpRequest> helpRequests = [];
 
+  /// 長輩填表時請線上客服幫忙（只有承辦人員看得到）
+  List<HelpTicket> tickets = [];
+
+  /// 表單後台的即時事件（民眾送出回覆），表單頁自己訂閱
+  final _formResponses = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get formResponses => _formResponses.stream;
+
   bool get loggedIn => me != null;
+
+  /// 承辦人員（1999 客服、里長）：可以用表單後台、接線上求助
+  bool get isStaff => const {'official', 'village_chief'}.contains(me?['helperType']);
 
   AssistSession? get focused => focusedSessionId == null ? null : sessions[focusedSessionId];
 
@@ -63,6 +78,8 @@ class HelperController extends ChangeNotifier {
       onConnect: refresh,
       onTrusted: refreshTrusted,
       onHelp: _onHelp,
+      onFormTicket: _onTicket,
+      onFormResponse: _formResponses.add,
       onStatus: (c) {
         connected = c;
         notifyListeners();
@@ -81,6 +98,7 @@ class HelperController extends ChangeNotifier {
     sessions.clear();
     trustedElders = [];
     helpRequests = [];
+    tickets = [];
     focusedSessionId = null;
     notifyListeners();
   }
@@ -95,6 +113,8 @@ class HelperController extends ChangeNotifier {
   void _onSession(Map<String, dynamic> raw) {
     final s = AssistSession(raw);
     sessions[s.id] = s;
+    // 登入後才發布的表單也會變成陪辦業務：缺定義就補抓
+    if (!serviceDefs.containsKey(s.serviceId)) service(s.serviceId).then((_) => notifyListeners(), onError: (_) {});
     notifyListeners();
   }
 
@@ -108,7 +128,48 @@ class HelperController extends ChangeNotifier {
     helpRequests = (await api.get('/helper/help-requests') as List)
         .map((e) => HelpRequest(Map<String, dynamic>.from(e as Map)))
         .toList();
+    await refreshTickets();
     await refreshAudit();
+  }
+
+  Future<void> refreshTickets() async {
+    if (!loggedIn || !isStaff) return;
+    tickets = (await api.get('/console/help-tickets') as List)
+        .map((e) => HelpTicket(Map<String, dynamic>.from(e as Map)))
+        .toList();
+    notifyListeners();
+  }
+
+  void _onTicket(Map<String, dynamic> raw) {
+    if (!isStaff) return;
+    final t = HelpTicket(raw);
+    tickets = [...tickets.where((e) => e.id != t.id), if (t.isWaiting) t]
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    notifyListeners();
+  }
+
+  /// 接手線上求助：對長輩發起陪辦，長輩手機上還要按同意
+  Future<AssistSession> takeTicket(String ticketId) async {
+    try {
+      final raw = Map<String, dynamic>.from(await api.post('/console/help-tickets/$ticketId/take') as Map);
+      // 表單可能剛改過題目：重新抓一次業務定義
+      final serviceId = raw['serviceId'] as String;
+      serviceDefs.remove(serviceId);
+      await service(serviceId);
+      final s = AssistSession(raw);
+      sessions[s.id] = s;
+      tickets = tickets.where((e) => e.id != ticketId).toList();
+      focus(s.id);
+      refreshAudit();
+      return s;
+    } on ApiException catch (e) {
+      // 已經被別人接走或長輩取消了：從清單拿掉
+      if (e.code == 'TICKET_GONE') {
+        tickets = tickets.where((t) => t.id != ticketId).toList();
+        notifyListeners();
+      }
+      rethrow;
+    }
   }
 
   void _onHelp(Map<String, dynamic> raw) {
@@ -119,8 +180,9 @@ class HelperController extends ChangeNotifier {
 
   Future<void> refreshTrusted() async {
     if (!loggedIn) return;
-    trustedElders =
-        (await api.get('/helper/trusted-elders') as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    trustedElders = (await api.get('/helper/trusted-elders') as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
     notifyListeners();
   }
 
@@ -200,6 +262,7 @@ class HelperController extends ChangeNotifier {
   @override
   void dispose() {
     _rt.dispose();
+    _formResponses.close();
     super.dispose();
   }
 }

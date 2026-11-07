@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/api.dart';
 import '../../core/format.dart';
 import '../../shared/console_kit.dart';
 import '../web_utils.dart';
 import 'form_preview.dart';
 import 'form_store.dart';
-import 'forms_home.dart' show statusTone;
+import 'forms_home.dart' show statusTone, deleteWarning;
+import 'poster_dialog.dart';
 
 /// 單一表單的編輯器：問題／回覆／設定。
 class FormEditor extends StatefulWidget {
@@ -44,7 +46,7 @@ class _FormEditorState extends State<FormEditor> {
       return const SizedBox();
     }
     if (sel != null && f.fields.every((x) => x.id != sel)) sel = null;
-    final n = allResponses(f).length;
+    final n = f.responses;
 
     return CallbackShortcuts(
       bindings: {
@@ -139,14 +141,7 @@ class _FormEditorState extends State<FormEditor> {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         CStatus(f.status.label, tone: statusTone(f.status), size: 13),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.cloud_done_outlined, size: 15, color: C.ink4),
-                            const SizedBox(width: 4),
-                            Text('已自動儲存 $saved', style: CText.small),
-                          ],
-                        ),
+                        _saveState(f, saved),
                       ],
                     ),
                   ],
@@ -174,9 +169,43 @@ class _FormEditorState extends State<FormEditor> {
               CButton('預覽', icon: Icons.visibility_outlined, onPressed: () => _previewDialog(f)),
               const SizedBox(width: 8),
             ],
+            if (f.published) ...[
+              CButton(
+                'QR Code 海報',
+                icon: Icons.qr_code_2_rounded,
+                onPressed: () => showPosterDialog(context, store, f),
+              ),
+              const SizedBox(width: 8),
+            ],
             publish,
           ],
         ),
+      ],
+    );
+  }
+
+  /// 自動儲存的狀態：儲存中／已儲存／沒存到（可重試）
+  Widget _saveState(FForm f, String saved) {
+    final err = store.saveErrors[f.id];
+    if (err != null && !store.hasPending(f)) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off_rounded, size: 15, color: C.danger),
+          const SizedBox(width: 4),
+          Text('還沒存到伺服器：$err', style: CText.small.copyWith(color: C.danger)),
+          const SizedBox(width: 6),
+          CButton('重試', kind: CButtonKind.ghost, onPressed: () => store.retrySave(f)),
+        ],
+      );
+    }
+    final busy = store.hasPending(f);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(busy ? Icons.cloud_upload_outlined : Icons.cloud_done_outlined, size: 15, color: C.ink4),
+        const SizedBox(width: 4),
+        Text(busy ? '儲存中…' : '已自動儲存 $saved', style: CText.small),
       ],
     );
   }
@@ -390,30 +419,45 @@ class _FormEditorState extends State<FormEditor> {
     );
   }
 
-  String link(FForm f) => 'https://townpass.taipei/forms/${f.id}';
+  /// 表單的固定網址（就是 QR Code 的內容），向後端問
+  Widget _linkBox(BuildContext ctx, FForm f) => FutureBuilder<String>(
+    future: store.urlOf(f),
+    builder: (context, snap) => Container(
+      padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+      decoration: BoxDecoration(
+        color: C.inset,
+        borderRadius: BorderRadius.circular(C.rControl),
+        border: Border.all(color: C.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: snap.hasError
+                ? const Text('暫時拿不到網址，請稍後再試', style: CText.small)
+                : SelectableText(snap.data ?? '讀取中…', style: CText.mono.copyWith(color: C.ink2)),
+          ),
+          CButton(
+            '複製連結',
+            icon: Icons.copy_rounded,
+            onPressed: snap.data == null
+                ? null
+                : () {
+                    Clipboard.setData(ClipboardData(text: snap.data!));
+                    cToast(ctx, '已複製連結');
+                  },
+          ),
+        ],
+      ),
+    ),
+  );
 
-  Widget _linkBox(BuildContext ctx, FForm f) => Container(
-    padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
-    decoration: BoxDecoration(
-      color: C.inset,
-      borderRadius: BorderRadius.circular(C.rControl),
-      border: Border.all(color: C.border),
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: SelectableText(link(f), style: CText.mono.copyWith(color: C.ink2)),
-        ),
-        CButton(
-          '複製連結',
-          icon: Icons.copy_rounded,
-          onPressed: () {
-            Clipboard.setData(ClipboardData(text: link(f)));
-            cToast(ctx, '已複製連結');
-          },
-        ),
-      ],
-    ),
+  Widget _posterButton(BuildContext ctx, FForm f) => CButton(
+    'QR Code 海報',
+    icon: Icons.qr_code_2_rounded,
+    onPressed: () {
+      Navigator.pop(ctx);
+      showPosterDialog(context, store, f);
+    },
   );
 
   Future<void> _publishDialog(FForm f) async {
@@ -422,16 +466,17 @@ class _FormEditorState extends State<FormEditor> {
         context: context,
         builder: (ctx) => CDialog(
           title: '表單收件中',
-          subtitle: '民眾可以在台北通「市民表單」找到，也可以用下面的連結填寫。',
+          subtitle: '民眾用台北通掃 QR Code，或打開下面的連結就能填寫。',
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _linkBox(ctx, f),
               const SizedBox(height: 8),
-              const Text('連結為示意，正式上線後會由系統產生。', style: CText.small),
+              const Text('這個網址固定不變，修改題目後不用重新分享或重印海報。', style: CText.small),
             ],
           ),
           actions: [
+            _posterButton(ctx, f),
             CButton(
               '停止收件',
               icon: Icons.lock_outline_rounded,
@@ -509,13 +554,21 @@ class _FormEditorState extends State<FormEditor> {
     );
     if (ok != true || !mounted) return;
     store.edit(f, () => f.status = FStatus.open);
+    await store.flush(f);
+    if (!mounted) return;
+    final err = store.saveErrors[f.id];
+    if (err != null) {
+      cToast(context, '發布沒有成功：$err');
+      return;
+    }
     await showDialog<void>(
       context: context,
       builder: (ctx) => CDialog(
         title: '發布成功',
-        subtitle: '民眾現在可以在台北通找到「${f.displayTitle}」。',
+        subtitle: '民眾現在可以用台北通填寫「${f.displayTitle}」。印一張 QR Code 海報貼在現場，掃了就能填。',
         body: _linkBox(ctx, f),
         actions: [
+          _posterButton(ctx, f),
           CButton(
             '回到我的表單',
             onPressed: () {
@@ -947,17 +1000,37 @@ class _ResponsesTab extends StatefulWidget {
   State<_ResponsesTab> createState() => _ResponsesTabState();
 }
 
+enum _RView { summary, single, table }
+
 class _ResponsesTabState extends State<_ResponsesTab> {
-  bool list = false;
+  _RView view = _RView.summary;
+  bool showSamples = true;
+
+  /// 個別回覆：目前看的是哪一份（用 id 記，新回覆進來時不會跳掉）
+  String? currentId;
+
+  /// 個別回覆裡點開查看的遮蔽欄位
+  final Set<String> revealed = {};
+
+  FormStore get store => widget.store;
+
+  @override
+  void initState() {
+    super.initState();
+    store.loadRows(widget.f);
+  }
 
   void csv(FForm f, List<Map<String, dynamic>> rs) {
     String q(Object? s) => '"${(s ?? '').toString().replaceAll('"', '""')}"';
     final lines = [
-      ['送出時間', '誰填的', ...f.fields.map((x) => x.label)].map(q).join(','),
+      ['收件編號', '送出時間', '填寫方式', '陪辦人員', '示意資料', ...f.fields.map((x) => x.label)].map(q).join(','),
       for (final r in rs)
         [
-          ymdhm(DateTime.fromMillisecondsSinceEpoch((r['_t'] as num).toInt())),
-          r['_by'],
+          r.receipt,
+          ymdhm(r.at),
+          r.by,
+          r.helperName ?? '',
+          r.isSample ? '是' : '',
           ...f.fields.map((x) => maskAnswer(x, r[x.id])),
         ].map(q).join(','),
     ];
@@ -968,19 +1041,65 @@ class _ResponsesTabState extends State<_ResponsesTab> {
   @override
   Widget build(BuildContext context) {
     final f = widget.f;
-    final rs = allResponses(f);
-    final assisted = rs.where((r) => !(r['_by'] as String).startsWith('本人')).length;
-    final latest = rs.isEmpty ? '—' : hm(DateTime.fromMillisecondsSinceEpoch((rs.first['_t'] as num).toInt()));
+    final all = store.rows[f.id];
+    final err = store.rowsError[f.id];
+    final rs = (all ?? const <Map<String, dynamic>>[]).where((r) => showSamples || !r.isSample).toList();
+    final hasSamples = all?.any((r) => r.isSample) ?? false;
+
+    final Widget body;
+    if (all == null && err != null) {
+      body = CPanel(
+        child: CEmpty(
+          icon: Icons.cloud_off_rounded,
+          title: '回覆讀不出來',
+          body: err,
+          action: CButton('重試', icon: Icons.refresh_rounded, onPressed: () => store.loadRows(f, force: true)),
+        ),
+      );
+    } else if (all == null) {
+      body = const Padding(
+        padding: EdgeInsets.all(48),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    } else if (rs.isEmpty) {
+      body = CPanel(
+        child: CEmpty(
+          icon: Icons.inbox_outlined,
+          title: '還沒有人填寫',
+          body: f.status == FStatus.draft
+              ? '表單發布後，民眾的回覆會即時出現在這裡。'
+              : hasSamples
+              ? '還沒有民眾送出真的回覆。打開「顯示示意資料」可以看範例。'
+              : '等待民眾填寫中，有人送出會馬上出現在這裡。',
+        ),
+      );
+    } else {
+      body = switch (view) {
+        _RView.summary => _summary(f, rs),
+        _RView.single => _single(f, rs),
+        _RView.table => _table(f, rs),
+      };
+    }
 
     return ListView(
       padding: EdgeInsets.fromLTRB(widget.pad, 20, widget.pad, 48),
       children: [
         CStatStrip(
           items: [
-            CStat(icon: Icons.inbox_outlined, label: '全部回覆', value: '${rs.length}'),
-            CStat(icon: Icons.handshake_outlined, label: '陪辦填寫', value: '$assisted'),
-            CStat(icon: Icons.person_outline_rounded, label: '本人填寫', value: '${rs.length - assisted}'),
-            CStat(icon: Icons.schedule_rounded, label: '最新一筆', value: latest),
+            CStat(
+              icon: Icons.inbox_outlined,
+              label: '全部回覆',
+              value: '${f.responses}',
+              note: f.realResponses != f.responses ? '民眾送出 ${f.realResponses} 份' : null,
+            ),
+            CStat(icon: Icons.today_outlined, label: '今天', value: '${f.today}'),
+            CStat(
+              icon: Icons.handshake_outlined,
+              label: '陪辦填寫',
+              value: '${f.assisted}',
+              note: '本人 ${f.responses - f.assisted}',
+            ),
+            CStat(icon: Icons.support_agent_rounded, label: '正在等線上幫忙', value: '${store.waitingFor(f)}'),
           ],
         ),
         const SizedBox(height: 16),
@@ -989,11 +1108,24 @@ class _ResponsesTabState extends State<_ResponsesTab> {
           runSpacing: 12,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            CSegmented<bool>(
-              value: list,
-              onChanged: (v) => setState(() => list = v),
-              options: const [(false, '摘要', Icons.bar_chart_rounded), (true, '全部回覆', Icons.table_rows_outlined)],
+            CSegmented<_RView>(
+              value: view,
+              onChanged: (v) => setState(() => view = v),
+              options: const [
+                (_RView.summary, '摘要', Icons.bar_chart_rounded),
+                (_RView.single, '個別回覆', Icons.article_outlined),
+                (_RView.table, '全部回覆', Icons.table_rows_outlined),
+              ],
             ),
+            if (hasSamples)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('顯示示意資料', style: CText.label),
+                  const SizedBox(width: 6),
+                  Switch(value: showSamples, onChanged: (v) => setState(() => showSamples = v)),
+                ],
+              ),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1004,30 +1136,29 @@ class _ResponsesTabState extends State<_ResponsesTab> {
                   onChanged: f.status == FStatus.draft
                       ? null
                       : (v) {
-                          widget.store.edit(f, () => f.status = v ? FStatus.open : FStatus.closed);
+                          store.edit(f, () => f.status = v ? FStatus.open : FStatus.closed);
                           cToast(context, v ? '已開始接受回覆' : '已停止接受回覆');
                         },
                 ),
               ],
             ),
             CButton('下載成 Excel 檔', icon: Icons.download_rounded, onPressed: rs.isEmpty ? null : () => csv(f, rs)),
+            CIconButton(
+              icon: Icons.refresh_rounded,
+              tooltip: '重新整理',
+              onPressed: store.rowsLoading.contains(f.id) ? null : () => store.loadRows(f, force: true),
+            ),
           ],
         ),
         const SizedBox(height: 8),
-        const Text('目前是示意資料。身分證字號與電話只顯示一部分。', style: CText.small),
+        Text(
+          hasSamples
+              ? '民眾送出後會即時出現在這裡。標著「示意」的是展示用的範例，不是真的民眾資料，可以關掉「顯示示意資料」。身分證字號與電話只顯示一部分。'
+              : '民眾送出後會即時出現在這裡。身分證字號與電話只顯示一部分。',
+          style: CText.small,
+        ),
         const SizedBox(height: 16),
-        if (rs.isEmpty)
-          CPanel(
-            child: CEmpty(
-              icon: Icons.inbox_outlined,
-              title: '還沒有人填寫',
-              body: f.status == FStatus.draft ? '表單發布後，民眾的回覆會顯示在這裡。也可以先在預覽裡試填。' : '等待民眾填寫中。',
-            ),
-          )
-        else if (list)
-          _table(f, rs)
-        else
-          _summary(f, rs),
+        body,
       ],
     );
   }
@@ -1035,7 +1166,7 @@ class _ResponsesTabState extends State<_ResponsesTab> {
   Widget _summary(FForm f, List<Map<String, dynamic>> rs) {
     final by = <String, int>{};
     for (final r in rs) {
-      by[r['_by'] as String] = (by[r['_by']] ?? 0) + 1;
+      by[r.by] = (by[r.by] ?? 0) + 1;
     }
     final byMax = by.values.fold(1, (a, b) => a > b ? a : b);
     final panels = <Widget>[
@@ -1043,7 +1174,7 @@ class _ResponsesTabState extends State<_ResponsesTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            CPanelHeader(title: '誰填的', subtitle: '${by.length} 種方式'),
+            CPanelHeader(title: '誰填的', subtitle: '${rs.length} 份回覆，${by.length} 種方式'),
             const SizedBox(height: 12),
             for (final e in by.entries.toList()..sort((a, b) => b.value.compareTo(a.value)))
               CBarRow(
@@ -1113,7 +1244,7 @@ class _ResponsesTabState extends State<_ResponsesTab> {
           CPanelHeader(
             title: x.label.isEmpty ? '（未命名題目）' : x.label,
             subtitle: '${vals.length} 個回覆',
-            icon: qTypes[x.type]!.icon,
+            icon: qTypes[x.type]?.icon,
           ),
           const SizedBox(height: 12),
           body,
@@ -1121,6 +1252,129 @@ class _ResponsesTabState extends State<_ResponsesTab> {
       ),
     );
   }
+
+  // ───────────────────────────── 個別回覆
+
+  Widget _single(FForm f, List<Map<String, dynamic>> rs) {
+    var i = rs.indexWhere((r) => r.rowId == currentId);
+    if (i < 0) i = 0;
+    final r = rs[i];
+    void go(int n) => setState(() {
+      currentId = rs[n].rowId;
+      revealed.clear();
+    });
+
+    Widget meta(String k, Widget v) => Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 84, child: Text(k, style: CText.caption)),
+          Expanded(child: v),
+        ],
+      ),
+    );
+
+    final how = Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        CTag(
+          r.viaAssist ? '陪辦' : '本人填寫',
+          icon: r.viaAssist ? Icons.handshake_outlined : Icons.person_outline_rounded,
+          tone: r.viaAssist ? CTone.accent : CTone.neutral,
+        ),
+        Text(r.viaAssist ? '${r.by}${r.helperName == null ? '' : '（${r.helperName}）'}' : r.by, style: CText.secondary),
+      ],
+    );
+
+    return CPanel(
+      padding: EdgeInsets.zero,
+      clip: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            color: C.canvas,
+            padding: const EdgeInsets.fromLTRB(12, 8, 16, 8),
+            child: Row(
+              children: [
+                CIconButton(
+                  icon: Icons.chevron_left_rounded,
+                  tooltip: '較新的一份',
+                  onPressed: i > 0 ? () => go(i - 1) : null,
+                ),
+                Text('第 ${i + 1} 份，共 ${rs.length} 份', style: CText.bodyStrong.copyWith(fontFeatures: CText.tabular)),
+                CIconButton(
+                  icon: Icons.chevron_right_rounded,
+                  tooltip: '較舊的一份',
+                  onPressed: i < rs.length - 1 ? () => go(i + 1) : null,
+                ),
+                const Spacer(),
+                if (r.isSample) const CTag('示意', tone: CTone.warn),
+              ],
+            ),
+          ),
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                meta('收件編號', SelectableText(r.receipt.isEmpty ? '—' : r.receipt, style: CText.mono)),
+                meta('送出時間', Text(ymdhm(r.at), style: CText.secondary.copyWith(fontFeatures: CText.tabular))),
+                meta('填寫方式', how),
+              ],
+            ),
+          ),
+          const Divider(),
+          for (var k = 0; k < f.fields.length; k++) ...[
+            if (k > 0) const Divider(indent: 20, endIndent: 20),
+            _answer(f.fields[k], k, r),
+          ],
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _answer(FField x, int k, Map<String, dynamic> r) {
+    final raw = r[x.id]?.toString() ?? '';
+    final key = '${r.rowId}:${x.id}';
+    final masked = isMasked(x) && raw.isNotEmpty;
+    final show = !masked || revealed.contains(key);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('${k + 1}. ${x.label.isEmpty ? '（未命名題目）' : x.label}', style: CText.small),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Flexible(
+                child: raw.isEmpty
+                    ? Text('（沒有填）', style: CText.secondary.copyWith(color: C.ink4))
+                    : SelectableText(show ? raw : maskAnswer(x, raw), style: CText.body),
+              ),
+              if (masked) ...[
+                const SizedBox(width: 8),
+                CButton(
+                  show ? '遮起來' : '查看完整',
+                  icon: show ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  kind: CButtonKind.ghost,
+                  onPressed: () => setState(() => show ? revealed.remove(key) : revealed.add(key)),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ───────────────────────────── 全部回覆（表格）
 
   Widget _table(FForm f, List<Map<String, dynamic>> rs) {
     const w = 170.0;
@@ -1143,21 +1397,43 @@ class _ResponsesTabState extends State<_ResponsesTab> {
                 child: Row(
                   children: [
                     cell('送出時間', head: true),
+                    cell('收件編號', head: true),
                     cell('誰填的', head: true),
                     for (final x in f.fields) cell(x.label, head: true),
                   ],
                 ),
               ),
               for (final r in rs) ...[
-                Container(height: 1, width: w * (f.fields.length + 2) + 40, color: C.divider),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  child: Row(
-                    children: [
-                      cell(ymdhm(DateTime.fromMillisecondsSinceEpoch((r['_t'] as num).toInt()))),
-                      cell(r['_by'] as String),
-                      for (final x in f.fields) cell(maskAnswer(x, r[x.id])),
-                    ],
+                Container(height: 1, width: w * (f.fields.length + 3) + 40, color: C.divider),
+                InkWell(
+                  onTap: () => setState(() {
+                    currentId = r.rowId;
+                    revealed.clear();
+                    view = _RView.single;
+                  }),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Row(
+                      children: [
+                        cell(ymdhm(r.at)),
+                        cell(r.receipt),
+                        SizedBox(
+                          width: w,
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(r.by, maxLines: 2, overflow: TextOverflow.ellipsis, style: CText.secondary),
+                              ),
+                              if (r.isSample) ...[
+                                const SizedBox(width: 6),
+                                const CTag('示意', tone: CTone.warn, size: 11),
+                              ],
+                            ],
+                          ),
+                        ),
+                        for (final x in f.fields) cell(maskAnswer(x, r[x.id])),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -1297,15 +1573,21 @@ class _SettingsTab extends StatelessWidget {
                         icon: Icons.delete_outline_rounded,
                         kind: CButtonKind.danger,
                         onPressed: () async {
-                          final n = allResponses(f).length;
                           final ok = await cConfirm(
                             context,
                             title: '刪除這份表單？',
-                            body: '「${f.displayTitle}」${n > 0 ? '裡面有 $n 份民眾回覆，會一起刪除，無法復原。' : '刪除後無法復原。'}',
+                            body: deleteWarning(f),
                             confirm: '刪除表單',
                             danger: true,
                           );
-                          if (ok) store.delete(f);
+                          if (!ok) return;
+                          try {
+                            await store.delete(f);
+                          } catch (e) {
+                            if (context.mounted) {
+                              cToast(context, '刪除失敗：${e is ApiException ? e.message : '連線中斷，請稍後再試'}');
+                            }
+                          }
                         },
                       ),
                     ],

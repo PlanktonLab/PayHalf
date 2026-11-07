@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../core/api.dart';
 import '../../core/format.dart';
 import '../../shared/console_kit.dart';
 import 'form_store.dart';
+import 'poster_dialog.dart';
 
 /// 「我的表單」：範本、篩選與表單清單。
 class FormsHome extends StatefulWidget {
@@ -22,6 +24,7 @@ class _FormsHomeState extends State<FormsHome> {
   @override
   Widget build(BuildContext context) {
     final store = widget.store;
+    if (store.state != LoadState.ready) return _status(store);
     final all = store.forms;
     final list =
         all
@@ -30,8 +33,10 @@ class _FormsHomeState extends State<FormsHome> {
             .toList()
           ..sort((a, b) => b.updated.compareTo(a.updated));
     int cnt(FStatus? s) => s == null ? all.length : all.where((f) => f.status == s).length;
-    final responses = all.fold<int>(0, (n, f) => n + allResponses(f).length);
-    final assisted = all.where((f) => f.allowAssist).length;
+    final responses = all.fold<int>(0, (n, f) => n + f.responses);
+    final today = all.fold<int>(0, (n, f) => n + f.today);
+    final assisted = all.fold<int>(0, (n, f) => n + f.assisted);
+    final waiting = all.fold<int>(0, (n, f) => n + store.waitingFor(f));
 
     void create(String k) {
       final f = store.create(k);
@@ -61,8 +66,18 @@ class _FormsHomeState extends State<FormsHome> {
           items: [
             CStat(icon: Icons.description_outlined, label: '全部表單', value: '${all.length}'),
             CStat(icon: Icons.inbox_outlined, label: '收件中', value: '${cnt(FStatus.open)}'),
-            CStat(icon: Icons.groups_outlined, label: '累計回覆', value: '$responses', note: '示意資料'),
-            CStat(icon: Icons.handshake_outlined, label: '開放陪辦', value: '$assisted', note: '／${all.length} 份'),
+            CStat(
+              icon: Icons.groups_outlined,
+              label: '累計回覆',
+              value: '$responses',
+              note: today > 0 ? '今天 +$today' : null,
+            ),
+            CStat(
+              icon: Icons.handshake_outlined,
+              label: '陪辦填寫',
+              value: '$assisted',
+              note: waiting > 0 ? '$waiting 位在等幫忙' : null,
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -176,6 +191,35 @@ class _FormsHomeState extends State<FormsHome> {
   }
 }
 
+/// 讀取中、連不到後端、不是承辦人員
+Widget _status(FormStore store) {
+  final Widget body = switch (store.state) {
+    LoadState.notStaff => const CEmpty(
+      icon: Icons.lock_outline_rounded,
+      title: '表單後台只開放給承辦人員',
+      body: '目前登入的身分不能建立或查看表單。請從左下角「切換身分」，改用 1999 客服或里長登入。',
+    ),
+    LoadState.failed => CEmpty(
+      icon: Icons.cloud_off_rounded,
+      title: '表單讀不出來',
+      body: store.loadError ?? '連不到後端，請稍後再試。',
+      action: CButton('重試', icon: Icons.refresh_rounded, onPressed: store.load),
+    ),
+    _ => const Padding(
+      padding: EdgeInsets.all(48),
+      child: Center(child: CircularProgressIndicator()),
+    ),
+  };
+  return ListView(
+    padding: const EdgeInsets.fromLTRB(32, 28, 32, 48),
+    children: [
+      const CPageHeader(title: '表單', subtitle: '建立民眾在台北通上填寫的表單，並決定是否開放陪辦。'),
+      const SizedBox(height: 24),
+      CPanel(child: body),
+    ],
+  );
+}
+
 CTone statusTone(FStatus s) => switch (s) {
   FStatus.open => CTone.ok,
   FStatus.draft => CTone.neutral,
@@ -243,12 +287,14 @@ class _FormRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final n = allResponses(f).length;
+    final n = f.responses;
     final updated = ymdhm(DateTime.fromMillisecondsSinceEpoch(f.updated));
     final menu = CMenu(
       items: [
         CMenuItem('開啟編輯', icon: Icons.edit_outlined, onTap: () => onOpen(f.id, 0)),
         CMenuItem('看回覆', icon: Icons.inbox_outlined, onTap: () => onOpen(f.id, 1)),
+        if (f.published)
+          CMenuItem('QR Code 海報', icon: Icons.qr_code_2_rounded, onTap: () => showPosterDialog(context, store, f)),
         CMenuItem(
           '建立複本',
           icon: Icons.copy_rounded,
@@ -263,16 +309,13 @@ class _FormRow extends StatelessWidget {
           icon: Icons.delete_outline_rounded,
           danger: true,
           onTap: () async {
-            final ok = await cConfirm(
-              context,
-              title: '刪除這份表單？',
-              body: '「${f.displayTitle}」${n > 0 ? '裡面有 $n 份民眾回覆，會一起刪除，無法復原。' : '刪除後無法復原。'}',
-              confirm: '刪除表單',
-              danger: true,
-            );
-            if (ok) {
-              store.delete(f);
+            final ok = await cConfirm(context, title: '刪除這份表單？', body: deleteWarning(f), confirm: '刪除表單', danger: true);
+            if (!ok) return;
+            try {
+              await store.delete(f);
               if (context.mounted) cToast(context, '已刪除表單');
+            } catch (e) {
+              if (context.mounted) cToast(context, '刪除失敗：${e is ApiException ? e.message : '連線中斷，請稍後再試'}');
             }
           },
         ),
@@ -302,8 +345,17 @@ class _FormRow extends StatelessWidget {
                     Expanded(flex: 2, child: CStatus(f.status.label, tone: statusTone(f.status))),
                     Expanded(
                       flex: 2,
-                      child: Text(
-                        '${f.fields.length} 題 · $n 份',
+                      child: Text.rich(
+                        TextSpan(
+                          text: '${f.fields.length} 題 · $n 份',
+                          children: [
+                            if (f.today > 0)
+                              TextSpan(
+                                text: '  今天 +${f.today}',
+                                style: CText.small.copyWith(color: C.accentInk),
+                              ),
+                          ],
+                        ),
                         style: CText.secondary.copyWith(fontFeatures: CText.tabular),
                       ),
                     ),
@@ -311,7 +363,9 @@ class _FormRow extends StatelessWidget {
                       flex: 2,
                       child: Align(
                         alignment: Alignment.centerLeft,
-                        child: f.allowAssist
+                        child: store.waitingFor(f) > 0
+                            ? CTag('${store.waitingFor(f)} 位等幫忙', icon: Icons.support_agent_rounded, tone: CTone.warn)
+                            : f.allowAssist
                             ? const CTag('開放', icon: Icons.handshake_outlined, tone: CTone.accent)
                             : const Text('僅本人', style: CText.small),
                       ),
@@ -351,4 +405,13 @@ class _FormRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 刪除前的提醒：真實回覆要講清楚
+String deleteWarning(FForm f) {
+  final real = f.realResponses;
+  final head = '「${f.displayTitle}」';
+  if (real > 0) return '$head裡面有 $real 份民眾送出的回覆，會一起刪除，無法復原。${f.published ? '已經印出去的 QR Code 海報也會失效。' : ''}';
+  if (f.published) return '$head刪除後無法復原，已經印出去的 QR Code 海報也會失效。';
+  return '$head刪除後無法復原。';
 }

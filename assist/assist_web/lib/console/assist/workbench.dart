@@ -100,6 +100,10 @@ class _CaseList extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
       children: [
         CButton.primary('新陪辦', icon: Icons.add_rounded, large: true, expand: true, onPressed: () => c.focus(null)),
+        if (c.isStaff && c.tickets.isNotEmpty && c.focusedSessionId != null) ...[
+          const SizedBox(height: 12),
+          _TicketHint(c: c),
+        ],
         if (open.isNotEmpty) group('進行中　${open.length}', open),
         if (closedToday.isNotEmpty) group('今天', closedToday),
         if (earlier.isNotEmpty) group('稍早', earlier),
@@ -178,6 +182,10 @@ class _CaseStrip extends StatelessWidget {
       child: Row(
         children: [
           CButton.primary('新陪辦', icon: Icons.add_rounded, onPressed: () => c.focus(null)),
+          if (c.isStaff && c.tickets.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            CButton('${c.tickets.length} 位長輩等幫忙', icon: Icons.support_agent_rounded, onPressed: () => c.focus(null)),
+          ],
           for (final s in open) ...[
             const SizedBox(width: 8),
             CButton(
@@ -204,6 +212,7 @@ class _NewRequestView extends StatefulWidget {
 class _NewRequestViewState extends State<_NewRequestView> {
   String? serviceId;
   bool byIdentity = false;
+
   /// 選了「信任您的長輩」就不用配對碼
   String? elderId;
   final code = TextEditingController();
@@ -379,6 +388,13 @@ class _NewRequestViewState extends State<_NewRequestView> {
                       style: CText.secondary.copyWith(color: C.ink3),
                     ),
                     const SizedBox(height: 24),
+                    // 長輩填表填到一半請線上客服幫忙（只有承辦人員會收到）
+                    if (c.isStaff && c.tickets.isNotEmpty) ...[
+                      Text('等您幫忙的長輩　${c.tickets.length}', style: CText.label),
+                      const SizedBox(height: 8),
+                      for (final t in c.tickets) _TicketBanner(c: c, t: t),
+                      const SizedBox(height: 12),
+                    ],
                     // 信任我的長輩按了「請他來幫我」：一鍵選好他
                     for (final r in c.helpRequests)
                       Container(
@@ -394,7 +410,10 @@ class _NewRequestViewState extends State<_NewRequestView> {
                             const Icon(Icons.notifications_active_rounded, size: 20, color: Color(0xFF9A6A10)),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text('${r.elderName} 請您幫忙', style: CText.body.copyWith(fontWeight: FontWeight.w600)),
+                              child: Text(
+                                '${r.elderName} 請您幫忙',
+                                style: CText.body.copyWith(fontWeight: FontWeight.w600),
+                              ),
                             ),
                             CButton.primary(
                               '選他',
@@ -774,18 +793,14 @@ class _SessionConsole extends StatelessWidget {
                     const SizedBox(height: 8),
                     CSwitchRow(
                       title: '長輩自己換頁',
-                      desc: s.elderNav
-                          ? '完成一步會自動到下一步，長輩也能按上一頁／下一頁。長輩亂按時可以關掉。'
-                          : '已關閉：只有您能換頁，長輩手機會顯示「會帶您到下一步」。',
+                      desc: s.elderNav ? '完成一步會自動到下一步，長輩也能按上一頁／下一頁。長輩亂按時可以關掉。' : '已關閉：只有您能換頁，長輩手機會顯示「會帶您到下一步」。',
                       value: s.elderNav,
                       onChanged: (v) => run(() => c.setElderNav(v)),
                     ),
                     const SizedBox(height: 8),
                     CSwitchRow(
                       title: '長輩自己授權',
-                      desc: s.elderSelfAuth
-                          ? '長輩可以直接點開這一步的資料自己同意，不用等您按「請長輩授權」。'
-                          : '已關閉：要由您逐項按「請長輩授權」，長輩才能提供資料。',
+                      desc: s.elderSelfAuth ? '長輩可以直接點開這一步的資料自己同意，不用等您按「請長輩授權」。' : '已關閉：要由您逐項按「請長輩授權」，長輩才能提供資料。',
                       value: s.elderSelfAuth,
                       onChanged: (v) => run(() => c.setElderSelfAuth(v)),
                     ),
@@ -986,18 +1001,23 @@ class _FieldRow extends StatelessWidget {
     final canRequest = f.sensitive && st.status != 'authorized' && st.status != 'requested' && s.pendingAuth == null;
     final remaining = st.remainingRequests ?? 0;
 
+    final isText = f.type == 'text';
     final (String stLabel, CTone stTone) = switch (st.status) {
       'authorized' => ('長輩已授權', CTone.ok),
-      'filled' => ('長輩已選擇', CTone.ok),
+      'filled' => (isText ? '長輩已填寫' : '長輩已選擇', CTone.ok),
       'requested' => ('等待長輩授權', CTone.warn),
       'denied' => ('長輩不同意', CTone.danger),
-      _ => (f.sensitive ? '尚未授權' : '尚未選擇', CTone.neutral),
+      _ => (f.sensitive ? '尚未授權' : (isText ? '尚未填寫' : '尚未選擇'), CTone.neutral),
     };
 
     final tag = f.sensitive && f.riskLevel == 'high'
         ? const CTag('高敏感個資', tone: CTone.danger)
         : f.sensitive
         ? const CTag('個資', tone: CTone.warn)
+        : isText
+        ? const CTag('長輩自己寫')
+        : f.multi
+        ? const CTag('可複選')
         : const CTag('長輩自選');
 
     final info = Column(
@@ -1024,10 +1044,7 @@ class _FieldRow extends StatelessWidget {
             style: CText.small,
           )
         else
-          Text(
-            st.value == null ? '請長輩在手機上選擇' : '長輩選了：${f.optionLabel(st.value)}',
-            style: st.value == null ? CText.small : CText.secondary,
-          ),
+          _plainValue(s, f),
       ],
     );
 
@@ -1090,6 +1107,151 @@ class _FieldRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 非個資欄位（長輩自己選、自己寫）：陪辦人員看得到內容
+Widget _plainValue(AssistSession s, FieldDef f) {
+  final v = s.field(f.key).value;
+  if (v == null || v.isEmpty) {
+    return Text(
+      f.type == 'text'
+          ? '請長輩在手機上寫${f.hint == null || f.hint!.isEmpty ? '' : '（${f.hint}）'}'
+          : f.multi
+          ? '請長輩在手機上勾選，可以選好幾個'
+          : '請長輩在手機上選擇',
+      style: CText.small,
+    );
+  }
+  if (f.type == 'choice' && f.multi) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        const Text('長輩選了：', style: CText.secondary),
+        for (final p in v.split('、')) CTag(f.optionLabel(p), icon: Icons.check_rounded, tone: CTone.accent),
+      ],
+    );
+  }
+  if (f.type == 'text') {
+    return Text('長輩寫了：$v', maxLines: 4, overflow: TextOverflow.ellipsis, style: CText.secondary);
+  }
+  return Text('長輩選了：${f.displayValue(v)}', style: CText.secondary);
+}
+
+// ═════════════════════════════════════════════ 線上求助
+
+/// 「王○明 在填『長者流感疫苗預約』時需要幫忙（已填 3／8 題，卡在：…）」＋接手
+class _TicketBanner extends StatefulWidget {
+  const _TicketBanner({required this.c, required this.t});
+  final HelperController c;
+  final HelpTicket t;
+  @override
+  State<_TicketBanner> createState() => _TicketBannerState();
+}
+
+class _TicketBannerState extends State<_TicketBanner> {
+  bool busy = false;
+
+  Future<void> take() async {
+    setState(() => busy = true);
+    try {
+      await widget.c.takeTicket(widget.t.id);
+    } catch (e) {
+      if (mounted) showApiErr(context, e);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    final detail = [
+      if (t.total > 0) '已填 ${t.answered}／${t.total} 題',
+      if (t.question.isNotEmpty) '卡在：${t.question}',
+    ].join('，');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4DE),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFF5BA4B)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.support_agent_rounded, size: 22, color: Color(0xFF9A6A10)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${t.elderName} 在填『${t.formTitle}』時需要幫忙${detail.isEmpty ? '' : '（$detail）'}',
+                  style: CText.body.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                EverySecond(
+                  builder: (_, now) {
+                    final waited = now.difference(t.createdAt).inMinutes;
+                    final left = t.expiresAt?.difference(now);
+                    return Text(
+                      '${waited < 1 ? '剛剛' : '等了 $waited 分鐘'}'
+                      '${left == null ? '' : '・${left.isNegative ? '已逾時' : '${mmss(left)} 後自動取消'}'}',
+                      style: CText.small,
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          CButton.primary('接手', icon: Icons.call_made_rounded, onPressed: busy ? null : take),
+        ],
+      ),
+    );
+  }
+}
+
+/// 正在陪別人時，左邊清單提醒還有長輩在等
+class _TicketHint extends StatelessWidget {
+  const _TicketHint({required this.c});
+  final HelperController c;
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: '${c.tickets.length} 位長輩在等線上幫忙，點一下查看',
+    excludeSemantics: true,
+    child: Material(
+      color: const Color(0xFFFFF4DE),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => c.focus(null),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFF5BA4B)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.support_agent_rounded, size: 18, color: Color(0xFF9A6A10)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${c.tickets.length} 位長輩在等線上幫忙',
+                  style: CText.small.copyWith(color: C.ink, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, size: 18, color: C.ink3),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _ScriptPanel extends StatelessWidget {
@@ -1406,7 +1568,6 @@ class AuditView extends StatelessWidget {
   }
 }
 
-
 class _TrustedChip extends StatelessWidget {
   const _TrustedChip({required this.name, required this.selected, required this.onTap});
   final String name;
@@ -1451,7 +1612,6 @@ class _TrustedChip extends StatelessWidget {
     ),
   );
 }
-
 
 /// 輸入長輩給的「加信任的人」邀請碼：送給長輩確認
 Future<void> _enterTrustCode(BuildContext context, HelperController c) async {

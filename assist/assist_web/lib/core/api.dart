@@ -30,6 +30,12 @@ class ApiClient {
   Future<dynamic> post(String path, [Map<String, dynamic>? body]) async =>
       _decode(await http.post(Uri.parse('$base/api$path'), headers: _headers, body: jsonEncode(body ?? {})));
 
+  Future<dynamic> put(String path, Map<String, dynamic> body) async =>
+      _decode(await http.put(Uri.parse('$base/api$path'), headers: _headers, body: jsonEncode(body)));
+
+  Future<dynamic> delete(String path) async =>
+      _decode(await http.delete(Uri.parse('$base/api$path'), headers: _headers));
+
   dynamic _decode(http.Response res) {
     final text = utf8.decode(res.bodyBytes);
     final data = text.isEmpty ? null : jsonDecode(text);

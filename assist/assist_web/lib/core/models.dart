@@ -6,6 +6,14 @@ class FieldDef {
   String get key => raw['key'] as String;
   String get label => raw['label'] as String;
   String get type => raw['type'] as String;
+
+  /// 表單文字題：text／textarea／number／date／address／phone…（長輩自己打字）
+  String get inputType => raw['inputType'] as String? ?? 'text';
+
+  /// 表單複選題：值是用「、」串起來的字串
+  bool get multi => raw['multi'] == true;
+  String? get hint => raw['hint'] as String?;
+  String? get profileKey => raw['profileKey'] as String?;
   bool get sensitive => raw['sensitive'] == true;
   bool get required => raw['required'] == true;
   String get riskLevel => raw['riskLevel'] as String? ?? 'medium';
@@ -21,6 +29,14 @@ class FieldDef {
   String? get value => raw['value'] as String?;
 
   String optionLabel(String? v) => options.where((o) => o.value == v).map((o) => o.label).firstOrNull ?? (v ?? '');
+
+  /// 給人看的答案：複選題逐一換成選項文字，文字題原樣顯示
+  String displayValue(String? v) {
+    if (v == null || v.isEmpty) return '';
+    if (type == 'choice' && multi) return v.split('、').map(optionLabel).join('、');
+    if (type == 'choice') return optionLabel(v);
+    return v;
+  }
 }
 
 class ChoiceOption {
@@ -66,6 +82,7 @@ class FieldState {
   int get requestCount => (raw['requestCount'] as num?)?.toInt() ?? 0;
   int? get remainingRequests => (raw['remainingRequests'] as num?)?.toInt();
   bool get done => status == 'authorized' || status == 'filled';
+
   /// 長輩改過帳號帶入的內容（協助者只會知道有改，不會知道內容）
   bool get edited => raw['edited'] == true;
 }
@@ -103,9 +120,11 @@ class AssistSession {
   int get currentStep => (raw['currentStep'] as num?)?.toInt() ?? 0;
   int get stepCount => (raw['stepCount'] as num?)?.toInt() ?? 1;
   String? get focusField => raw['focusField'] as String?;
+
   /// 長輩自己換頁（完成一步自動到下一步、長輩可按上一頁／下一頁）
   bool get elderNav => raw['elderNav'] != false;
   bool get elderSelfAuth => raw['elderSelfAuth'] != false;
+
   /// 長輩視圖：協助者是不是長輩信任的人
   bool get helperTrusted => raw['helperTrusted'] == true;
   String? get pendingAuth => raw['pendingAuth'] as String?;
@@ -162,7 +181,8 @@ class TrustedHelper {
   TrustedHelper(this.raw);
   final Map<String, dynamic> raw;
   HelperInfo get helper => HelperInfo(Map<String, dynamic>.from(raw['helper'] as Map));
-  DateTime? get since => raw['since'] == null ? null : DateTime.fromMillisecondsSinceEpoch((raw['since'] as num).toInt());
+  DateTime? get since =>
+      raw['since'] == null ? null : DateTime.fromMillisecondsSinceEpoch((raw['since'] as num).toInt());
 }
 
 /// 長輩主動請信任的人來幫忙
@@ -191,4 +211,23 @@ class TrustRequest {
   String get id => raw['id'] as String;
   bool get isPending => raw['status'] == 'pending';
   HelperInfo get helper => HelperInfo(Map<String, dynamic>.from(raw['helper'] as Map));
+}
+
+/// 長輩填靜態表單填到一半，請線上客服幫忙（承辦工作台的等待清單）
+class HelpTicket {
+  HelpTicket(this.raw);
+  final Map<String, dynamic> raw;
+  String get id => raw['id'] as String;
+  String get status => raw['status'] as String? ?? 'waiting';
+  bool get isWaiting => status == 'waiting' && (expiresAt?.isAfter(DateTime.now()) ?? true);
+  String get formId => raw['formId'] as String? ?? '';
+  String get formTitle => raw['formTitle'] as String? ?? '';
+  String get serviceId => raw['serviceId'] as String? ?? 'form-$formId';
+  int get answered => (raw['answered'] as num?)?.toInt() ?? 0;
+  int get total => (raw['total'] as num?)?.toInt() ?? 0;
+  String get question => raw['question'] as String? ?? '';
+  String get elderName => (raw['elder'] as Map?)?['displayName'] as String? ?? '長輩';
+  DateTime get createdAt => DateTime.fromMillisecondsSinceEpoch((raw['createdAt'] as num).toInt());
+  DateTime? get expiresAt =>
+      raw['expiresAt'] == null ? null : DateTime.fromMillisecondsSinceEpoch((raw['expiresAt'] as num).toInt());
 }

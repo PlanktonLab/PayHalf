@@ -5,8 +5,11 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
-/// 承辦人表單：資料模型、範本、暫存與復原／重做。
-/// 資料暫存在瀏覽器 localStorage，回覆為示意假資料（尚未串接後端）。
+import '../../core/api.dart';
+import '../../helper/helper_controller.dart';
+
+/// 承辦人表單：資料模型、範本、復原／重做，以及和後端同步。
+/// 表單與回覆都存在後端（/api/console/forms），編輯後稍等一下自動儲存。
 
 class QType {
   const QType(this.name, this.icon);
@@ -42,7 +45,13 @@ const quickFields = [
 
 /// 公文用語 → 日常說法
 const jargon = {
-  '茲': '', '俾': '讓', '惟': '但是', '檢附': '附上', '敬請': '請', '前開': '上面的', '核定': '審查通過', //
+  '茲': '',
+  '俾': '讓',
+  '惟': '但是',
+  '檢附': '附上',
+  '敬請': '請',
+  '前開': '上面的',
+  '核定': '審查通過', //
   '請領': '領取', '逕行': '直接', '戶籍所在地': '你登記的住址', '具結': '保證', '屆時': '到時候', //
   '備齊': '準備好', '申覆': '再申請', '無誤': '沒有錯', '如附': '',
 };
@@ -106,11 +115,9 @@ class FForm {
     this.doneMsg = '已經幫你送出了，謝謝你。',
     this.status = FStatus.draft,
     int? updated,
-    List<Map<String, dynamic>>? live,
   }) : id = id ?? uid(),
        fields = fields ?? [],
-       updated = updated ?? DateTime.now().millisecondsSinceEpoch,
-       live = live ?? [];
+       updated = updated ?? DateTime.now().millisecondsSinceEpoch;
 
   String id;
   String title;
@@ -124,8 +131,17 @@ class FForm {
   FStatus status;
   int updated;
 
-  /// 在預覽中試填送出的回覆
-  List<Map<String, dynamic>> live;
+  // ── 後端統計（含示意資料）
+  int responses = 0;
+  int realResponses = 0;
+  int today = 0;
+  int assisted = 0;
+  int waitingHelp = 0;
+
+  /// QR Code 指向的固定網址（向後端問過才有）
+  String? url;
+
+  bool get published => status != FStatus.draft;
 
   String get displayTitle => title.trim().isEmpty ? '未命名表單' : title;
 
@@ -156,12 +172,22 @@ class FForm {
     status = FStatus.values.firstWhere((s) => s.name == j['status'], orElse: () => FStatus.draft);
   }
 
-  Map<String, dynamic> toJson() => {...content(), 'id': id, 'updated': updated, 'live': live};
-  factory FForm.fromJson(Map<String, dynamic> j) => FForm(
-    id: j['id'] as String,
-    updated: (j['updated'] as num?)?.toInt(),
-    live: (j['live'] as List? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList(),
-  )..applyContent(j);
+  /// 後端的統計數字（不動正在編輯的內容）
+  void applyStats(Map<String, dynamic> j) {
+    int n(String k) => (j[k] as num?)?.toInt() ?? 0;
+    responses = n('responses');
+    realResponses = n('realResponses');
+    today = n('today');
+    assisted = n('assisted');
+    waitingHelp = n('waitingHelp');
+    if (j['url'] is String) url = j['url'] as String;
+  }
+
+  Map<String, dynamic> toJson() => {...content(), 'id': id, 'updated': updated};
+  factory FForm.fromJson(Map<String, dynamic> j) =>
+      FForm(id: j['id'] as String, updated: (j['updated'] as num?)?.toInt())
+        ..applyContent(j)
+        ..applyStats(j);
 }
 
 // ───────────────────────────── 範本
@@ -267,8 +293,9 @@ List<Advice> readability(FField f) {
 
 int warnCount(FForm f) => f.fields.where((x) => readability(x).isNotEmpty).length;
 
-// ───────────────────────────── 回覆（示意）
+// ───────────────────────────── 回覆
 
+/// 身分證字號、電話只顯示一部分
 String maskAnswer(FField x, Object? v) {
   final s = v?.toString() ?? '';
   if (s.isEmpty) return '';
@@ -277,46 +304,18 @@ String maskAnswer(FField x, Object? v) {
   return s;
 }
 
-List<Map<String, dynamic>> mockResponses(FForm f) {
-  if (f.status == FStatus.draft) return [];
-  var seed = 0;
-  for (final c in f.id.codeUnits) {
-    seed = (seed * 31 + c) & 0xFFFFFFFF;
-  }
-  double r() {
-    seed = (seed * 1664525 + 1013904223) & 0xFFFFFFFF;
-    return seed / 4294967296;
-  }
+bool isMasked(FField x) => x.type == 'idno' || x.type == 'phone';
 
-  const names = ['陳美玲', '林建國', '黃秀英', '張志明', '李淑芬', '王大明', '吳金龍', '蔡玉蘭'];
-  const by = ['本人', '家屬陪辦', '里長陪辦', '看護陪辦', '1999 客服陪辦'];
-  const dist = ['大安', '信義', '中正', '萬華', '北投'];
-  final now = DateTime.now().millisecondsSinceEpoch;
-  final out = <Map<String, dynamic>>[];
-  for (var i = 0; i < (f.status == FStatus.closed ? 18 : 24); i++) {
-    final row = <String, dynamic>{'_t': now - (r() * 86400000 * 6).floor(), '_by': by[(r() * by.length).floor()]};
-    for (final x in f.fields) {
-      final o = x.options;
-      row[x.id] = switch (x.type) {
-        'idno' => 'A${(r() * 2).floor() + 1}${(r() * 1e8).floor().toString().padLeft(8, '0')}',
-        'phone' => '09${(r() * 1e8).floor().toString().padLeft(8, '0')}',
-        'radio' || 'select' => o.isEmpty ? '' : o[(r() * r() * o.length).floor()],
-        'checkbox' => o.where((_) => r() > .55).join('、'),
-        'date' => '19${30 + (r() * 30).floor()}-0${1 + (r() * 9).floor()}-1${(r() * 9).floor()}',
-        'consent' => '已同意',
-        'file' => '照片${i + 1}.jpg',
-        'address' => '臺北市${dist[(r() * 5).floor()]}區○○路${(r() * 200).floor()}號',
-        'number' => '${1 + (r() * 4).floor()}',
-        _ => x.label.contains('姓名') ? names[(r() * names.length).floor()] : '（示意回答）',
-      };
-    }
-    out.add(row);
-  }
-  return out;
+/// 一份回覆（後端的列：題目 id → 答案字串，加上 _ 開頭的收件資訊）
+extension FRow on Map<String, dynamic> {
+  String get rowId => this['_id'] as String? ?? '${this['_t']}';
+  DateTime get at => DateTime.fromMillisecondsSinceEpoch((this['_t'] as num).toInt());
+  String get by => this['_by'] as String? ?? '';
+  bool get viaAssist => this['_via'] == 'assist';
+  bool get isSample => this['_sample'] == true;
+  String get receipt => this['_receipt'] as String? ?? '';
+  String? get helperName => this['_helper'] as String?;
 }
-
-List<Map<String, dynamic>> allResponses(FForm f) =>
-    [...f.live, ...mockResponses(f)]..sort((a, b) => (b['_t'] as num).compareTo(a['_t'] as num));
 
 // ───────────────────────────── 狀態管理
 
@@ -326,14 +325,25 @@ class _History {
   int i = 0;
 }
 
+enum LoadState { idle, loading, ready, failed, notStaff }
+
 class FormStore extends ChangeNotifier {
   FormStore() {
-    _load();
+    try {
+      hideTip = web.window.localStorage.getItem(_tipKey) == '1';
+    } catch (_) {}
   }
 
-  static const _key = 'tp-console-forms-v1';
+  static const _tipKey = 'tp-console-forms-hide-tip';
+  HelperController? _c;
+  StreamSubscription<Map<String, dynamic>>? _sub;
+  ApiClient get api => _c!.api;
+  String get apiBase => _c?.api.base ?? '';
+
   List<FForm> forms = [];
   bool hideTip = false;
+  LoadState state = LoadState.idle;
+  String? loadError;
 
   /// 復原／重做或從外部改動內容時遞增，讓輸入框重新載入文字
   int revision = 0;
@@ -341,42 +351,74 @@ class FormStore extends ChangeNotifier {
   final Map<String, _History> _hist = {};
   Timer? _snapTimer;
 
-  FForm? byId(String? id) => forms.where((f) => f.id == id).firstOrNull;
+  // ── 儲存
+  final Map<String, Timer> _saveTimers = {};
+  final Map<String, Future<void>> _inflight = {};
+  final Set<String> saving = {};
+  final Map<String, String> saveErrors = {};
 
-  void _load() {
-    try {
-      final raw = web.window.localStorage.getItem(_key);
-      if (raw != null) {
-        final j = jsonDecode(raw) as Map<String, dynamic>;
-        forms = (j['forms'] as List).map((e) => FForm.fromJson(Map<String, dynamic>.from(e as Map))).toList();
-        hideTip = j['hideTip'] as bool? ?? false;
-        return;
-      }
-    } catch (_) {}
-    final now = DateTime.now().millisecondsSinceEpoch;
-    forms = [
-      templates['elder']!.make()
-        ..deadline = '2026-12-31'
-        ..status = FStatus.open
-        ..updated = now - 86400000 * 2,
-      templates['repair']!.make()
-        ..allowAssist = false
-        ..updated = now - 3600000 * 5,
-    ];
+  // ── 回覆
+  final Map<String, List<Map<String, dynamic>>> rows = {};
+  final Set<String> rowsLoading = {};
+  final Map<String, String> rowsError = {};
+
+  /// 正在等線上幫忙的長輩：以工作台即時的求助清單為準
+  int waitingFor(FForm f) => _c?.isStaff == true ? _c!.tickets.where((t) => t.formId == f.id).length : f.waitingHelp;
+
+  String _ticketSig = '';
+  void _onController() {
+    final sig = _c?.tickets.map((t) => t.id).join(',') ?? '';
+    if (sig == _ticketSig) return;
+    _ticketSig = sig;
+    notifyListeners();
   }
 
-  void _save() {
+  FForm? byId(String? id) => forms.where((f) => f.id == id).firstOrNull;
+
+  /// 登入後（或換身分後）接上後端，載入表單並訂閱即時回覆
+  void attach(HelperController c) {
+    if (_c == c && state != LoadState.idle) return;
+    _c?.removeListener(_onController);
+    _c = c;
+    _sub?.cancel();
+    _sub = c.formResponses.listen(_onResponse);
+    c.addListener(_onController);
+    forms = [];
+    rows.clear();
+    _hist.clear();
+    load();
+  }
+
+  Future<void> load() async {
+    final c = _c;
+    if (c == null) return;
+    if (!c.isStaff) {
+      state = LoadState.notStaff;
+      notifyListeners();
+      return;
+    }
+    state = LoadState.loading;
+    loadError = null;
+    notifyListeners();
     try {
-      web.window.localStorage.setItem(
-        _key,
-        jsonEncode({'forms': forms.map((f) => f.toJson()).toList(), 'hideTip': hideTip}),
-      );
-    } catch (_) {}
+      final list = await api.get('/console/forms') as List;
+      forms = list.map((e) => FForm.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      state = LoadState.ready;
+    } on ApiException catch (e) {
+      state = e.code == 'NOT_STAFF' ? LoadState.notStaff : LoadState.failed;
+      loadError = e.message;
+    } catch (_) {
+      state = LoadState.failed;
+      loadError = '連不到後端，請確認伺服器有沒有啟動';
+    }
+    notifyListeners();
   }
 
   void dismissTip() {
     hideTip = true;
-    _save();
+    try {
+      web.window.localStorage.setItem(_tipKey, '1');
+    } catch (_) {}
     notifyListeners();
   }
 
@@ -384,7 +426,7 @@ class FormStore extends ChangeNotifier {
     final f = templates[template]!.make();
     forms.insert(0, f);
     _hist.remove(f.id);
-    _save();
+    _saveNow(f);
     notifyListeners();
     return f;
   }
@@ -394,31 +436,35 @@ class FormStore extends ChangeNotifier {
       ..id = uid()
       ..title = '${o.displayTitle} 的複本'
       ..status = FStatus.draft
-      ..live = []
       ..updated = DateTime.now().millisecondsSinceEpoch;
     for (final x in c.fields) {
       x.id = uid();
     }
     forms.insert(0, c);
-    _save();
+    _saveNow(c);
     notifyListeners();
     return c;
   }
 
-  void delete(FForm f) {
+  /// 刪除（後端成功才從清單拿掉）
+  Future<void> delete(FForm f) async {
+    _saveTimers.remove(f.id)?.cancel();
+    await _inflight[f.id];
+    await api.delete('/console/forms/${f.id}');
     forms.removeWhere((x) => x.id == f.id);
     _hist.remove(f.id);
-    _save();
+    rows.remove(f.id);
+    saveErrors.remove(f.id);
     notifyListeners();
   }
 
   /// 修改表單內容。打字時（immediate = false）延遲 0.5 秒才記一筆復原點，
-  /// 其他操作立即記錄，並讓輸入框重新載入。
+  /// 其他操作立即記錄，並讓輸入框重新載入。之後稍等一下自動存到後端。
   void edit(FForm f, void Function() change, {bool immediate = true}) {
     _histOf(f);
     change();
     f.updated = DateTime.now().millisecondsSinceEpoch;
-    _save();
+    _scheduleSave(f, immediate ? const Duration(milliseconds: 300) : const Duration(milliseconds: 900));
     _snapTimer?.cancel();
     if (immediate) {
       _snap(f);
@@ -429,11 +475,91 @@ class FormStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addLive(FForm f, Map<String, dynamic> row) {
-    f.live.insert(0, row);
-    _save();
+  void _scheduleSave(FForm f, Duration d) {
+    _saveTimers[f.id]?.cancel();
+    _saveTimers[f.id] = Timer(d, () => _saveNow(f));
+  }
+
+  bool hasPending(FForm f) => (_saveTimers[f.id]?.isActive ?? false) || saving.contains(f.id);
+
+  /// 立刻存（例如要開海報前，先確定後端是最新內容）
+  Future<void> flush(FForm f) async {
+    if (_saveTimers[f.id]?.isActive ?? false) {
+      _saveTimers[f.id]!.cancel();
+      await _saveNow(f);
+    } else {
+      await _inflight[f.id];
+    }
+  }
+
+  Future<void> _saveNow(FForm f) {
+    _saveTimers.remove(f.id)?.cancel();
+    // 同一份表單一次只送一個請求；排在前一個後面
+    final prev = _inflight[f.id] ?? Future<void>.value();
+    final next = prev.then((_) => _put(f));
+    _inflight[f.id] = next;
+    return next;
+  }
+
+  Future<void> _put(FForm f) async {
+    if (!forms.contains(f)) return;
+    saving.add(f.id);
+    notifyListeners();
+    try {
+      final res = await api.put('/console/forms/${f.id}', f.content());
+      f.applyStats(Map<String, dynamic>.from(res as Map));
+      saveErrors.remove(f.id);
+    } catch (e) {
+      saveErrors[f.id] = e is ApiException ? e.message : '連線中斷，還沒存到伺服器';
+    } finally {
+      saving.remove(f.id);
+      notifyListeners();
+    }
+  }
+
+  void retrySave(FForm f) => _saveNow(f);
+
+  /// 表單的固定網址（QR Code 內容）
+  Future<String> urlOf(FForm f) async {
+    if (f.url != null) return f.url!;
+    await flush(f);
+    final res = Map<String, dynamic>.from(await api.get('/console/forms/${f.id}') as Map);
+    f.applyStats(res);
+    return f.url ?? '$apiBase/f/${f.id}';
+  }
+
+  // ── 回覆
+
+  Future<void> loadRows(FForm f, {bool force = false}) async {
+    if (rowsLoading.contains(f.id) || (!force && rows.containsKey(f.id))) return;
+    rowsLoading.add(f.id);
+    rowsError.remove(f.id);
+    notifyListeners();
+    try {
+      final list = await api.get('/console/forms/${f.id}/responses') as List;
+      rows[f.id] = list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } catch (e) {
+      rowsError[f.id] = e is ApiException ? e.message : '連不到後端，請稍後再試';
+    } finally {
+      rowsLoading.remove(f.id);
+      notifyListeners();
+    }
+  }
+
+  void _onResponse(Map<String, dynamic> e) {
+    final id = e['formId'] as String?;
+    final f = byId(id);
+    if (f == null) return;
+    if (e['form'] is Map) f.applyStats(Map<String, dynamic>.from(e['form'] as Map));
+    final list = rows[f.id];
+    if (list != null && e['row'] is Map) {
+      final row = Map<String, dynamic>.from(e['row'] as Map);
+      if (list.every((r) => r.rowId != row.rowId)) list.insert(0, row);
+    }
     notifyListeners();
   }
+
+  // ── 復原／重做
 
   _History _histOf(FForm f) => _hist.putIfAbsent(f.id, () => _History(jsonEncode(f.content())));
 
@@ -471,13 +597,18 @@ class FormStore extends ChangeNotifier {
     f.applyContent(jsonDecode(h.stack[n]) as Map<String, dynamic>);
     f.updated = DateTime.now().millisecondsSinceEpoch;
     revision++;
-    _save();
+    _scheduleSave(f, const Duration(milliseconds: 300));
     notifyListeners();
   }
 
   @override
   void dispose() {
     _snapTimer?.cancel();
+    _sub?.cancel();
+    _c?.removeListener(_onController);
+    for (final t in _saveTimers.values) {
+      t.cancel();
+    }
     super.dispose();
   }
 }

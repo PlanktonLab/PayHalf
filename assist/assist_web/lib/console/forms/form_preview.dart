@@ -93,15 +93,8 @@ class _PhonePreviewState extends State<PhonePreview> {
     });
   }
 
-  void submit() {
-    final row = <String, dynamic>{'_t': DateTime.now().millisecondsSinceEpoch, '_by': '本人（試填）'};
-    for (final x in f.fields) {
-      final v = ans[x.id];
-      row[x.id] = v is List ? v.join('、') : (x.type == 'consent' ? (v == true ? '已同意' : '') : v);
-    }
-    widget.store.addLive(f, row);
-    setState(() => done = true);
-  }
+  /// 試填不會真的送到後端，只是讓承辦人員走一遍民眾的流程
+  void submit() => setState(() => done = true);
 
   String summary(FField x) {
     final v = ans[x.id];
@@ -126,7 +119,7 @@ class _PhonePreviewState extends State<PhonePreview> {
         const SizedBox(height: 4),
         const Align(
           alignment: Alignment.centerLeft,
-          child: Text('可以實際填填看，試填的資料只會出現在「回覆」裡。', style: CText.small),
+          child: Text('可以實際填填看。試填不會真的送出，也不會算進回覆。', style: CText.small),
         ),
         const SizedBox(height: 12),
         Align(

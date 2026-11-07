@@ -14,6 +14,8 @@ class Realtime {
     void Function()? onTrusted,
     void Function(Map<String, dynamic> help)? onHelp,
     void Function(Map<String, dynamic> request)? onTrustRequest,
+    void Function(Map<String, dynamic> event)? onFormResponse,
+    void Function(Map<String, dynamic> ticket)? onFormTicket,
   }) {
     dispose();
     final socket = io.io(
@@ -44,6 +46,18 @@ class Realtime {
     socket.on('trust:request', (data) {
       try {
         onTrustRequest?.call(Map<String, dynamic>.from(data as Map));
+      } catch (_) {}
+    });
+    // 表單後台：民眾送出一份回覆（承辦人員才會收到）
+    socket.on('form:response', (data) {
+      try {
+        onFormResponse?.call(Map<String, dynamic>.from(data as Map));
+      } catch (_) {}
+    });
+    // 長輩填表填到一半請線上客服幫忙（等待／被接手／取消／逾時）
+    socket.on('form:ticket', (data) {
+      try {
+        onFormTicket?.call(Map<String, dynamic>.from(data as Map));
       } catch (_) {}
     });
     socket.onConnect((_) {
