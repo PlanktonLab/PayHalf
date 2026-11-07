@@ -56,7 +56,16 @@ fvm flutter run   # 在 repo 根目錄執行
 
 - **首頁徽章**：有人送出協助請求時，首頁最上方出現持續性徽章並倒數，沒有關閉鈕，回應或逾時才會消失。同時會發一則系統通知。
 - **入口**：首頁 1999 下方的「不會用嗎？請人陪我辦」產生配對碼。「我的帳戶 › 歷程與授權管理」可查協辦紀錄。
-- **連線**：iOS 模擬器連 `http://localhost:3000`，Android 模擬器自動改連 `http://10.0.2.2:3000`。實機請加上 `--dart-define=ASSIST_API=http://<電腦區網 IP>:3000`。
+- **連線**：預設連本機（iOS 模擬器 `http://localhost:3000`，Android 模擬器 `http://10.0.2.2:3000`）。
+  在 App 的「設定 › 開發測試 › 陪辦伺服器」可以切換 **雲端**（`https://payhalf.plankton.tw`）、**本機** 或自訂位址（實機連電腦時填 `http://<電腦區網 IP>:3000`）。切換前會先測試連線，選擇會記住。
+  也可以在編譯時指定預設值：`--dart-define=ASSIST_API=https://payhalf.plankton.tw`。
+
+## 雲端部署（payhalf.plankton.tw）
+
+- 主機：`ssh OracleCloud`，程式在 `~/payhalf`，pm2 `payhalf-assist` 跑在 `127.0.0.1:3210`。
+- nginx：`/etc/nginx/sites-available/payhalf`（同 [deploy/nginx-payhalf.conf](deploy/nginx-payhalf.conf)），含 Socket.IO 的 WebSocket 轉發；前面是 Cloudflare（Proxied），憑證沿用 `/etc/ssl/cloudflare/plankton-*.pem`。
+- `TOKEN_SECRET` 固定寫在主機的 `~/payhalf/ecosystem.config.cjs`（不進 git），重啟後 App 的登入不會失效。
+- 更新：`assist/deploy/deploy-oracle.sh`（加 `BUILD_WEB=1` 會先重新 build 工作台網頁）。
 - **朗讀與撤回**：協辦頁面都有「念給我聽」，使用手機系統語音，不念個資內容。送出後 10 秒內可以撤回。
 - **入口**：首頁卡片與「服務 › 熱門 › 陪辦」都開啟同一個原生流程。
 - **動態字型**：所有協辦頁面跟著 iOS 字型大小縮放，放大上限為 AX3 倍率。大字時，主要按鈕會移到不用捲動就看得到的位置。

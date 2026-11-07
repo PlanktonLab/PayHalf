@@ -9,6 +9,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:town_pass/bean/assist.dart';
 import 'package:town_pass/service/account_service.dart';
 import 'package:town_pass/service/notification_service.dart';
+import 'package:town_pass/service/shared_preferences_service.dart';
 import 'package:town_pass/util/tp_route.dart';
 
 class AssistApiException implements Exception {
@@ -35,14 +36,20 @@ class PairingCode {
 /// 長輩的台北通 App 已完成實名驗證，啟動時以帳號向協辦後端換取 token，
 /// 再透過 Socket 接收「有人想協助您」等即時事件。正式版的即時事件應改走 APNs／FCM 推播。
 class AssistService extends GetxService {
-  /// iOS 模擬器連 localhost、Android 模擬器連 10.0.2.2（都指向電腦本機）；
-  /// 實機請用 --dart-define=ASSIST_API=http://<電腦區網 IP>:3000
+  /// 雲端 demo 後端（OracleCloud，nginx → pm2 payhalf-assist）
+  static const String cloudBase = 'https://payhalf.plankton.tw';
+
+  /// 本機後端：iOS 模擬器連 localhost、Android 模擬器連 10.0.2.2（都指向電腦本機）
+  static String get localBase => Platform.isAndroid ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+
+  /// 編譯時預設：--dart-define=ASSIST_API=https://payhalf.plankton.tw（或實機用 http://<電腦區網 IP>:3000）。
+  /// 在「設定 › 陪辦伺服器」切換後，以使用者選的為準。
   static const String _apiOverride = String.fromEnvironment('ASSIST_API');
-  static String get apiBase => _apiOverride.isNotEmpty
-      ? _apiOverride
-      : Platform.isAndroid
-      ? 'http://10.0.2.2:3000'
-      : 'http://localhost:3000';
+  static const String _prefKey = 'assist_api_base';
+
+  /// 目前連線的後端位址
+  final RxString server = ''.obs;
+  String get apiBase => server.value;
 
   final RxMap<String, AssistSession> sessions = <String, AssistSession>{}.obs;
   final Rxn<PairingCode> pairing = Rxn<PairingCode>();
@@ -62,9 +69,71 @@ class AssistService extends GetxService {
   final Set<String> _notifiedRequests = {};
   final Set<String> _notifiedAuth = {};
 
+  // 每次切換伺服器 +1；舊伺服器晚到的回應不得覆寫新狀態
+  int _generation = 0;
+
   AssistService init() {
+    final saved = Get.find<SharedPreferencesService>().instance.getString(_prefKey);
+    server.value = normalizeBase(saved ?? (_apiOverride.isNotEmpty ? _apiOverride : localBase));
     _link();
     return this;
+  }
+
+  /// 去掉結尾斜線；沒寫通訊協定時，網域預設 https、IP 或 localhost 預設 http
+  static String normalizeBase(String raw) {
+    var v = raw.trim().replaceAll(RegExp(r'/+$'), '');
+    if (v.isEmpty) return v;
+    if (!v.contains('://')) {
+      final local = RegExp(r'^(localhost|10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)').hasMatch(v);
+      v = '${local ? 'http' : 'https'}://$v';
+    }
+    return v;
+  }
+
+  /// 換到另一個後端：清掉這台的所有狀態後重新登入、重新連線
+  Future<void> useServer(String raw) async {
+    final base = normalizeBase(raw);
+    final uri = Uri.tryParse(base);
+    if (uri == null || !uri.hasAuthority || !(uri.scheme == 'http' || uri.scheme == 'https')) {
+      throw const FormatException('網址格式不正確');
+    }
+    await Get.find<SharedPreferencesService>().instance.setString(_prefKey, base);
+    _generation++;
+    _retry?.cancel();
+    _socket?.dispose();
+    _socket = null;
+    _token = null;
+    linked.value = false;
+    connected.value = false;
+    sessions.clear();
+    pairing.value = null;
+    resultId.value = null;
+    audit.clear();
+    applications.clear();
+    auditStatus.value = null;
+    legal.value = null;
+    serviceDefs.clear();
+    _watchingId = null;
+    _notifiedRequests.clear();
+    _notifiedAuth.clear();
+    server.value = base;
+    await _link();
+  }
+
+  /// 不切換，只測試某個位址連不連得上。成功回傳 null，失敗回傳原因。
+  static Future<String?> probe(String raw) async {
+    try {
+      final res = await http.get(Uri.parse('${normalizeBase(raw)}/api/legal')).timeout(const Duration(seconds: 5));
+      return res.statusCode == 200 ? null : '伺服器回應 ${res.statusCode}';
+    } on TimeoutException {
+      return '連線逾時，伺服器沒有回應';
+    } catch (e) {
+      final text = e.toString();
+      if (text.contains('Failed host lookup')) return '找不到這個網域（DNS 可能還沒設定好）';
+      if (text.contains('Connection refused')) return '連不上，該位址沒有在執行後端';
+      if (text.contains('HandshakeException') || text.contains('CERTIFICATE')) return 'HTTPS 憑證有問題';
+      return '連不上（$text）';
+    }
   }
 
   // ───────────────────────── 查詢
@@ -89,13 +158,18 @@ class AssistService extends GetxService {
 
   Future<void> _link() async {
     _retry?.cancel();
+    final gen = _generation;
     try {
       await _login();
+      if (gen != _generation) return;
       linked.value = true;
       _connectSocket();
-      legal.value = Map<String, dynamic>.from(await _request('GET', '/legal') as Map);
+      final legalInfo = Map<String, dynamic>.from(await _request('GET', '/legal') as Map);
+      if (gen != _generation) return;
+      legal.value = legalInfo;
       await refresh();
     } catch (_) {
+      if (gen != _generation) return;
       linked.value = false;
       _retry = Timer(const Duration(seconds: 5), _link);
     }
@@ -206,7 +280,9 @@ class AssistService extends GetxService {
 
   Future<void> refresh() async {
     if (_token == null) return;
+    final gen = _generation;
     final list = await _request('GET', '/elder/sessions') as List;
+    if (gen != _generation) return;
     for (final e in list.reversed) {
       final s = AssistSession(Map<String, dynamic>.from(e as Map));
       // 啟動前就已存在的請求不再重複發系統通知

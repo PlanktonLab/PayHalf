@@ -1,4 +1,6 @@
+import 'package:town_pass/page/setting/assist_server_view.dart';
 import 'package:town_pass/page/setting/setting_view_controller.dart';
+import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_setting_list.dart';
 import 'package:town_pass/util/extension/datetime.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
@@ -52,6 +54,15 @@ class SettingView extends GetView<SettingViewController> {
               TPSettingListTile.navigate(
                 title: '停用帳號',
                 onTap: () => Get.toNamed(TPRoute.suspendAccount),
+              ),
+              TPSettingListTile.header(title: '開發測試'),
+              TPSettingListTile.navigate(
+                title: '陪辦伺服器',
+                content: AssistServerView.labelFor(Get.find<AssistService>().server.value),
+                onTap: () async {
+                  await Get.to(() => const AssistServerView());
+                  controller.update();
+                },
               ),
             ],
           ),

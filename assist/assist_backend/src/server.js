@@ -62,7 +62,7 @@ export function createAssistServer(overrides = {}) {
     tokens,
     httpServer,
     listen(port = config.port) {
-      return new Promise((resolve) => httpServer.listen(port, () => resolve(httpServer.address().port)));
+      return new Promise((resolve) => httpServer.listen(port, config.host, () => resolve(httpServer.address().port)));
     },
     async close() {
       clearInterval(timer);
