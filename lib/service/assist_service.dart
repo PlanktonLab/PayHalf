@@ -124,6 +124,17 @@ class AssistService extends GetxService {
   Timer? _retry;
   String? _watchingId;
   final Set<String> _notifiedRequests = {};
+
+  /// 系統通知只在 App 不在前景時發：App 開著時畫面上已經有提示，不用每一步都跳通知。
+  /// 同一個陪辦在背景時最多每分鐘一則。
+  DateTime _lastNotifyAt = DateTime(2000);
+  void _notify({required String title, required String content, bool throttle = false}) {
+    if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) return;
+    final now = DateTime.now();
+    if (throttle && now.difference(_lastNotifyAt) < const Duration(minutes: 1)) return;
+    _lastNotifyAt = now;
+    NotificationService.showNotification(title: title, content: content);
+  }
   final Set<String> _notifiedAuth = {};
 
   // 每次切換伺服器 +1；舊伺服器晚到的回應不得覆寫新狀態
@@ -286,7 +297,7 @@ class AssistService extends GetxService {
     helpForMe.add(r);
     if (_helpNotified.add(r.id)) {
       HapticFeedback.heavyImpact();
-      NotificationService.showNotification(
+      _notify(
         title: '${r.elderName} 請您幫忙',
         content: '他把您加為信任的人。打開台北通，就能陪他一起辦。',
       );
@@ -550,7 +561,7 @@ class AssistService extends GetxService {
         if (isHelping(s.id) || !(sessions[s.id]?.isPending ?? false)) return;
         final h = s.helper;
         HapticFeedback.heavyImpact();
-        NotificationService.showNotification(
+        _notify(
           title: '${h?.name ?? ''} ${h?.title ?? ''} 想協助您',
           content: '辦理「${s.serviceTitle}」。請打開台北通首頁查看並回應。',
         );
@@ -574,12 +585,11 @@ class AssistService extends GetxService {
       if (s.pendingAuth != null && !_notifiedAuth.contains(authKey)) {
         _notifiedAuth.add(authKey);
         HapticFeedback.mediumImpact();
-        if (Get.currentRoute != TPRoute.assistSession) {
-          NotificationService.showNotification(
-            title: '有一項資料需要您確認',
-            content: '${s.helper?.name ?? '協助者'} 請您確認是否提供「${s.pendingAuthField?.label ?? ''}」',
-          );
-        }
+        _notify(
+          title: '有一項資料需要您確認',
+          content: '${s.helper?.name ?? '協助者'} 請您確認是否提供「${s.pendingAuthField?.label ?? ''}」',
+          throttle: true,
+        );
       }
     } else if (_watchingId == s.id && !s.isOpen) {
       _watchingId = null;
