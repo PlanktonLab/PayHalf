@@ -54,7 +54,7 @@ const onSave = async () => {
     return;
   }
   isNameInvalid.value = false;
-  await addDelegation(newType.value, name, newDays.value);
+  await addDelegation(newType.value, name, newDays.value, store.elderId);
   newName.value = '';
   await store.loadDelegations();
 };
@@ -66,7 +66,7 @@ const onAskEnd = (item: Delegation) => {
 
 const onEnd = async () => {
   if (endTarget.value) {
-    await endDelegation(endTarget.value.id);
+    await endDelegation(endTarget.value.id, store.elderId);
     await store.loadDelegations();
   }
 };

@@ -60,6 +60,9 @@ onUnmounted(() => {
     <p v-if="ttsError" role="alert" class="bg-secondary-50 px-4 py-3 text-lg text-secondary-800">
       {{ ttsError === 'LANG_UNAVAILABLE' ? t('tool.noVoice') : t('tool.readFailed') }}
     </p>
-    <RouterView />
+    <!-- 依網址重新建立子頁面:從一筆邀請直接切到另一筆時,Vue 預設會重用元件,畫面會停在上一筆 -->
+    <RouterView v-slot="{ Component, route }">
+      <component :is="Component" :key="route.fullPath" />
+    </RouterView>
   </div>
 </template>

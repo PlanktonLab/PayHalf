@@ -23,7 +23,7 @@ import BaseInput from '@/components/atoms/BaseInput.vue';
 import AssistRequiredLabel from '@/components/atoms/AssistRequiredLabel.vue';
 import { LANG_OPTIONS, useAssistI18n } from '@/assist/i18n';
 import type { MessageKey } from '@/assist/i18n';
-import { buildQrPayload, createHelperRequest } from '@/assist/api';
+import { USE_HTTP, buildQrPayload, createHelperRequest, getRequest } from '@/assist/api';
 import { useAssistStore } from '@/stores/assist';
 import type { AssistField, AssistRequest, FieldKey, HelperType, Lang } from '@/assist/types';
 
@@ -58,7 +58,8 @@ const maskId = (value: string) =>
 
 const fillSample = () => {
   helperName.value = helperName.value || '王小明(示範)';
-  form.name = '王大明';
+  // 與官方 App 示範帳號(身分證字號 A123456789)一致,兩支手機同步展示時長輩那支才收得到
+  form.name = '金大森';
   form.idNumber = 'A123456789';
   form.birthday = '民國 40 年 5 月 3 日';
   form.bank = '範例銀行 中山分行';
@@ -80,7 +81,8 @@ const isValid = computed(() => missingCount.value === 0);
 
 const tick = () => {
   if (!created.value) return;
-  const left = Math.ceil((new Date(created.value.expiresAt).getTime() - Date.now()) / 1000);
+  const expiry = created.value.tokenExpiresAt ?? created.value.expiresAt;
+  const left = Math.ceil((new Date(expiry).getTime() - Date.now()) / 1000);
   secondsLeft.value = Math.max(0, left);
   if (secondsLeft.value === 0 && timer) {
     clearInterval(timer);
@@ -105,7 +107,8 @@ const onGenerate = async () => {
     value: key === 'idNumber' ? maskId(form[key].trim()) : form[key].trim()
   }));
   const request = await createHelperRequest({
-    elderId: store.elderId,
+    // HTTP 模式:長輩由「協助者填的身分證字號」辨識;記憶體模擬:就是這台裝置的帳號
+    elderId: USE_HTTP ? form.idNumber.trim().toUpperCase() : store.elderId,
     helperType: role.value,
     helperName: String(helperName.value).trim(),
     elderLang: elderLang.value,
@@ -117,16 +120,89 @@ const onGenerate = async () => {
   tick();
   if (timer) clearInterval(timer);
   timer = setInterval(tick, 500);
+  startLive(request.id, request);
 };
 
 const onAgain = () => {
   if (timer) clearInterval(timer);
+  stopLive();
   created.value = null;
   payload.value = '';
 };
 
 onUnmounted(() => {
   if (timer) clearInterval(timer);
+  stopLive();
+});
+
+// ── 即時看到長輩那邊的狀況(輪詢) ──
+const LIVE_POLL_MS = 2000;
+const live = ref<AssistRequest | null>(null);
+const liveOffline = ref(false);
+let liveTimer: ReturnType<typeof setInterval> | undefined;
+
+const stopLive = () => {
+  if (liveTimer) clearInterval(liveTimer);
+  liveTimer = undefined;
+  live.value = null;
+  liveOffline.value = false;
+};
+
+const startLive = (requestId: string, first: AssistRequest) => {
+  stopLive();
+  live.value = first;
+  const pollLive = async () => {
+    try {
+      live.value = await getRequest(requestId);
+      liveOffline.value = false;
+      // 長輩已送出或拒絕,就不用再問了
+      if (live.value.status === 'CONFIRMED' || live.value.status === 'REJECTED') {
+        if (liveTimer) clearInterval(liveTimer);
+        liveTimer = undefined;
+      }
+    } catch {
+      liveOffline.value = true;
+    }
+  };
+  liveTimer = setInterval(pollLive, LIVE_POLL_MS);
+};
+
+const liveTone = computed(() => {
+  switch (live.value?.status) {
+    case 'CONFIRMED':
+      return 'bg-[#eaf6ec] text-[#2d7a3e]';
+    case 'REJECTED':
+    case 'REVISION':
+    case 'EXPIRED':
+      return 'bg-[#fdecec] text-warn-200';
+    case 'ACCEPTED':
+      return 'bg-primary-50 text-primary-700';
+    default:
+      return 'bg-grey-50 text-grey-700';
+  }
+});
+
+const liveText = computed(() => {
+  const request = live.value;
+  if (!request) return '';
+  switch (request.status) {
+    case 'ACCEPTED':
+      return t('live.accepted');
+    case 'CONFIRMED':
+      return `${t('live.confirmed')}(${request.caseNo ?? ''})`;
+    case 'REJECTED':
+      return t('live.rejected');
+    case 'EXPIRED':
+      return t('live.expired');
+    case 'REVISION': {
+      const reasons = (request.revisionReasons ?? [])
+        .map((reason) => t(`reason.${reason}` as MessageKey))
+        .join('、');
+      return `${t('live.revision')}:${reasons}`;
+    }
+    default:
+      return t('live.waiting');
+  }
 });
 
 const countdown = computed(() =>
@@ -156,6 +232,13 @@ const openAsElder = () => {
       <p v-if="secondsLeft > 0" class="mt-4 text-2xl font-bold text-primary-700">{{ countdown }}</p>
       <p v-else class="mt-4 text-xl font-bold text-warn-200">{{ t('help.expired') }}</p>
       <p class="mt-2 text-base text-grey-500">{{ t('help.qrHint') }}</p>
+
+      <div v-if="live" class="mt-6 rounded p-4 text-left" :class="liveTone" role="status">
+        <p class="text-sm opacity-80">{{ t('live.title') }}</p>
+        <p class="mt-1 text-lg font-bold">{{ liveText }}</p>
+        <p v-if="live.status === 'REVISION'" class="mt-2 text-base">{{ t('live.fixHint') }}</p>
+        <p v-if="liveOffline" class="mt-2 text-sm">{{ t('live.networkError') }}</p>
+      </div>
 
       <BaseButton outline class="mt-6 w-full !py-3 text-lg font-bold" @click="onAgain">
         {{ t('help.again') }}

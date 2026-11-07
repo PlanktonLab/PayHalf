@@ -48,7 +48,12 @@ export const useInviteWatcher = () => {
 
   const poll = async () => {
     const elderId = store.elderId;
-    const list = await listPending(elderId);
+    let list: AssistRequest[];
+    try {
+      list = await listPending(elderId);
+    } catch {
+      return; // 暫時連不上後端,下一次輪詢再試
+    }
     // 等待期間若換了帳號(例如 App 剛把登入者資料傳進來),這次結果已過時,直接丟掉,
     // 否則會把「既有的邀請」誤當成「新邀請」。
     if (elderId !== store.elderId) return;

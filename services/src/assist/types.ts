@@ -33,18 +33,25 @@ export interface AssistField {
   value: string;
 }
 
+/** 長輩按「有錯」時,點選的是哪一項不對(用點選代替打字,天然多語) */
+export type RevisionReason = FieldKey | 'notMine';
+
 export interface AssistRequest {
   id: string;
-  elderId: string;
+  /** 記憶體模擬模式用來比對長輩;HTTP 模式由後端比對,不會回傳 */
+  elderId?: string;
   helperType: HelperType;
   helperName: string;
   serviceId: string;
   fields: AssistField[];
   status: RequestStatus;
-  /** ISO 字串 */
+  /** 邀請的有效期限,ISO 字串 */
   expiresAt: string;
+  /** QR 代碼的有效期限(比邀請短),ISO 字串 */
+  tokenExpiresAt?: string;
   elderLang: Lang;
-  revisionNote?: string;
+  /** 長輩點選「不對」的項目 */
+  revisionReasons?: RevisionReason[];
   caseNo?: string;
   confirmedAt?: number;
   /** QR 一次性代碼(只放代碼,不放個資) */
@@ -65,7 +72,7 @@ export interface Delegation {
 export type RedeemErrorCode = 'EXPIRED' | 'NOT_YOU' | 'USED' | 'INVALID';
 
 export class AssistError extends Error {
-  code: RedeemErrorCode | 'NOT_FOUND' | 'TOO_LATE';
+  code: RedeemErrorCode | 'NOT_FOUND' | 'TOO_LATE' | 'NETWORK';
 
   constructor(code: AssistError['code']) {
     super(code);

@@ -17,16 +17,30 @@ import { computed, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
 import { useUserStore } from '@/stores/user';
 import * as api from '@/assist/api';
-import type { AssistRequest, Delegation } from '@/assist/types';
+import type { AssistRequest, Delegation, RevisionReason } from '@/assist/types';
 
 export const useAssistStore = defineStore('assist', () => {
   const userStore = useUserStore();
 
-  /** 沒有從 App 取得登入者時,使用示範長輩帳號 */
-  const elderId = computed(() => userStore.user?.id || api.DEFAULT_ELDER_ID);
+  /**
+   * 用來辨識「這位長輩」的鍵。沒有從 App 取得登入者時,使用示範長輩。
+   * - 記憶體模擬:帳號 ID
+   * - HTTP 模式(兩支手機共用後端):身分證字號,協助者填的長輩身分證字號要和長輩登入的相同
+   */
+  const elderId = computed(() =>
+    api.USE_HTTP
+      ? userStore.user?.idNo || api.DEFAULT_ELDER_ID_NO
+      : userStore.user?.id || api.DEFAULT_ELDER_ID
+  );
 
-  // 必須同步執行:收到登入者資料後,馬上重新綁定示範資料,再載入待確認清單
-  watch(elderId, (id) => api.rebindDemoElder(id), { immediate: true, flush: 'sync' });
+  // 必須同步執行:收到登入者資料後,馬上重新綁定示範資料,再載入待確認清單(僅記憶體模擬)
+  watch(
+    elderId,
+    (id) => {
+      if (!api.USE_HTTP) api.rebindDemoElder(id);
+    },
+    { immediate: true, flush: 'sync' }
+  );
 
   const pending = ref<AssistRequest[]>([]);
   const current = ref<AssistRequest | null>(null);
@@ -37,6 +51,8 @@ export const useAssistStore = defineStore('assist', () => {
     loading.value = true;
     try {
       pending.value = await api.listPending(elderId.value);
+    } catch {
+      // 連不上後端時保留目前的清單,下一次輪詢再試
     } finally {
       loading.value = false;
     }
@@ -62,8 +78,8 @@ export const useAssistStore = defineStore('assist', () => {
     current.value = await api.rejectRequest(id);
   };
 
-  const revise = async (id: string, note: string) => {
-    current.value = await api.reviseRequest(id, note);
+  const revise = async (id: string, reasons: RevisionReason[]) => {
+    current.value = await api.reviseRequest(id, reasons);
   };
 
   const confirm = async (id: string) => {
@@ -80,7 +96,7 @@ export const useAssistStore = defineStore('assist', () => {
   };
 
   const loadDelegations = async () => {
-    delegations.value = await api.listDelegations();
+    delegations.value = await api.listDelegations(elderId.value);
   };
 
   return {
