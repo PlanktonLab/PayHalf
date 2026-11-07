@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 200" width="160" height="200">
+  <defs>
+    <g id="ps-fingers">
+      <rect x="104" y="96" width="24" height="13" rx="6.5"/>
+      <rect x="104" y="111" width="26" height="13" rx="6.5"/>
+      <rect x="104" y="126" width="24" height="13" rx="6.5"/>
+      <rect x="104" y="141" width="20" height="12" rx="6"/>
+    </g>
+  </defs>
+  <g stroke="#22474E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- motion ticks -->
+    <path d="M22 26 L14 18 M18 44 L8 42 M132 22 L140 14 M138 40 L148 38" fill="none" stroke="#5AB4C5" stroke-width="4"/>
+    <!-- wrist + palm -->
+    <path d="M58 200 L62 168 L114 166 L118 200" fill="#5AB4C5"/>
+    <path d="M60 178 L116 176" fill="none" stroke="#B4E2EA" stroke-width="4"/>
+    <path d="M52 150 C50 172 64 172 88 170 C110 168 122 160 120 140 Z" fill="#F6D2B8"/>
+    <!-- fingers behind phone (right) -->
+    <use href="#ps-fingers" fill="#22474E" stroke-width="7"/>
+    <use href="#ps-fingers" fill="#F6D2B8" stroke="none"/>
+    <!-- phone -->
+    <rect x="38" y="22" width="76" height="140" rx="13" fill="#30383D"/>
+    <rect x="45" y="34" width="62" height="112" rx="6" fill="#FFFFFF" stroke="none"/>
+    <circle cx="76" cy="28" r="1.8" fill="#ADB8BE" stroke="none"/>
+    <!-- QR-like pattern -->
+    <g fill="#356C77" stroke="none">
+      <rect x="52" y="58" width="16" height="16" rx="2.5"/>
+      <rect x="84" y="58" width="16" height="16" rx="2.5"/>
+      <rect x="52" y="98" width="16" height="16" rx="2.5"/>
+      <rect x="72" y="58" width="6" height="6" rx="1"/>
+      <rect x="72" y="70" width="6" height="6" rx="1"/>
+      <rect x="72" y="82" width="6" height="6" rx="1"/>
+      <rect x="84" y="82" width="6" height="6" rx="1"/>
+      <rect x="94" y="88" width="6" height="6" rx="1"/>
+      <rect x="52" y="82" width="6" height="6" rx="1"/>
+      <rect x="62" y="86" width="6" height="6" rx="1"/>
+      <rect x="72" y="98" width="6" height="6" rx="1"/>
+      <rect x="82" y="102" width="6" height="6" rx="1"/>
+      <rect x="94" y="100" width="6" height="6" rx="1"/>
+      <rect x="72" y="108" width="6" height="6" rx="1"/>
+      <rect x="88" y="108" width="12" height="6" rx="1"/>
+    </g>
+    <g fill="#FFFFFF" stroke="none">
+      <rect x="56" y="62" width="8" height="8" rx="1.5"/>
+      <rect x="88" y="62" width="8" height="8" rx="1.5"/>
+      <rect x="56" y="102" width="8" height="8" rx="1.5"/>
+    </g>
+    <g fill="#356C77" stroke="none">
+      <rect x="58" y="64" width="4" height="4"/>
+      <rect x="90" y="64" width="4" height="4"/>
+      <rect x="58" y="104" width="4" height="4"/>
+    </g>
+    <!-- scan frame corners -->
+    <path d="M50 52 L50 46 L56 46 M96 46 L102 46 L102 52 M50 114 L50 120 L56 120 M96 120 L102 120 L102 114" fill="none" stroke="#5AB4C5" stroke-width="3"/>
+    <!-- scan band + line -->
+    <rect x="47" y="78" width="58" height="10" fill="#B4E2EA" fill-opacity="0.6" stroke="none"/>
+    <path d="M47 88 L105 88" fill="none" stroke="#E35D5D" stroke-width="3"/>
+    <!-- thumb (left) -->
+    <path d="M58 158 C44 150 34 132 36 120 C38 112 46 112 50 120 C54 130 58 140 66 146" fill="#F6D2B8"/>
+  </g>
+</svg>

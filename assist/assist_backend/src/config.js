@@ -45,6 +45,9 @@ export function buildConfig(overrides = {}) {
     // 送出後可撤回的時間（降低誤觸送出的風險）。網頁原型原設 5 秒，長輩反應較慢，放寬為 10 秒
     undoWindowMs: 10 * 1000,
     staticDir: process.env.STATIC_DIR ?? null,
+    // QR Code 裡的網址開頭；沒設就用請求的 Host
+    publicUrl: process.env.PUBLIC_URL ?? null,
+    dataDir: null,
     adminDir: null,
     ...overrides,
   };

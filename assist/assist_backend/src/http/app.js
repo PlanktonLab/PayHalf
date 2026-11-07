@@ -6,10 +6,11 @@ import { ApiError, unauthorized, forbidden, badRequest } from '../core/errors.js
 import { HELPERS, ELDERS, findUser, findElderByTownpassAccount, publicHelper, publicElder } from '../data/users.js';
 import { SERVICES, findService, serviceSummary } from '../data/services.js';
 import { LEGAL_INFO } from '../data/legal.js';
+import { posterSvg, posterPage, landingPage, LAYOUTS } from '../poster/poster.js';
 
 export const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 
-export function buildHttpApp({ config, tokens, assist, audit }) {
+export function buildHttpApp({ config, tokens, assist, audit, forms }) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -30,13 +31,22 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     }
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
   });
 
+  // 表單後台存整份表單，允許大一點；其他 API 維持 10kb
+  app.use('/api/console', express.json({ limit: '200kb' }));
   app.use(express.json({ limit: '10kb' }));
+
+  const baseUrl = (req) => {
+    if (config.publicUrl) return config.publicUrl.replace(/\/$/, '');
+    const host = req.headers.host ?? 'localhost';
+    return `${/^(localhost|127\.|\[::1\])/.test(host) ? 'http' : 'https'}://${host}`;
+  };
+  const formUrl = (req, id) => `${baseUrl(req)}/f/${encodeURIComponent(id)}`;
 
   // ── 驗證
   const authenticate = (req, _res, next) => {
@@ -50,6 +60,7 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
   const requireRole = (role) => (req, _res, next) =>
     req.user.role === role ? next() : next(forbidden());
 
+  const wrapAsync = (fn) => (req, res, next) => Promise.resolve(fn(req, res)).catch(next);
   const wrap = (fn) => (req, res, next) => {
     try {
       const out = fn(req, res);
@@ -106,7 +117,7 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
   );
 
   // ── 公開資訊
-  api.get('/services', (_req, res) => res.json(SERVICES.map(serviceSummary)));
+  api.get('/services', (_req, res) => res.json(SERVICES.filter((s) => s.open !== false).map(serviceSummary)));
   api.get(
     '/services/:id',
     wrap((req) => {
@@ -116,6 +127,22 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
     }),
   );
   api.get('/legal', (_req, res) => res.json(LEGAL_INFO));
+
+  // ── 靜態 QR Code 表單（公開：表單內容與海報）
+  api.get('/forms/:id', wrap((req) => ({ ...forms.publicForm(req.params.id), url: formUrl(req, req.params.id) })));
+  api.get(
+    '/forms/:id/poster.svg',
+    wrapAsync(async (req, res) => {
+      const form = forms.publicForm(req.params.id);
+      const layout = LAYOUTS[req.query.layout] ? req.query.layout : 'a4';
+      res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      if (req.query.download) {
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(`${form.title}_${LAYOUTS[layout].name}.svg`)}`);
+      }
+      res.send(await posterSvg(form, { layout, url: formUrl(req, form.id) }));
+    }),
+  );
 
   // ── 以下需要登入
   api.use(authenticate);
@@ -188,6 +215,11 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
   elder.post('/help-requests/:id/cancel', wrap((req) => assist.cancelHelp(req.user, req.params.id)));
   elder.post('/trusted/:helperId/remove', wrap((req) => assist.removeTrusted(req.user, req.params.helperId)));
   elder.post('/sessions/:id/block', wrap((req) => assist.blockHelper(req.user, req.params.id)));
+  // 靜態 QR 表單：長輩自己填、送出、半路找人幫忙
+  elder.get('/forms/:id', wrap((req) => forms.openForElder(req.user, req.params.id)));
+  elder.post('/forms/:id/submit', wrap((req) => forms.submitByElder(req.user, req.params.id, req.body ?? {})));
+  elder.post('/forms/:id/help', wrap((req) => forms.requestHelp(req.user, req.params.id, req.body ?? {})));
+  elder.post('/form-tickets/:id/cancel', wrap((req) => forms.cancelTicket(req.user, req.params.id)));
   api.use('/elder', elder);
 
   // ── 協助者
@@ -237,7 +269,48 @@ export function buildHttpApp({ config, tokens, assist, audit }) {
   );
   api.use('/helper', helper);
 
+  // ── 承辦人員：表單後台、線上求助
+  const staff = express.Router();
+  staff.use(requireRole('helper'));
+  staff.get('/forms', wrap((req) => forms.listForms(req.user)));
+  staff.get('/forms/:id', wrap((req) => ({ ...forms.getFormForStaff(req.user, req.params.id), url: formUrl(req, req.params.id) })));
+  staff.put('/forms/:id', wrap((req) => forms.putForm(req.user, req.params.id, req.body ?? {})));
+  staff.delete('/forms/:id', wrap((req) => forms.deleteForm(req.user, req.params.id)));
+  staff.get('/forms/:id/responses', wrap((req) => forms.listRows(req.user, req.params.id)));
+  staff.get('/help-tickets', wrap((req) => forms.listTickets(req.user)));
+  staff.post(
+    '/help-tickets/:id/take',
+    wrap((req, res) => {
+      res.status(202);
+      return forms.takeTicket(req.user, req.params.id);
+    }),
+  );
+  api.use('/console', staff);
+
   app.use('/api', api);
+
+  // ── 靜態 QR Code 指向的網址（一般相機掃到時的說明頁）與可列印的海報頁
+  app.get('/f/:id', (req, res) => {
+    let form = null;
+    try {
+      form = forms.publicForm(req.params.id);
+    } catch {
+      res.status(404);
+    }
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(landingPage(form, formUrl(req, req.params.id)));
+  });
+  app.get(
+    '/poster/:id',
+    wrapAsync(async (req, res) => {
+      const form = forms.publicForm(req.params.id);
+      const layout = LAYOUTS[req.query.layout] ? req.query.layout : 'a4';
+      const svg = await posterSvg(form, { layout, url: formUrl(req, form.id) });
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.send(posterPage(form, svg, layout));
+    }),
+  );
 
   // ── 承辦人表單後台：已整合進承辦工作台的「表單」（/#/forms）。
   //    舊版單檔原型保留在 /admin/legacy/ 供對照。

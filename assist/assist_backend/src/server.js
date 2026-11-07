@@ -6,6 +6,7 @@ import { buildConfig } from './config.js';
 import { createTokenService } from './core/token.js';
 import { createAuditLog } from './core/audit.js';
 import { createAssistService } from './core/assistService.js';
+import { createFormService } from './core/formService.js';
 import { buildHttpApp, LOCAL_ORIGIN } from './http/app.js';
 import { findUser } from './data/users.js';
 
@@ -19,16 +20,26 @@ const DEFAULT_ADMIN = path.resolve(here, '../../../admin-form-builder');
  * Socket 只負責「伺服器推送」，所有動作都走 REST，方便授權檢查與測試。
  */
 export function createAssistServer(overrides = {}) {
-  const config = buildConfig({ staticDir: DEFAULT_WEB, adminDir: DEFAULT_ADMIN, ...overrides });
+  // 表單與回覆存在 repo 外層的 var/（部署時 rsync 不會蓋掉）；測試傳 dataDir: null 只放記憶體
+  const config = buildConfig({
+    staticDir: DEFAULT_WEB,
+    adminDir: DEFAULT_ADMIN,
+    dataDir: process.env.DATA_DIR ?? path.resolve(here, '../../../var'),
+    ...overrides,
+  });
   const now = overrides.now ?? (() => Date.now());
   const tokens = createTokenService({ secret: config.tokenSecret, ttlMs: config.tokenTtlMs, now });
   const audit = createAuditLog({ now });
 
   let io = null;
   const notify = (userId, event, payload) => io?.to(`user:${userId}`).emit(event, payload);
-  const assist = createAssistService({ config, audit, notify, now });
+  const hooks = {};
+  const assist = createAssistService({ config, audit, notify, now, hooks });
+  const forms = createFormService({ config, assist, audit, notify, now });
+  hooks.prefill = forms.prefill;
+  hooks.onSubmitted = forms.onAssistSubmitted;
 
-  const app = buildHttpApp({ config, tokens, assist, audit });
+  const app = buildHttpApp({ config, tokens, assist, audit, forms });
   const httpServer = http.createServer(app);
 
   io = new Server(httpServer, {
@@ -50,7 +61,10 @@ export function createAssistServer(overrides = {}) {
     socket.onAny(() => {});
   });
 
-  const timer = setInterval(() => assist.sweep(), config.sweepIntervalMs);
+  const timer = setInterval(() => {
+    assist.sweep();
+    forms.sweep();
+  }, config.sweepIntervalMs);
   timer.unref();
 
   return {
@@ -58,6 +72,7 @@ export function createAssistServer(overrides = {}) {
     app,
     io,
     assist,
+    forms,
     audit,
     tokens,
     httpServer,

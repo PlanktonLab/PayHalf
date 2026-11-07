@@ -25,7 +25,7 @@ const OPEN = new Set(['pending', 'active']);
  *  4. 以身分資料查找時，比對成功與否對協助者完全不可分辨。
  *  5. 每個動作都寫入 hash-chain 稽核紀錄，紀錄不含個資的值。
  */
-export function createAssistService({ config, audit, notify = () => {}, now = () => Date.now() }) {
+export function createAssistService({ config, audit, notify = () => {}, now = () => Date.now(), hooks = {} }) {
   const sessions = new Map();
   const pairingCodes = new Map(); // code -> { elderId, expiresAt }
   const elderActiveCode = new Map(); // elderId -> code
@@ -211,6 +211,24 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       timeline: [],
     };
     timeline(s, 'helper', `${helper.title} ${helper.name} 送出協助請求`);
+    // 長輩在靜態 QR 表單自己填到一半才求助：已經填好的答案直接帶入，從還沒完成的那一步開始
+    const draft = elderId ? hooks.prefill?.(elderId, service) : null;
+    if (draft) {
+      let n = 0;
+      for (const f of allFields(service)) {
+        const v = draft[f.key];
+        if (v == null || v === '') continue;
+        fields[f.key].value = f.type === 'choice' && !f.multi && !f.options.some((o) => o.value === v) ? null : v;
+        if (fields[f.key].value == null) continue;
+        fields[f.key].status = f.sensitive ? 'authorized' : 'filled';
+        n++;
+      }
+      const first = service.steps.findIndex(
+        (st) => st.fields.length && st.fields.some((f) => f.required && fields[f.key].status === 'empty'),
+      );
+      s.currentStep = first > 0 ? first : n ? service.steps.length - 1 : 0;
+      if (n) timeline(s, 'system', `已帶入長輩自己填好的 ${n} 題`);
+    }
     sessions.set(s.id, s);
 
     // 協助者看到的稽核摘要：無論比對成功與否都完全相同
@@ -240,7 +258,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
 
   // ───────────────────────── 長輩：配對碼
 
-  function createPairingCode(elder) {
+  function createPairingCode(elder, { serviceId = null } = {}) {
     const old = elderActiveCode.get(elder.id);
     if (old) pairingCodes.delete(old);
     let code;
@@ -248,7 +266,8 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
     } while (pairingCodes.has(code));
     const expiresAt = now() + config.pairingCodeTtlMs;
-    pairingCodes.set(code, { elderId: elder.id, expiresAt });
+    // serviceId：長輩在某份表單裡按「請旁邊的人幫我」時，對方掃了就直接陪辦這份表單
+    pairingCodes.set(code, { elderId: elder.id, expiresAt, serviceId });
     elderActiveCode.set(elder.id, code);
     audit.append({
       type: 'pairing_code.created',
@@ -256,13 +275,14 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       elderId: elder.id,
       summary: '您產生了一組協助配對碼',
     });
-    return { code, expiresAt, qrPayload: `townpass-assist:${code}` };
+    return { code, expiresAt, serviceId, qrPayload: `townpass-assist:${code}` };
   }
 
   // ───────────────────────── 協助者：發起請求
 
   function requestByCode(helper, { serviceId, code }) {
-    const service = requireService(serviceId);
+    const hinted = pairingCodes.get(String(code ?? '').replace(/^townpass-assist:/, '').trim())?.serviceId;
+    const service = requireService(hinted ?? serviceId);
     const normalized = String(code ?? '')
       .replace(/^townpass-assist:/, '')
       .trim();
@@ -439,6 +459,8 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       // 協助者只看得到遮罩後的姓名
       elder: { id: r.elderId, displayName: maskName(elder.profile.realName) },
       helper: publicHelper(helper),
+      serviceId: r.serviceId ?? null,
+      serviceTitle: r.serviceId ? (findService(r.serviceId)?.title ?? null) : null,
     };
   }
 
@@ -449,13 +471,17 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   }
 
   /** 長輩點信任的人「請他來幫我」：對方手機跳通知，由對方發起陪辦（長輩一樣要按同意）。 */
-  function requestHelp(elder, { helperId } = {}) {
+  function requestHelp(elder, { helperId, serviceId = null } = {}) {
     const helper = findUser(helperId);
     if (!helper || helper.role !== 'helper' || !isTrusted(elder.id, helperId) || isBlocked(elder.id, helperId)) {
       throw forbidden('只能請您信任的人幫忙', 'NOT_TRUSTED');
     }
     for (const r of helpRequests.values()) {
-      if (r.elderId === elder.id && r.helperId === helperId && r.status === 'pending' && r.expiresAt > now()) return helpView(r);
+      if (r.elderId === elder.id && r.helperId === helperId && r.status === 'pending' && r.expiresAt > now()) {
+        if (serviceId && findService(serviceId)) r.serviceId = serviceId;
+        publishHelp(r);
+        return helpView(r);
+      }
     }
     if (!helpLimiter.take(elder.id)) throw tooMany('請求次數過多，請 10 分鐘後再試', 'HELP_RATE_LIMITED');
     const t = now();
@@ -466,6 +492,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       createdAt: t,
       expiresAt: t + (config.helpRequestTtlMs ?? 10 * 60 * 1000),
       status: 'pending',
+      serviceId: serviceId && findService(serviceId) ? serviceId : null,
     };
     helpRequests.set(r.id, r);
     audit.append({
@@ -654,6 +681,17 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       method: 'trusted',
     });
     answerHelp(elderId, helper.id);
+    return hView(s);
+  }
+
+  /** 長輩自己按了「找線上客服」：客服接手時對長輩發起陪辦（不用配對碼，長輩一樣要按同意） */
+  function requestForElder(helper, { serviceId, elderId, method = 'online_help' }) {
+    const service = requireService(serviceId);
+    if (isBlocked(elderId, helper.id)) throw forbidden('對方目前無法接受您的協助請求', 'BLOCKED');
+    checkPendingLimit(helper);
+    if (hasOpen(elderId, helper.id)) throw conflict('您已經對這位長輩送出請求了', 'DUPLICATE_REQUEST');
+    const elder = findUser(elderId);
+    const s = createSession({ helper, service, elderId, elderLabel: maskName(elder.profile.realName), method });
     return hView(s);
   }
 
@@ -943,21 +981,44 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     requireActive(s);
     const service = findService(s.serviceId);
     const f = fieldInCurrentStep(s, service, key);
-    if (f.type !== 'choice') throw badRequest('這個欄位需要授權，不能直接填寫', 'NOT_CHOICE');
-    const option = f.options.find((o) => o.value === value);
-    if (!option) throw badRequest('沒有這個選項', 'INVALID_OPTION');
+    let shown;
+    if (f.type === 'text') {
+      // 表單的文字題：長輩自己打字（不是個資，陪辦人員看得到內容）
+      const v = typeof value === 'string' ? value.trim() : '';
+      if (!v) throw badRequest('請輸入內容', 'INVALID_VALUE');
+      // eslint-disable-next-line no-control-regex
+      if (v.length > 500 || /[\u0000-\u0008\u000b-\u001f\u007f]/.test(v)) throw badRequest('內容太長或含有無法辨識的字元', 'INVALID_VALUE');
+      if (f.inputType === 'number' && !/^\d{1,6}$/.test(v)) throw badRequest('請填數字', 'INVALID_VALUE');
+      if (f.inputType === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw badRequest('日期格式錯誤', 'INVALID_VALUE');
+      value = v;
+      shown = v.length > 20 ? `${v.slice(0, 20)}…` : v;
+    } else if (f.type === 'choice' && f.multi) {
+      const picked = Array.isArray(value) ? value : String(value ?? '').split('、').filter(Boolean);
+      if (!picked.length || picked.some((v) => !f.options.some((o) => o.value === v))) {
+        throw badRequest('沒有這個選項', 'INVALID_OPTION');
+      }
+      value = f.options.filter((o) => picked.includes(o.value)).map((o) => o.value).join('、');
+      shown = value;
+    } else if (f.type === 'choice') {
+      const option = f.options.find((o) => o.value === value);
+      if (!option) throw badRequest('沒有這個選項', 'INVALID_OPTION');
+      shown = option.label;
+    } else {
+      throw badRequest('這個欄位需要授權，不能直接填寫', 'NOT_CHOICE');
+    }
     s.fields[key].status = 'filled';
     s.fields[key].value = value;
     touch(s);
-    timeline(s, 'elder', `長輩選擇「${f.label}：${option.label}」`);
+    timeline(s, 'elder', `長輩${f.type === 'text' ? '填寫' : '選擇'}「${f.label}：${shown}」`);
     audit.append({
       type: 'field.filled',
       actor: ROLE_ACTOR(elder),
       sessionId: s.id,
       elderId: elder.id,
       helperId: s.helperId,
-      summary: `您選擇了「${f.label}：${option.label}」`,
-      detail: { field: key, value },
+      summary: `您${f.type === 'text' ? '填寫' : '選擇'}了「${f.label}」`,
+      // 文字題可能有個人狀況，稽核紀錄不留內容
+      detail: f.type === 'text' ? { field: key } : { field: key, value },
     });
     autoAdvance(s, service);
     publish(s);
@@ -1014,6 +1075,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       // 申辦資料進入受理機關系統；協辦 session 本身不再保留個資
       data,
     });
+    hooks.onSubmitted?.({ service, elder, helper: findUser(s.helperId), data, caseNo: s.caseNo });
     s.status = 'completed';
     s.endedAt = now();
     s.endedBy = 'elder';
@@ -1229,6 +1291,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   }
 
   return {
+    requestForElder,
     createPairingCode,
     requestByCode,
     requestByIdentity,

@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" width="200" height="240">
+  <defs>
+    <g id="gm-hand">
+      <rect x="-14" y="-8" width="28" height="26" rx="10"/>
+      <rect x="-13" y="-22" width="6.5" height="22" rx="3.25"/>
+      <rect x="-5.5" y="-27" width="6.5" height="27" rx="3.25"/>
+      <rect x="2" y="-25" width="6.5" height="25" rx="3.25"/>
+      <rect x="9.5" y="-19" width="6" height="20" rx="3"/>
+      <rect x="10" y="0" width="20" height="8" rx="4" transform="rotate(40 10 6)"/>
+    </g>
+  </defs>
+  <g stroke="#22474E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- hair back + bun -->
+    <circle cx="100" cy="40" r="19" fill="#D7DEE2"/>
+    <path d="M90 30 Q100 24 110 30" fill="none" stroke-width="2.5"/>
+    <circle cx="100" cy="97" r="52" fill="#D7DEE2"/>
+    <!-- waving arm (left) -->
+    <path d="M48 196 C40 180 34 166 32 150" fill="none" stroke-width="26"/>
+    <path d="M48 196 C40 180 34 166 32 150" fill="none" stroke="#E35D5D" stroke-width="19"/>
+    <path d="M22 156 L42 152" fill="none" stroke="#F8E3BC" stroke-width="5"/>
+    <path d="M8 132 Q4 122 8 112" fill="none" stroke-width="3"/>
+    <path d="M16 104 Q10 106 8 110" fill="none" stroke-width="3"/>
+    <!-- raised arm with phone (right) -->
+    <path d="M152 196 C162 176 166 158 166 140" fill="none" stroke-width="26"/>
+    <path d="M152 196 C162 176 166 158 166 140" fill="none" stroke="#E35D5D" stroke-width="19"/>
+    <path d="M156 146 L176 146" fill="none" stroke="#F8E3BC" stroke-width="5"/>
+    <!-- body / cardigan -->
+    <path d="M28 240 C28 186 56 160 100 160 C144 160 172 186 172 240 Z" fill="#E35D5D"/>
+    <path d="M82 162 L100 198 L118 162 Z" fill="#F8E3BC"/>
+    <path d="M100 198 L100 240" fill="none"/>
+    <circle cx="92" cy="214" r="3.5" fill="#F8E3BC" stroke-width="2.5"/>
+    <circle cx="92" cy="230" r="3.5" fill="#F8E3BC" stroke-width="2.5"/>
+    <!-- neck -->
+    <path d="M88 146 L88 164 Q100 172 112 164 L112 146 Z" fill="#E9B596"/>
+    <!-- ears -->
+    <circle cx="57" cy="108" r="9" fill="#F6D2B8"/>
+    <circle cx="143" cy="108" r="9" fill="#F6D2B8"/>
+    <circle cx="57" cy="120" r="3" fill="#F5BA4B" stroke-width="2"/>
+    <circle cx="143" cy="120" r="3" fill="#F5BA4B" stroke-width="2"/>
+    <!-- face -->
+    <ellipse cx="100" cy="106" rx="42" ry="41" fill="#F6D2B8"/>
+    <!-- bangs -->
+    <path d="M57 104 C54 70 76 56 100 56 C124 56 146 70 143 104 C138 90 126 82 112 82 Q100 90 88 82 C74 82 62 90 57 104 Z" fill="#D7DEE2"/>
+    <!-- glasses -->
+    <circle cx="82" cy="109" r="12.5" fill="#FFFFFF" fill-opacity="0.35" stroke-width="3"/>
+    <circle cx="118" cy="109" r="12.5" fill="#FFFFFF" fill-opacity="0.35" stroke-width="3"/>
+    <path d="M94.5 107 Q100 103 105.5 107" fill="none" stroke-width="3"/>
+    <!-- eyes -->
+    <circle cx="82" cy="110" r="3.6" fill="#22474E" stroke="none"/>
+    <circle cx="118" cy="110" r="3.6" fill="#22474E" stroke="none"/>
+    <!-- cheeks -->
+    <ellipse cx="72" cy="128" rx="7" ry="4.5" fill="#E35D5D" fill-opacity="0.35" stroke="none"/>
+    <ellipse cx="128" cy="128" rx="7" ry="4.5" fill="#E35D5D" fill-opacity="0.35" stroke="none"/>
+    <!-- smile -->
+    <path d="M90 128 Q100 138 110 128" fill="none"/>
+    <g transform="rotate(12 166 100)">
+      <rect x="150" y="68" width="34" height="58" rx="7" fill="#30383D"/>
+      <rect x="155" y="74" width="24" height="44" rx="3" fill="#B4E2EA" stroke="none"/>
+      <g fill="#356C77" stroke="none"><rect x="158" y="80" width="7" height="7" rx="1"/><rect x="169" y="80" width="7" height="7" rx="1"/><rect x="158" y="102" width="7" height="7" rx="1"/><rect x="169" y="104" width="4" height="4"/></g>
+      <path d="M157 95 L177 95" stroke="#E35D5D" stroke-width="2.5"/>
+    </g>
+    <g transform="translate(31 138) rotate(-14) scale(0.85)">
+      <use href="#gm-hand" fill="#22474E" stroke-width="7"/>
+      <use href="#gm-hand" fill="#F6D2B8" stroke="none"/>
+    </g>
+    <path d="M152 124 C150 114 156 110 162 112 L176 116 C180 118 180 124 176 126 C180 128 180 134 175 135 L168 136 C162 140 154 136 152 124 Z" fill="#F6D2B8"/>
+    <path d="M166 120 L176 122 M166 128 L176 130" fill="none" stroke-width="2.5"/>
+  </g>
+</svg>
