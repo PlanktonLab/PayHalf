@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue';
+import { computed, ref, onMounted, inject } from 'vue';
 import subscriptionListJson from '../../public/mock/subscription_list.json';
 import BaseButton from '@/components/atoms/BaseButton.vue';
 import { useConnectionMessage } from '@/composables/useConnectionMessage';
@@ -13,6 +13,8 @@ export interface Subscription {
   description?: string;
 }
 
+const icons = inject<Record<string, string>>('subscriptionIcons', {});
+const relatedEnabled = inject<boolean | undefined>('relatedEnabled', undefined);
 const subscriptionList = ref<Subscription[]>(subscriptionListJson.data.data);
 
 const subscriptionCount = computed(() => {
@@ -20,13 +22,14 @@ const subscriptionCount = computed(() => {
 });
 
 onMounted(() => {
-  subscriptionList.value = localStorage.getItem('subscriptionList')
-    ? JSON.parse(localStorage.getItem('subscriptionList')!)
-    : subscriptionListJson.data.data;
+  const saved: Subscription[] = JSON.parse(localStorage.getItem('subscriptionList') || '[]');
+  subscriptionList.value = subscriptionListJson.data.data.map((item) => ({
+    ...item,
+    is_expand: false,
+    is_subscribed: (item.id === 'sub-related' ? relatedEnabled : undefined)
+      ?? saved.find((entry) => entry.id === item.id)?.is_subscribed ?? item.is_subscribed
+  }));
 
-  subscriptionList.value.forEach((item) => {
-    item.is_expand = false;
-  });
 });
 
 /**
@@ -80,7 +83,7 @@ const onSubmitClick = async (subscription: Subscription) => {
       @click="subscription.is_expand = !subscription.is_expand"
     >
       <div class="card-header">
-        <img :src="subscription.icon" class="icon" :alt="subscription.name" />
+        <img :src="icons[subscription.icon] || subscription.icon" class="icon" :alt="subscription.name" />
         <span>{{ subscription.name }}</span>
       </div>
 

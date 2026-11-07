@@ -1,4 +1,5 @@
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:town_pass/page/activity_list/activity_tag.dart';
+import 'package:town_pass/util/tp_cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/bean/activity.dart';
@@ -24,7 +25,7 @@ class ActivityDetailView extends StatelessWidget {
       appBar: const TPAppBar(title: '活動訊息'),
       body: Column(
         children: [
-          CachedNetworkImage(imageUrl: activity.imageUrl),
+          TPCachedNetworkImage(imageUrl: activity.imageUrl, width: double.infinity, height: 128, fit: BoxFit.contain),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: TPText(
@@ -47,6 +48,7 @@ class ActivityDetailView extends StatelessWidget {
                       ),
                     ),
                   ),
+                  ActivityTag(activity, explain: true),
                   const TPLine.horizontal(),
                   const SizedBox(height: 16),
                   Expanded(

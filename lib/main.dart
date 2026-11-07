@@ -37,7 +37,7 @@ Future<void> initServices() async {
   await Get.putAsync<GeoLocatorService>(() async => await GeoLocatorService().init());
   await Get.putAsync<NotificationService>(() async => await NotificationService().init());
 
-  Get.put<SubscriptionService>(SubscriptionService());
+  await Get.putAsync<SubscriptionService>(() => SubscriptionService().init());
 }
 
 class MyApp extends StatelessWidget {

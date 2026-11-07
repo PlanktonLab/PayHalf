@@ -251,6 +251,13 @@ class NotifyMessageHandler extends TPWebMessageHandler {
           content: json['content'],
         );
         final String content = json['content'];
+        const related = SubscriptionService.relatedTitle;
+        if (content == '已訂閱$related' || content == '已取消訂閱$related') {
+          if (isMainFrame && sourceOrigin?.origin == Uri.parse(SubscriptionService.settingsUrl).origin) {
+            await Get.find<SubscriptionService>().setRelated(content == '已訂閱$related');
+          }
+          return;
+        }
         if (RegExp(r'已訂閱(.+)').hasMatch(content)) {
           final String target = RegExp(r'已訂閱(.+)').firstMatch(content)!.group(1)!;
           Get.find<SubscriptionService>().addSubscription(title: target);
