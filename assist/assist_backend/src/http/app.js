@@ -41,10 +41,13 @@ export function buildHttpApp({ config, tokens, assist, audit, forms }) {
   app.use('/api/console', express.json({ limit: '200kb' }));
   app.use(express.json({ limit: '10kb' }));
 
+  // QR Code 裡的固定網址。nginx 的 /api、/socket.io 區塊沒有轉送 Host（內層 proxy_set_header 會蓋掉外層），
+  // 所以從 nginx 進來的請求 Host 是 127.0.0.1:<port>：視為正式站。本機開發用 localhost 則照實際網址。
   const baseUrl = (req) => {
     if (config.publicUrl) return config.publicUrl.replace(/\/$/, '');
-    const host = req.headers.host ?? 'localhost';
-    return `${/^(localhost|127\.|\[::1\])/.test(host) ? 'http' : 'https'}://${host}`;
+    const host = req.headers['x-forwarded-host'] ?? req.headers.host ?? 'localhost';
+    if (/^127\./.test(host)) return 'https://payhalf.plankton.tw';
+    return `${/^(localhost|\[::1\]|10\.|192\.168\.)/.test(host) ? 'http' : 'https'}://${host}`;
   };
   const formUrl = (req, id) => `${baseUrl(req)}/f/${encodeURIComponent(id)}`;
 
