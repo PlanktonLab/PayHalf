@@ -5,398 +5,453 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>台北通表單 承辦人後台</title>
 <style>
+/* 配色取自 TownPass 專案 lib/util/tp_colors.dart:primary / secondary / grayscale / red */
 :root{
   color-scheme:light;
-  --bg:#f5f5f7; --panel:#ffffff; --ink:#1d1d1f; --muted:#5f6368; --line:#d2d2d7; --line2:#e8e8ed;
-  --brand:#0a6ed1; --brand-d:#0858ab; --brand-l:rgba(10,110,209,.09); --brand-m:rgba(10,110,209,.22);
-  --warn:#8a5200; --warn-l:#fff4df; --danger:#c5221f; --danger-l:#fdecea; --ok:#168a46; --ok-l:#e3f6ea;
-  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang TC","Noto Sans TC","Microsoft JhengHei",Arial,sans-serif;
+  --p50:#EDF8FA;--p100:#DBF1F5;--p200:#B4E2EA;--p300:#93D4DF;--p500:#5AB4C5;--p600:#468D9B;--p700:#356C77;--p800:#22474E;
+  --blue:#4B8DBF;
+  --grad:linear-gradient(90deg,#5AB4C5,#4B8DBF);
+  --s400:#EDBB60;--s500:#F5BA4B;--s800:#74521B;--s900:#3C2B0B;--s50:#FDF8ED;--s100:#FCF2DF;
+  --g50:#F1F3F4;--g100:#E3E7E9;--g200:#CAD1D5;--g300:#ADB8BE;--g400:#91A0A8;--g500:#738995;--g600:#5E6D76;--g700:#475259;--g800:#30383D;--g900:#171B1D;
+  --red50:#FAEEEE;--red500:#D45251;--red600:#C2332F;
+  --ok:#2E8B57;--ok-l:#E6F5EC;
+  --bg:#EDF4F6; --card:#fff; --ink:var(--g900); --muted:var(--g600);
+  --shadow:0 1px 2px rgba(0,0,0,.06),0 4px 12px rgba(0,0,0,.06);
+  --font:"PingFang TC","Noto Sans TC","Microsoft JhengHei",Roboto,system-ui,sans-serif;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.65 var(--font);letter-spacing:.01em;-webkit-font-smoothing:antialiased}
-a{color:var(--brand-d);text-decoration:none}
+html{scroll-padding-top:140px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 var(--font);-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
-:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 .ic{flex:none;vertical-align:middle}
-h2,h3{margin:0}
-/* 頂欄 */
-header.top{background:rgba(251,251,253,.85);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);display:flex;align-items:center;gap:14px;padding:0 24px;height:60px;position:sticky;top:0;z-index:30;border-bottom:1px solid var(--line2)}
-.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;color:var(--ink);background:none;border:0;padding:0}
-.logo i{width:32px;height:32px;border-radius:10px;background:var(--brand);color:#fff;display:grid;place-items:center}
-.crumb{display:flex;align-items:center;gap:6px;color:var(--muted);min-width:0}
-.crumb b{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:36vw}
+h1,h2,h3,p{margin:0}
+.muted{color:var(--muted)}.small{font-size:14px}
 .sp{flex:1}
-.who{font-size:14px;color:var(--muted)}
-@media (max-width:760px){.who{display:none}}
-main{padding:28px 24px 90px;max-width:1180px;margin:0 auto}
-/* 按鈕 */
-.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:0 18px;min-height:44px;font-weight:700;white-space:nowrap}
-.btn:hover{background:var(--brand-l);border-color:var(--brand-m)}
-.btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
-.btn.primary:hover{background:var(--brand-d)}
-.btn.danger{color:var(--danger)}
-.btn.danger:hover{background:var(--danger-l);border-color:var(--danger-l)}
-.btn.sm{min-height:36px;padding:0 14px;font-size:15px}
-.btn.icon{padding:0;width:44px;justify-content:center}
-.btn.sm.icon{width:36px}
-.btn.lg{min-height:54px;padding:0 28px;font-size:18px}
-.btn:disabled{opacity:.4;cursor:not-allowed}
-.card{background:var(--panel);border-radius:22px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.muted{color:var(--muted)}
-.small{font-size:14.5px}
-.tag{display:inline-flex;align-items:center;gap:5px;border-radius:99px;padding:2px 12px;font-size:14px;font-weight:700;white-space:nowrap}
-.tag.draft{background:#e8ecee;color:#3f4a50}.tag.open{background:var(--ok-l);color:#0f6a37}.tag.closed{background:var(--danger-l);color:#a3211d}
-/* 首頁 */
-.hero{padding:30px 32px;margin-bottom:26px;background:linear-gradient(135deg,#eaf3fd,#fff 70%);position:relative}
-.hero h2{font-size:28px;font-weight:800;letter-spacing:-.01em}
-.hero p{margin:6px 0 20px;color:var(--muted)}
-.hero .x{position:absolute;right:14px;top:14px}
-.steps3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-@media (max-width:760px){.steps3{grid-template-columns:1fr}}
-.steps3>div{background:#fff;border-radius:18px;padding:16px;display:flex;gap:14px;align-items:flex-start}
-.steps3 .n{width:44px;height:44px;border-radius:14px;background:var(--brand-l);color:var(--brand-d);display:grid;place-items:center;flex:none}
-.steps3 b{display:block}
-.homehead{display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap}
-.homehead h2{font-size:26px;font-weight:800}
-.filters{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
-.filters button{border:0;background:transparent;border-radius:99px;padding:6px 16px;font-weight:700;color:var(--muted);min-height:38px}
-.filters button[aria-pressed=true]{background:var(--ink);color:#fff}
-.fitem{padding:20px 24px;margin-bottom:12px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
-.fitem .ico{width:52px;height:52px;border-radius:16px;background:var(--brand-l);color:var(--brand-d);display:grid;place-items:center;flex:none}
-.fitem .info{flex:1;min-width:220px}
-.fitem .nm{font-size:19px;font-weight:800;line-height:1.35;background:none;border:0;padding:0;text-align:left;color:var(--ink)}
-.fitem .nm:hover{color:var(--brand-d)}
-.meta{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:14.5px;margin-top:4px;align-items:center}
-.meta span{display:inline-flex;gap:5px;align-items:center}
-.empty{padding:48px 20px;text-align:center;color:var(--muted)}
-.empty .ico{width:68px;height:68px;border-radius:22px;background:var(--brand-l);color:var(--brand-d);display:grid;place-items:center;margin:0 auto 14px}
-/* 步驟列 */
-.stepper{display:flex;align-items:center;gap:0;margin:0 auto 26px;max-width:760px}
-.stepper button{display:flex;align-items:center;gap:10px;background:none;border:0;padding:6px 4px;color:var(--muted);font-weight:700;text-align:left}
-.stepper .c{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--panel);border:2px solid var(--line);font-weight:800;flex:none}
-.stepper .on{color:var(--ink)}.stepper .on .c{background:var(--brand);border-color:var(--brand);color:#fff}
-.stepper .done .c{background:var(--ok);border-color:var(--ok);color:#fff}.stepper .done{color:var(--ink)}
-.stepper .ln{flex:1;height:2px;background:var(--line);margin:0 8px;min-width:16px}
-.stepper small{display:block;font-weight:500;color:var(--muted);font-size:13px}
-@media (max-width:640px){.stepper small{display:none}.stepper button span.t{display:none}.stepper .on span.t{display:inline}}
-.panel{padding:26px 30px;margin-bottom:16px}
-.panel h3{font-size:22px;font-weight:800;margin-bottom:4px}
-.panel .lead{color:var(--muted);margin:0 0 18px}
-.fld label.lb,label.lb{display:block;font-weight:700;margin:16px 0 6px}
-.lb small{font-weight:500;color:var(--muted)}
-input[type=text],input[type=date],input[type=tel],input[type=number],textarea,select{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:11px 14px;background:#fff;min-height:48px}
-input:focus,textarea:focus,select:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0 4px var(--brand-l)}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
-@media (max-width:760px){.grid2{grid-template-columns:1fr}}
-.hint-t{font-size:14.5px;color:var(--muted);margin-top:5px}
-/* 開關 */
-.switch{display:flex;gap:14px;align-items:flex-start;cursor:pointer;padding:14px 16px;border-radius:16px;background:var(--bg);margin-top:16px}
+/* ===== 頂欄(同台北通 App 的漸層) ===== */
+.appbar{background:var(--grad);color:#fff;position:sticky;top:0;z-index:40;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.appbar .r1{display:flex;align-items:center;gap:10px;padding:10px 16px;min-height:64px}
+.hico{width:44px;height:44px;border-radius:50%;border:0;background:transparent;color:#fff;display:grid;place-items:center;flex:none}
+.hico:hover{background:rgba(255,255,255,.2)}
+.hico:disabled{opacity:.4;cursor:default;background:transparent}
+.ftitle{background:transparent;border:2px solid transparent;border-radius:8px;color:#fff;font-size:19px;font-weight:700;padding:4px 10px;min-width:0;width:min(420px,40vw);text-overflow:ellipsis}
+.ftitle:hover{border-color:rgba(255,255,255,.5)}
+.ftitle:focus{background:#fff;color:var(--ink);outline:none;border-color:#fff}
+.ftitle::placeholder{color:rgba(255,255,255,.8)}
+.savetxt{font-size:13.5px;opacity:.95;display:flex;gap:5px;align-items:center;white-space:nowrap}
+.hbtn{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 20px;border-radius:999px;border:2px solid #fff;background:#fff;color:var(--p700);font-weight:700;white-space:nowrap}
+.hbtn:hover{background:var(--p50)}
+.hbtn.amber{background:var(--s500);border-color:var(--s500);color:var(--s900)}
+.hbtn.amber:hover{background:var(--s400);border-color:var(--s400)}
+.hbtn.ghost{background:transparent;color:#fff}
+.hbtn.ghost:hover{background:rgba(255,255,255,.18)}
+.tabs{display:flex;justify-content:center;gap:4px}
+.tabs button{background:none;border:0;color:rgba(255,255,255,.88);font-weight:700;padding:12px 26px;border-bottom:4px solid transparent;font-size:16px;display:flex;gap:8px;align-items:center}
+.tabs button:hover{background:rgba(255,255,255,.12)}
+.tabs button[aria-selected=true]{color:#fff;border-bottom-color:#fff}
+.tabs .cnt{background:rgba(255,255,255,.28);border-radius:99px;padding:0 9px;font-size:13px}
+.searchbox{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.95);color:var(--ink);border-radius:999px;padding:0 16px;min-height:44px;flex:1;max-width:620px}
+.searchbox input{border:0!important;background:transparent;flex:1;outline:none;min-width:0;box-shadow:none!important;padding:0!important;min-height:0!important}
+.logo{display:flex;gap:10px;align-items:center;font-weight:800;font-size:19px;background:none;border:0;color:#fff;padding:0 6px}
+.logo i{width:36px;height:36px;border-radius:10px;background:#fff;color:var(--p600);display:grid;place-items:center}
+@media (max-width:760px){.logo span{display:none}.ftitle{width:34vw}.hbtn .tx{display:none}.hbtn{padding:0 12px}.savetxt{display:none}.tabs button{padding:10px 14px}}
+/* ===== 通用元件 ===== */
+.btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 20px;border-radius:999px;border:1.5px solid var(--p600);background:#fff;color:var(--p600);font-weight:700;white-space:nowrap}
+.btn:hover{background:var(--p50)}
+.btn.primary{background:var(--p600);color:#fff}
+.btn.primary:hover{background:var(--p700)}
+.btn.alarm{background:var(--red500);border-color:var(--red500);color:#fff}.btn.alarm:hover{background:var(--red600)}
+.btn.sm{min-height:36px;padding:0 14px;font-size:14.5px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.iconbtn{width:42px;height:42px;border-radius:50%;border:0;background:transparent;color:var(--g600);display:grid;place-items:center;flex:none}
+.iconbtn:hover{background:var(--g50);color:var(--ink)}
+.iconbtn.dg:hover{background:var(--red50);color:var(--red600)}
+.iconbtn:disabled{opacity:.35;cursor:default}
+.card{background:var(--card);border-radius:12px;box-shadow:var(--shadow)}
+.tag{display:inline-flex;gap:5px;align-items:center;border-radius:99px;padding:1px 10px;font-size:13px;font-weight:700;white-space:nowrap}
+.tag.draft{background:var(--g100);color:var(--g700)}.tag.open{background:var(--ok-l);color:#1d6b40}.tag.closed{background:var(--red50);color:var(--red600)}
+.switch{display:inline-flex;gap:12px;align-items:center;cursor:pointer;user-select:none}
 .switch input{position:absolute;opacity:0;width:1px;height:1px}
-.switch .sw{width:52px;height:30px;border-radius:99px;background:#b9bec3;position:relative;flex:none;transition:.2s;margin-top:2px}
-.switch .sw::after{content:"";position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
-.switch input:checked+.sw{background:var(--brand)}
-.switch input:checked+.sw::after{left:25px}
-.switch input:focus-visible+.sw{outline:3px solid var(--brand);outline-offset:2px}
-.switch b{display:block}
-.switch.compact{padding:0;background:none;margin-top:14px;align-items:center}
-/* 題目編輯 */
-.two{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start}
-@media (max-width:1020px){.two{grid-template-columns:1fr}}
-.sticky{position:sticky;top:78px}
-.qcard{background:var(--panel);border-radius:20px;margin-bottom:12px;border:2px solid transparent;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-.qcard.sel{border-color:var(--brand);box-shadow:0 6px 24px rgba(10,110,209,.12)}
-.qcard.dragover{outline:3px dashed var(--brand)}
-.qh{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;border-radius:18px}
-.qh:hover{background:var(--brand-l)}
-.qh .grip{color:#9aa0a6;cursor:grab}
-.qh .num{width:34px;height:34px;border-radius:50%;background:var(--brand-l);color:var(--brand-d);display:grid;place-items:center;font-weight:800;flex:none}
-.qh .qtt{flex:1;min-width:0}
-.qh .qt{font-weight:800;font-size:18px;overflow:hidden;text-overflow:ellipsis}
-.qh .qm{font-size:14px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.warnchip{display:inline-flex;gap:4px;align-items:center;background:var(--warn-l);color:var(--warn);border-radius:99px;padding:2px 10px;font-size:13px;font-weight:700}
-.qed{padding:4px 20px 20px 62px}
-@media (max-width:640px){.qed{padding-left:20px}}
-.optr{display:flex;gap:8px;margin-bottom:8px;align-items:center}
-.warn{background:var(--warn-l);color:var(--warn);border-radius:14px;padding:10px 14px;margin-top:14px;display:flex;gap:10px;align-items:flex-start;font-size:15px}
-.warn+.warn{margin-top:8px}
-.good{display:flex;gap:8px;align-items:center;color:var(--ok);margin-top:14px;font-weight:600;font-size:15px}
-.qtool{display:flex;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line2);flex-wrap:wrap}
-.addbig{width:100%;min-height:68px;border:2px dashed var(--brand-m);background:var(--brand-l);color:var(--brand-d);border-radius:20px;font-weight:800;font-size:18px;display:flex;gap:10px;align-items:center;justify-content:center}
-.addbig:hover{background:var(--brand-m)}
-.quick{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 20px}
-.chipbtn{display:inline-flex;gap:6px;align-items:center;border:1.5px solid var(--line);background:#fff;border-radius:99px;padding:6px 14px;font-weight:700;min-height:40px}
-.chipbtn:hover{border-color:var(--brand);background:var(--brand-l)}
-/* 題型選擇 */
-.picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin:8px 0 18px}
-.picker button{display:flex;gap:12px;align-items:flex-start;text-align:left;border:1.5px solid var(--line2);background:#fff;border-radius:16px;padding:12px 14px}
-.picker button:hover{border-color:var(--brand);background:var(--brand-l)}
-.picker .pi{width:40px;height:40px;border-radius:12px;background:var(--brand-l);color:var(--brand-d);display:grid;place-items:center;flex:none}
-.picker b{display:block;line-height:1.3}
-.picker span.d{font-size:13.5px;color:var(--muted);line-height:1.4;display:block}
-/* 手機預覽 */
-.pvlabel{font-weight:800;margin:0 0 10px;display:flex;gap:8px;align-items:center;color:var(--muted)}
-.phone{width:100%;max-width:370px;margin:0 auto;border:9px solid #1f2a33;border-radius:36px;background:#fff;color:#14201f;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.18)}
-.phone .bar{background:var(--brand);color:#fff;padding:14px 16px;font-weight:800}
-.phone .body{padding:18px;min-height:360px;display:flex;flex-direction:column;gap:14px}
-.phone.tall .body{min-height:520px}
-.prog{height:8px;background:#dfe8f2;border-radius:99px;overflow:hidden}
-.prog i{display:block;height:100%;background:var(--brand)}
+.switch .sw{width:44px;height:24px;border-radius:99px;background:var(--g300);position:relative;flex:none;transition:.15s}
+.switch .sw::after{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.switch input:checked+.sw{background:var(--p600)}.switch input:checked+.sw::after{left:23px}
+.switch input:focus-visible+.sw{outline:3px solid var(--blue);outline-offset:2px}
+input[type=text],input[type=date],input[type=tel],input[type=number],textarea,select{width:100%;border:1.5px solid var(--g200);border-radius:8px;padding:10px 12px;background:#fff;min-height:44px}
+input:focus,textarea:focus,select:focus{border-color:var(--p600);outline:none;box-shadow:0 0 0 3px var(--p100)}
+.lb{display:block;font-weight:700;margin:0 0 6px}
+.empty{padding:48px 20px;text-align:center;color:var(--muted)}
+.empty .ico{width:72px;height:72px;border-radius:50%;background:var(--p100);color:var(--p600);display:grid;place-items:center;margin:0 auto 14px}
+/* ===== 首頁 ===== */
+.band{background:#fff;border-bottom:1px solid var(--g100)}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+.band .wrap{padding-top:18px;padding-bottom:22px}
+.band h2{font-size:15px;font-weight:700;color:var(--g700);margin-bottom:12px}
+.tplrow{display:flex;gap:16px;overflow-x:auto;padding:4px 2px 8px}
+.tplc{width:172px;flex:none;background:none;border:0;padding:0;text-align:left}
+.tplc .th{height:112px;border-radius:10px;border:1.5px solid var(--g200);background:var(--p50);display:grid;place-items:center;color:var(--p600);transition:.12s}
+.tplc:hover .th,.tplc:focus-visible .th{border-color:var(--p600);box-shadow:0 0 0 3px var(--p100)}
+.tplc b{display:block;margin-top:8px;font-size:15px;line-height:1.35}
+.tplc span{font-size:13px;color:var(--muted);line-height:1.35;display:block}
+.homehead{display:flex;align-items:center;gap:10px;margin:22px 0 14px;flex-wrap:wrap}
+.homehead h2{font-size:17px;font-weight:700}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.pills button{border:1.5px solid var(--g200);background:#fff;border-radius:99px;padding:3px 14px;min-height:34px;font-weight:700;color:var(--g700);font-size:14.5px}
+.pills button[aria-pressed=true]{background:var(--p600);border-color:var(--p600);color:#fff}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;padding-bottom:110px}
+.fc{position:relative;border:1.5px solid transparent;cursor:pointer}
+.fc:hover{border-color:var(--p300)}
+.fc .th{height:128px;background:var(--p50);padding:16px 18px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--g100);border-radius:12px 12px 0 0}
+.fc .th i{display:block;height:8px;border-radius:4px;background:var(--p200)}
+.fc .th i.t{height:12px;width:62%;background:var(--p500)}
+.fc .bd{padding:12px 14px 12px 16px;display:flex;gap:6px;align-items:flex-start}
+.fc .nm{font-weight:700;line-height:1.4;display:block;word-break:break-word}
+.fc .mt{font-size:13px;color:var(--muted);margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.fc .more{margin:-4px -6px 0 0}
+.pop{position:absolute;z-index:50;background:#fff;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.2);padding:6px 0;min-width:180px}
+.pop button{display:flex;gap:12px;align-items:center;width:100%;background:none;border:0;padding:10px 16px;text-align:left;font-size:15px;min-height:44px}
+.pop button:hover,.pop button[aria-selected=true]{background:var(--p50)}
+.pop button.dg{color:var(--red600)}
+.fab{position:fixed;right:28px;bottom:28px;height:60px;padding:0 24px 0 18px;border-radius:30px;border:0;background:var(--s500);color:var(--s900);font-weight:800;font-size:17px;display:flex;gap:8px;align-items:center;box-shadow:0 6px 18px rgba(0,0,0,.28);z-index:30}
+.fab:hover{background:var(--s400)}
+.tip{display:flex;gap:12px;align-items:center;background:var(--s100);color:var(--s800);border-radius:12px;padding:12px 16px;margin-top:20px}
+/* ===== 編輯器 ===== */
+.ed{max-width:800px;margin:0 auto;padding:20px 16px 160px;position:relative}
+.hcard{border-top:10px solid var(--p500);padding:22px 24px 20px;margin-bottom:14px}
+.hcard .tt{width:100%;border:0;border-bottom:1.5px solid transparent;background:transparent;font-size:30px;font-weight:700;padding:4px 0;line-height:1.3;border-radius:0;min-height:0}
+.hcard .tt:hover{border-bottom-color:var(--g200)}.hcard .tt:focus{border-bottom:2px solid var(--p600);box-shadow:none}
+.hcard .ds{border:0;border-bottom:1.5px solid transparent;border-radius:0;padding:6px 0;resize:none;min-height:0;box-shadow:none!important;color:var(--g700)}
+.hcard .ds:hover{border-bottom-color:var(--g200)}.hcard .ds:focus{border-bottom:2px solid var(--p600)}
+.qc{position:relative;background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:22px 24px;margin-bottom:12px;border-left:6px solid transparent;cursor:pointer}
+.qc.dragover{outline:3px dashed var(--p500)}
+.qc.act{border-left-color:var(--p600);cursor:default;padding-top:30px;box-shadow:0 2px 6px rgba(0,0,0,.12),0 8px 24px rgba(0,0,0,.08)}
+.qc .grab{position:absolute;top:4px;left:50%;transform:translateX(-50%);color:var(--g300);cursor:grab;display:none}
+.qc.act .grab,.qc:hover .grab{display:block}
+.qv .q{font-size:17px;font-weight:600;line-height:1.5}.qv .q .rq{color:var(--red600)}
+.qv .h{font-size:14px;color:var(--muted);margin-top:2px}
+.qv .m{margin-top:14px;color:var(--g500);display:flex;flex-direction:column;gap:10px}
+.qv .m div{display:flex;gap:12px;align-items:center}
+.ul{border-bottom:1.5px dotted var(--g300);padding:4px 0;width:60%;min-width:180px;color:var(--g500)}
+.qtop{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.qtop .qin{flex:1;min-width:220px;background:var(--g50);border:0;border-bottom:2px solid var(--g300);border-radius:6px 6px 0 0;font-size:17px;padding:12px 14px;min-height:52px}
+.qtop .qin:focus{border-bottom-color:var(--p600);box-shadow:none;background:var(--p50)}
+.typewrap{position:relative;width:230px}
+.typebtn{width:100%;display:flex;gap:10px;align-items:center;border:1.5px solid var(--g200);background:#fff;border-radius:8px;min-height:52px;padding:0 12px;font-weight:600}
+.typewrap .pop{top:56px;left:0;right:0;max-height:380px;overflow:auto}
+.hin{margin-top:8px;border:0;border-bottom:1.5px solid var(--g200);border-radius:0;padding:8px 2px;font-size:14.5px;min-height:0;box-shadow:none!important;color:var(--g700)}
+.hin:focus{border-bottom:2px solid var(--p600)}
+.opts{margin-top:14px}
+.orow{display:flex;gap:10px;align-items:center;margin-bottom:2px}
+.orow .oi{color:var(--g400);width:24px;text-align:center;flex:none}
+.orow input{border:0;border-bottom:1.5px solid transparent;border-radius:0;padding:8px 2px;min-height:44px;box-shadow:none!important}
+.orow input:hover{border-bottom-color:var(--g200)}.orow input:focus{border-bottom:2px solid var(--p600)}
+.addopt{background:none;border:0;color:var(--g600);display:flex;gap:10px;align-items:center;padding:8px 0;min-height:44px;font-weight:600}
+.addopt:hover{color:var(--p600)}
+.qfoot{display:flex;gap:4px;align-items:center;border-top:1px solid var(--g100);margin-top:18px;padding-top:12px;justify-content:flex-end;flex-wrap:wrap}
+.qfoot .dv{width:1px;height:28px;background:var(--g200);margin:0 12px}
+.tips{margin-top:14px}
+.tipc{background:var(--s50);border:1px solid var(--s100);color:var(--s800);border-radius:10px;padding:10px 14px;display:flex;gap:10px;align-items:flex-start;font-size:14.5px}
+.tipc+.tipc{margin-top:8px}
+.good{display:flex;gap:8px;align-items:center;color:#1d6b40;font-size:14px;font-weight:600}
+.chip{display:inline-flex;gap:4px;align-items:center;background:var(--s100);color:var(--s800);border-radius:99px;padding:0 10px;font-size:12.5px;font-weight:700;margin-left:8px;vertical-align:middle}
+.ftool{position:absolute;left:calc(100% + 14px);top:0;background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:6px;display:flex;flex-direction:column;gap:2px;z-index:5}
+.ftool .iconbtn{color:var(--g700)}
+.ftool .pop{left:54px;top:0}
+@media (max-width:1000px){.ftool{position:fixed;left:auto;right:16px;bottom:16px;top:auto;flex-direction:row;box-shadow:0 6px 18px rgba(0,0,0,.28);padding:6px 10px;z-index:35}.ftool .pop{left:auto;right:0;top:auto;bottom:54px}}
+.firstq{padding:30px 20px;text-align:center}
+.quick{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px}
+.chipbtn{display:inline-flex;gap:8px;align-items:center;border:1.5px solid var(--g200);background:#fff;border-radius:99px;padding:0 16px;min-height:42px;font-weight:600}
+.chipbtn:hover{border-color:var(--p600);background:var(--p50)}
+/* 設定 */
+.sc{padding:22px 24px;margin-bottom:14px}
+.sc h3{font-size:18px;margin-bottom:4px}.sc .lead{color:var(--muted);margin-bottom:16px;font-size:14.5px}
+.srow{display:flex;gap:16px;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--g100)}
+.srow .d{color:var(--muted);font-size:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:640px){.grid2{grid-template-columns:1fr}}
+/* 回覆 */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+.stat{padding:16px 20px}.stat b{display:block;font-size:30px;line-height:1.2;color:var(--p700)}
+.sub{display:flex;gap:4px;justify-content:center;margin-bottom:14px}
+.sub button{border:0;background:none;padding:8px 22px;font-weight:700;color:var(--g600);border-radius:99px;min-height:40px}
+.sub button[aria-selected=true]{background:var(--p100);color:var(--p700)}
+.bar{display:flex;align-items:center;gap:12px;margin:8px 0}
+.bar .nm{width:34%;min-width:110px;font-size:15px;word-break:break-word}
+.bar .tr{flex:1;height:22px;background:var(--g50);border-radius:6px;overflow:hidden}
+.bar .tr i{display:block;height:100%;background:var(--p500);border-radius:6px}
+.bar .v{width:96px;text-align:right;font-size:14px;color:var(--g700);white-space:nowrap}
+.ans{background:var(--g50);border-radius:8px;padding:8px 12px;margin:6px 0;font-size:15px}
+.tablewrap{overflow:auto;max-height:64vh}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--g100);font-size:15px;white-space:nowrap}
+th{background:#fff;position:sticky;top:0;color:var(--g600);font-size:14px}
+/* ===== 預覽 / 手機 ===== */
+.pvlayer{position:fixed;inset:0;z-index:80;background:var(--bg);display:flex;flex-direction:column}
+.pvlayer .appbar{position:static}
+.pvbody{flex:1;overflow:auto;padding:22px 16px;display:flex;gap:28px;justify-content:center;align-items:flex-start;flex-wrap:wrap}
+.phone{width:100%;max-width:380px;border:9px solid var(--g800);border-radius:38px;background:#fff;color:var(--g900);overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.22)}
+.phone .bar0{background:var(--grad);color:#fff;padding:16px;font-weight:800}
+.phone .bd{padding:18px;min-height:540px;display:flex;flex-direction:column;gap:14px}
+.prog{height:8px;background:var(--p100);border-radius:99px;overflow:hidden}.prog i{display:block;height:100%;background:var(--p600)}
 .qtx{font-weight:800;line-height:1.4}
-.phint{background:#e8f1fb;border-radius:12px;padding:10px 12px;color:#0d3d70;display:flex;gap:8px;align-items:flex-start}
-.phone input[type=text],.phone input[type=date],.phone input[type=tel],.phone input[type=number],.phone textarea,.phone select{border:2px solid #9bb3cc;font-size:1em;padding:12px;border-radius:12px}
-.choice{display:flex;gap:12px;align-items:center;border:2px solid #9bb3cc;border-radius:14px;padding:14px;margin-bottom:10px;background:#fff;font-size:1em}
+.phint{background:var(--p50);border-radius:12px;padding:10px 12px;color:var(--p800);display:flex;gap:8px;align-items:flex-start}
+.phone input[type=text],.phone input[type=date],.phone input[type=tel],.phone input[type=number],.phone textarea,.phone select{border:2px solid var(--g300);font-size:1em;padding:12px;border-radius:12px}
+.choice{display:flex;gap:12px;align-items:center;border:2px solid var(--g300);border-radius:14px;padding:14px;margin-bottom:10px;background:#fff;font-size:1em}
 .choice input{width:26px;height:26px;flex:none}
 .pnav{margin-top:auto;display:flex;gap:10px}
-.pnav button{flex:1;min-height:56px;border-radius:14px;border:2px solid var(--brand);font-weight:800;font-size:1em;background:#fff;color:var(--brand-d)}
-.pnav button.p{background:var(--brand);color:#fff}
-.pnav button:disabled{opacity:.4}
-.speak{align-self:flex-start;display:inline-flex;gap:8px;align-items:center;border:2px solid var(--brand);border-radius:99px;background:#fff;color:var(--brand-d);padding:6px 16px;font-weight:800;font-size:.8em}
-.seg{display:inline-flex}
-.seg button{border:1.5px solid var(--line);background:#fff;padding:0 18px;min-height:42px;font-weight:700;margin-right:-1.5px}
+.pnav button{flex:1;min-height:56px;border-radius:14px;border:2px solid var(--p600);font-weight:800;font-size:1em;background:#fff;color:var(--p700)}
+.pnav button.p{background:var(--p600);color:#fff}.pnav button:disabled{opacity:.4}
+.speak{align-self:flex-start;display:inline-flex;gap:8px;align-items:center;border:2px solid var(--p600);border-radius:99px;background:#fff;color:var(--p700);padding:6px 16px;font-weight:800;font-size:.8em}
+.seg{display:inline-flex}.seg button{border:1.5px solid var(--g300);background:#fff;padding:0 18px;min-height:42px;font-weight:700;margin-right:-1.5px}
 .seg button:first-child{border-radius:99px 0 0 99px}.seg button:last-child{border-radius:0 99px 99px 0;margin-right:0}
-.seg button[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:#fff}
-.check{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--line2)}
-.check:last-child{border:0}
-.check .ci{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;flex:none}
-.ci.ok{background:var(--ok-l);color:var(--ok)}.ci.bad{background:var(--danger-l);color:var(--danger)}.ci.warn{background:var(--warn-l);color:var(--warn)}
-.footnav{position:fixed;left:0;right:0;bottom:0;background:rgba(251,251,253,.9);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-top:1px solid var(--line2);padding:12px 24px;display:flex;gap:12px;justify-content:center;z-index:25}
-.footnav .in{width:100%;max-width:1180px;display:flex;gap:12px;align-items:center}
-.saved{display:inline-flex;gap:6px;align-items:center;color:var(--ok);font-size:14.5px;font-weight:600}
-/* 回覆 */
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
-.stat{padding:18px 20px}.stat b{font-size:30px;display:block;line-height:1.2}
-.tablewrap{overflow:auto;max-height:60vh}
-table{width:100%;border-collapse:collapse}
-th,td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--line2);font-size:15.5px}
-th{color:var(--muted);background:#fff;position:sticky;top:0;font-size:14px;white-space:nowrap}
-/* 彈窗與提示 */
-dialog{border:0;border-radius:24px;background:#fff;color:var(--ink);max-width:720px;width:94%;padding:26px 28px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.seg button[aria-pressed=true]{background:var(--p600);border-color:var(--p600);color:#fff}
+/* 彈窗、提示 */
+dialog{border:0;border-radius:16px;background:#fff;color:var(--ink);max-width:640px;width:94%;padding:26px 28px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 dialog::backdrop{background:rgba(0,0,0,.4)}
-dialog h3{font-size:22px;font-weight:800;margin-bottom:6px}
-.toast{position:fixed;bottom:84px;left:50%;transform:translateX(-50%) translateY(20px);background:#1f2a33;color:#fff;padding:10px 12px 10px 22px;border-radius:99px;opacity:0;pointer-events:none;transition:.25s;z-index:60;display:flex;gap:14px;align-items:center;max-width:92vw}
-.toast.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
-.toast button{background:#fff;color:#1f2a33;border:0;border-radius:99px;padding:4px 16px;font-weight:800;min-height:34px}
+dialog h3{font-size:21px;margin-bottom:6px}
+.copybox{display:flex;gap:8px;background:var(--g50);border-radius:10px;padding:6px 6px 6px 14px;align-items:center;margin:12px 0}
+.copybox code{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.toast{position:fixed;bottom:28px;left:24px;background:var(--g800);color:#fff;padding:8px 8px 8px 20px;border-radius:8px;opacity:0;pointer-events:none;transition:.2s;z-index:100;display:flex;gap:14px;align-items:center;max-width:92vw}
+.toast.show{opacity:1;pointer-events:auto}
+.toast button{background:none;border:0;color:var(--p300);font-weight:800;padding:8px 14px;min-height:40px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
-<header class="top" id="top"></header>
-<main id="app"></main>
-<div id="foot"></div>
+<div id="root"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <dialog id="dlg"></dialog>
 
 <script>
-const ICONS={"align-left": "<path d=\"M15 12H3\" /> <path d=\"M17 18H3\" /> <path d=\"M21 6H3\" />", "arrow-down": "<path d=\"M12 5v14\" /> <path d=\"m19 12-7 7-7-7\" />", "arrow-left": "<path d=\"m12 19-7-7 7-7\" /> <path d=\"M19 12H5\" />", "arrow-up": "<path d=\"m5 12 7-7 7 7\" /> <path d=\"M12 19V5\" />", "building-2": "<path d=\"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z\" /> <path d=\"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2\" /> <path d=\"M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2\" /> <path d=\"M10 6h4\" /> <path d=\"M10 10h4\" /> <path d=\"M10 14h4\" /> <path d=\"M10 18h4\" />", "calendar": "<path d=\"M8 2v4\" /> <path d=\"M16 2v4\" /> <rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\" /> <path d=\"M3 10h18\" />", "check": "<path d=\"M20 6 9 17l-5-5\" />", "chevron-down": "<path d=\"m6 9 6 6 6-6\" />", "chevron-right": "<path d=\"m9 18 6-6-6-6\" />", "circle-check": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"m9 12 2 2 4-4\" />", "circle-dot": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <circle cx=\"12\" cy=\"12\" r=\"1\" />", "circle-help": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3\" /> <path d=\"M12 17h.01\" />", "clipboard-list": "<rect width=\"8\" height=\"4\" x=\"8\" y=\"2\" rx=\"1\" ry=\"1\" /> <path d=\"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2\" /> <path d=\"M12 11h4\" /> <path d=\"M12 16h4\" /> <path d=\"M8 11h.01\" /> <path d=\"M8 16h.01\" />", "clock": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <polyline points=\"12 6 12 12 16 14\" />", "copy": "<rect width=\"14\" height=\"14\" x=\"8\" y=\"8\" rx=\"2\" ry=\"2\" /> <path d=\"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2\" />", "download": "<path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\" /> <polyline points=\"7 10 12 15 17 10\" /> <line x1=\"12\" x2=\"12\" y1=\"15\" y2=\"3\" />", "eye": "<path d=\"M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0\" /> <circle cx=\"12\" cy=\"12\" r=\"3\" />", "file-text": "<path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\" /> <path d=\"M14 2v4a2 2 0 0 0 2 2h4\" /> <path d=\"M10 9H8\" /> <path d=\"M16 13H8\" /> <path d=\"M16 17H8\" />", "flag-off": "<path d=\"M8 2c3 0 5 2 8 2s4-1 4-1v11\" /> <path d=\"M4 22V4\" /> <path d=\"M4 15s1-1 4-1 5 2 8 2\" /> <line x1=\"2\" x2=\"22\" y1=\"2\" y2=\"22\" />", "grip-vertical": "<circle cx=\"9\" cy=\"12\" r=\"1\" /> <circle cx=\"9\" cy=\"5\" r=\"1\" /> <circle cx=\"9\" cy=\"19\" r=\"1\" /> <circle cx=\"15\" cy=\"12\" r=\"1\" /> <circle cx=\"15\" cy=\"5\" r=\"1\" /> <circle cx=\"15\" cy=\"19\" r=\"1\" />", "hand-helping": "<path d=\"M11 12h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 14\" /> <path d=\"m7 18 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9\" /> <path d=\"m2 13 6 6\" />", "hash": "<line x1=\"4\" x2=\"20\" y1=\"9\" y2=\"9\" /> <line x1=\"4\" x2=\"20\" y1=\"15\" y2=\"15\" /> <line x1=\"10\" x2=\"8\" y1=\"3\" y2=\"21\" /> <line x1=\"16\" x2=\"14\" y1=\"3\" y2=\"21\" />", "hourglass": "<path d=\"M5 22h14\" /> <path d=\"M5 2h14\" /> <path d=\"M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22\" /> <path d=\"M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2\" />", "id-card": "<path d=\"M16 10h2\" /> <path d=\"M16 14h2\" /> <path d=\"M6.17 15a3 3 0 0 1 5.66 0\" /> <circle cx=\"9\" cy=\"11\" r=\"2\" /> <rect x=\"2\" y=\"5\" width=\"20\" height=\"14\" rx=\"2\" />", "inbox": "<polyline points=\"22 12 16 12 14 15 10 15 8 12 2 12\" /> <path d=\"M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z\" />", "info": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M12 16v-4\" /> <path d=\"M12 8h.01\" />", "layout-template": "<rect width=\"18\" height=\"7\" x=\"3\" y=\"3\" rx=\"1\" /> <rect width=\"9\" height=\"7\" x=\"3\" y=\"14\" rx=\"1\" /> <rect width=\"5\" height=\"7\" x=\"16\" y=\"14\" rx=\"1\" />", "lightbulb": "<path d=\"M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5\" /> <path d=\"M9 18h6\" /> <path d=\"M10 22h4\" />", "list": "<path d=\"M3 12h.01\" /> <path d=\"M3 18h.01\" /> <path d=\"M3 6h.01\" /> <path d=\"M8 12h13\" /> <path d=\"M8 18h13\" /> <path d=\"M8 6h13\" />", "lock": "<rect width=\"18\" height=\"11\" x=\"3\" y=\"11\" rx=\"2\" ry=\"2\" /> <path d=\"M7 11V7a5 5 0 0 1 10 0v4\" />", "map-pin": "<path d=\"M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0\" /> <circle cx=\"12\" cy=\"10\" r=\"3\" />", "message-square-text": "<path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\" /> <path d=\"M13 8H7\" /> <path d=\"M17 12H7\" />", "paperclip": "<path d=\"M13.234 20.252 21 12.3\" /> <path d=\"m16 6-8.414 8.586a2 2 0 0 0 0 2.828 2 2 0 0 0 2.828 0l8.414-8.586a4 4 0 0 0 0-5.656 4 4 0 0 0-5.656 0l-8.415 8.585a6 6 0 1 0 8.486 8.486\" />", "pencil": "<path d=\"M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z\" /> <path d=\"m15 5 4 4\" />", "phone": "<path d=\"M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z\" />", "plus": "<path d=\"M5 12h14\" /> <path d=\"M12 5v14\" />", "rotate-ccw": "<path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\" /> <path d=\"M3 3v5h5\" />", "send": "<path d=\"M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z\" /> <path d=\"m21.854 2.147-10.94 10.939\" />", "shield-check": "<path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\" /> <path d=\"m9 12 2 2 4-4\" />", "sparkles": "<path d=\"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z\" /> <path d=\"M20 3v4\" /> <path d=\"M22 5h-4\" /> <path d=\"M4 17v2\" /> <path d=\"M5 18H3\" />", "square-check": "<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" /> <path d=\"m9 12 2 2 4-4\" />", "square-pen": "<path d=\"M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7\" /> <path d=\"M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z\" />", "trash-2": "<path d=\"M3 6h18\" /> <path d=\"M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6\" /> <path d=\"M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2\" /> <line x1=\"10\" x2=\"10\" y1=\"11\" y2=\"17\" /> <line x1=\"14\" x2=\"14\" y1=\"11\" y2=\"17\" />", "triangle-alert": "<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\" /> <path d=\"M12 9v4\" /> <path d=\"M12 17h.01\" />", "type": "<polyline points=\"4 7 4 4 20 4 20 7\" /> <line x1=\"9\" x2=\"15\" y1=\"20\" y2=\"20\" /> <line x1=\"12\" x2=\"12\" y1=\"4\" y2=\"20\" />", "undo-2": "<path d=\"M9 14 4 9l5-5\" /> <path d=\"M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11\" />", "user": "<path d=\"M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2\" /> <circle cx=\"12\" cy=\"7\" r=\"4\" />", "users": "<path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\" /> <circle cx=\"9\" cy=\"7\" r=\"4\" /> <path d=\"M22 21v-2a4 4 0 0 0-3-3.87\" /> <path d=\"M16 3.13a4 4 0 0 1 0 7.75\" />", "volume-2": "<path d=\"M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z\" /> <path d=\"M16 9a5 5 0 0 1 0 6\" /> <path d=\"M19.364 18.364a9 9 0 0 0 0-12.728\" />", "x": "<path d=\"M18 6 6 18\" /> <path d=\"m6 6 12 12\" />"};  /* 圖示來自 Lucide (https://lucide.dev),ISC 授權 */
-const ic=(n,s=20)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]||''}</svg>`;
-
-/* ===== 題型(用日常說法描述) ===== */
-const TYPES={
-  text:{n:'短答',d:'請民眾打一小段字,例如姓名',ic:'type'},
-  textarea:{n:'詳細說明',d:'請民眾寫比較長的內容',ic:'align-left'},
-  radio:{n:'單選',d:'從幾個選項中選一個',ic:'circle-dot'},
-  checkbox:{n:'多選',d:'可以同時勾選好幾個',ic:'square-check'},
-  select:{n:'下拉選單',d:'選項很多時,收在選單裡',ic:'list'},
-  date:{n:'日期',d:'讓民眾點選日期',ic:'calendar'},
-  number:{n:'數字',d:'只能輸入數字,例如人數',ic:'hash'},
-  phone:{n:'電話號碼',d:'自動檢查號碼格式',ic:'phone'},
-  idno:{n:'身分證字號',d:'自動檢查格式,畫面上遮罩',ic:'id-card'},
-  address:{n:'地址',d:'請民眾填寫住址或地點',ic:'map-pin'},
-  file:{n:'上傳照片或檔案',d:'讓民眾附上照片或文件',ic:'paperclip'},
-  consent:{n:'同意聲明',d:'請民眾勾選「我同意」',ic:'shield-check'}
-};
-const QUICK=[
-  ['text','你的姓名','請填身分證上的名字','user'],
-  ['phone','你的聯絡電話','方便我們打給你確認','phone'],
-  ['idno','你的身分證字號','英文字母加 9 個數字','id-card'],
-  ['address','你住在哪裡','請填目前的住址','map-pin'],
-  ['date','你的出生日期','','calendar']
-];
-const JARGON={'茲':'','俾':'讓','惟':'但是','檢附':'附上','敬請':'請','前開':'上面的','核定':'審查通過','請領':'領取','逕行':'直接','戶籍所在地':'你登記的住址','具結':'保證','屆時':'到時候','備齊':'準備好','申覆':'再申請','無誤':'沒有錯','如附':''};
+const ICONS={"align-left": "<path d=\"M15 12H3\" /> <path d=\"M17 18H3\" /> <path d=\"M21 6H3\" />", "arrow-down": "<path d=\"M12 5v14\" /> <path d=\"m19 12-7 7-7-7\" />", "arrow-left": "<path d=\"m12 19-7-7 7-7\" /> <path d=\"M19 12H5\" />", "arrow-up": "<path d=\"m5 12 7-7 7 7\" /> <path d=\"M12 19V5\" />", "building-2": "<path d=\"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z\" /> <path d=\"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2\" /> <path d=\"M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2\" /> <path d=\"M10 6h4\" /> <path d=\"M10 10h4\" /> <path d=\"M10 14h4\" /> <path d=\"M10 18h4\" />", "calendar": "<path d=\"M8 2v4\" /> <path d=\"M16 2v4\" /> <rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\" /> <path d=\"M3 10h18\" />", "chart-no-axes-column": "<line x1=\"18\" x2=\"18\" y1=\"20\" y2=\"10\" /> <line x1=\"12\" x2=\"12\" y1=\"20\" y2=\"4\" /> <line x1=\"6\" x2=\"6\" y1=\"20\" y2=\"14\" />", "check": "<path d=\"M20 6 9 17l-5-5\" />", "chevron-down": "<path d=\"m6 9 6 6 6-6\" />", "chevron-right": "<path d=\"m9 18 6-6-6-6\" />", "chevron-up": "<path d=\"m18 15-6-6-6 6\" />", "circle-check": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"m9 12 2 2 4-4\" />", "circle-dot": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <circle cx=\"12\" cy=\"12\" r=\"1\" />", "circle-help": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3\" /> <path d=\"M12 17h.01\" />", "circle": "<circle cx=\"12\" cy=\"12\" r=\"10\" />", "clipboard-list": "<rect width=\"8\" height=\"4\" x=\"8\" y=\"2\" rx=\"1\" ry=\"1\" /> <path d=\"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2\" /> <path d=\"M12 11h4\" /> <path d=\"M12 16h4\" /> <path d=\"M8 11h.01\" /> <path d=\"M8 16h.01\" />", "clock": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <polyline points=\"12 6 12 12 16 14\" />", "copy": "<rect width=\"14\" height=\"14\" x=\"8\" y=\"8\" rx=\"2\" ry=\"2\" /> <path d=\"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2\" />", "download": "<path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\" /> <polyline points=\"7 10 12 15 17 10\" /> <line x1=\"12\" x2=\"12\" y1=\"15\" y2=\"3\" />", "ellipsis-vertical": "<circle cx=\"12\" cy=\"12\" r=\"1\" /> <circle cx=\"12\" cy=\"5\" r=\"1\" /> <circle cx=\"12\" cy=\"19\" r=\"1\" />", "external-link": "<path d=\"M15 3h6v6\" /> <path d=\"M10 14 21 3\" /> <path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\" />", "eye": "<path d=\"M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0\" /> <circle cx=\"12\" cy=\"12\" r=\"3\" />", "file-text": "<path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\" /> <path d=\"M14 2v4a2 2 0 0 0 2 2h4\" /> <path d=\"M10 9H8\" /> <path d=\"M16 13H8\" /> <path d=\"M16 17H8\" />", "flag-off": "<path d=\"M8 2c3 0 5 2 8 2s4-1 4-1v11\" /> <path d=\"M4 22V4\" /> <path d=\"M4 15s1-1 4-1 5 2 8 2\" /> <line x1=\"2\" x2=\"22\" y1=\"2\" y2=\"22\" />", "grip-horizontal": "<circle cx=\"12\" cy=\"9\" r=\"1\" /> <circle cx=\"19\" cy=\"9\" r=\"1\" /> <circle cx=\"5\" cy=\"9\" r=\"1\" /> <circle cx=\"12\" cy=\"15\" r=\"1\" /> <circle cx=\"19\" cy=\"15\" r=\"1\" /> <circle cx=\"5\" cy=\"15\" r=\"1\" />", "grip-vertical": "<circle cx=\"9\" cy=\"12\" r=\"1\" /> <circle cx=\"9\" cy=\"5\" r=\"1\" /> <circle cx=\"9\" cy=\"19\" r=\"1\" /> <circle cx=\"15\" cy=\"12\" r=\"1\" /> <circle cx=\"15\" cy=\"5\" r=\"1\" /> <circle cx=\"15\" cy=\"19\" r=\"1\" />", "hand-helping": "<path d=\"M11 12h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 14\" /> <path d=\"m7 18 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9\" /> <path d=\"m2 13 6 6\" />", "hash": "<line x1=\"4\" x2=\"20\" y1=\"9\" y2=\"9\" /> <line x1=\"4\" x2=\"20\" y1=\"15\" y2=\"15\" /> <line x1=\"10\" x2=\"8\" y1=\"3\" y2=\"21\" /> <line x1=\"16\" x2=\"14\" y1=\"3\" y2=\"21\" />", "hourglass": "<path d=\"M5 22h14\" /> <path d=\"M5 2h14\" /> <path d=\"M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22\" /> <path d=\"M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2\" />", "id-card": "<path d=\"M16 10h2\" /> <path d=\"M16 14h2\" /> <path d=\"M6.17 15a3 3 0 0 1 5.66 0\" /> <circle cx=\"9\" cy=\"11\" r=\"2\" /> <rect x=\"2\" y=\"5\" width=\"20\" height=\"14\" rx=\"2\" />", "inbox": "<polyline points=\"22 12 16 12 14 15 10 15 8 12 2 12\" /> <path d=\"M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z\" />", "info": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M12 16v-4\" /> <path d=\"M12 8h.01\" />", "layout-template": "<rect width=\"18\" height=\"7\" x=\"3\" y=\"3\" rx=\"1\" /> <rect width=\"9\" height=\"7\" x=\"3\" y=\"14\" rx=\"1\" /> <rect width=\"5\" height=\"7\" x=\"16\" y=\"14\" rx=\"1\" />", "lightbulb": "<path d=\"M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5\" /> <path d=\"M9 18h6\" /> <path d=\"M10 22h4\" />", "link": "<path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\" /> <path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\" />", "list": "<path d=\"M3 12h.01\" /> <path d=\"M3 18h.01\" /> <path d=\"M3 6h.01\" /> <path d=\"M8 12h13\" /> <path d=\"M8 18h13\" /> <path d=\"M8 6h13\" />", "lock": "<rect width=\"18\" height=\"11\" x=\"3\" y=\"11\" rx=\"2\" ry=\"2\" /> <path d=\"M7 11V7a5 5 0 0 1 10 0v4\" />", "map-pin": "<path d=\"M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0\" /> <circle cx=\"12\" cy=\"10\" r=\"3\" />", "message-square-text": "<path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\" /> <path d=\"M13 8H7\" /> <path d=\"M17 12H7\" />", "paperclip": "<path d=\"M13.234 20.252 21 12.3\" /> <path d=\"m16 6-8.414 8.586a2 2 0 0 0 0 2.828 2 2 0 0 0 2.828 0l8.414-8.586a4 4 0 0 0 0-5.656 4 4 0 0 0-5.656 0l-8.415 8.585a6 6 0 1 0 8.486 8.486\" />", "pencil": "<path d=\"M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z\" /> <path d=\"m15 5 4 4\" />", "phone": "<path d=\"M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z\" />", "plus": "<path d=\"M5 12h14\" /> <path d=\"M12 5v14\" />", "redo-2": "<path d=\"m15 14 5-5-5-5\" /> <path d=\"M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13\" />", "rotate-ccw": "<path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\" /> <path d=\"M3 3v5h5\" />", "search": "<circle cx=\"11\" cy=\"11\" r=\"8\" /> <path d=\"m21 21-4.3-4.3\" />", "send": "<path d=\"M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z\" /> <path d=\"m21.854 2.147-10.94 10.939\" />", "settings": "<path d=\"M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z\" /> <circle cx=\"12\" cy=\"12\" r=\"3\" />", "shield-check": "<path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\" /> <path d=\"m9 12 2 2 4-4\" />", "smartphone": "<rect width=\"14\" height=\"20\" x=\"5\" y=\"2\" rx=\"2\" ry=\"2\" /> <path d=\"M12 18h.01\" />", "sparkles": "<path d=\"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z\" /> <path d=\"M20 3v4\" /> <path d=\"M22 5h-4\" /> <path d=\"M4 17v2\" /> <path d=\"M5 18H3\" />", "square-check": "<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" /> <path d=\"m9 12 2 2 4-4\" />", "square-pen": "<path d=\"M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7\" /> <path d=\"M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z\" />", "square": "<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" />", "trash-2": "<path d=\"M3 6h18\" /> <path d=\"M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6\" /> <path d=\"M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2\" /> <line x1=\"10\" x2=\"10\" y1=\"11\" y2=\"17\" /> <line x1=\"14\" x2=\"14\" y1=\"11\" y2=\"17\" />", "triangle-alert": "<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\" /> <path d=\"M12 9v4\" /> <path d=\"M12 17h.01\" />", "type": "<polyline points=\"4 7 4 4 20 4 20 7\" /> <line x1=\"9\" x2=\"15\" y1=\"20\" y2=\"20\" /> <line x1=\"12\" x2=\"12\" y1=\"4\" y2=\"20\" />", "undo-2": "<path d=\"M9 14 4 9l5-5\" /> <path d=\"M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11\" />", "user": "<path d=\"M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2\" /> <circle cx=\"12\" cy=\"7\" r=\"4\" />", "users": "<path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\" /> <circle cx=\"9\" cy=\"7\" r=\"4\" /> <path d=\"M22 21v-2a4 4 0 0 0-3-3.87\" /> <path d=\"M16 3.13a4 4 0 0 1 0 7.75\" />", "volume-2": "<path d=\"M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z\" /> <path d=\"M16 9a5 5 0 0 1 0 6\" /> <path d=\"M19.364 18.364a9 9 0 0 0 0-12.728\" />", "x": "<path d=\"M18 6 6 18\" /> <path d=\"m6 6 12 12\" />"};  /* 圖示來自 Lucide (https://lucide.dev),ISC 授權 */
+const ic=(n,s=22)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]||''}</svg>`;
 const uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $=s=>document.querySelector(s);
 
-function newField(type,label,hint){
-  const f={id:uid(),type,label:label||'',hint:hint||'',required:true,options:[],placeholder:''};
-  const L={text:'請輸入',textarea:'請說明狀況',date:'請選擇日期',number:'請輸入數字',phone:'你的聯絡電話',idno:'你的身分證字號',address:'你住在哪裡',file:'請上傳照片或檔案',consent:'我已經看過並同意上述內容',radio:'請選擇一個',checkbox:'請選擇(可以選很多個)',select:'請選擇'};
-  if(!f.label)f.label=L[type];
-  if(['radio','checkbox','select'].includes(type))f.options=['選項一','選項二'];
-  return f;
-}
-const mk=(type,label,hint,req=true,options=[])=>({id:uid(),type,label,hint,required:req,options,placeholder:''});
-const TEMPLATES={
-  blank:{n:'空白表單',d:'從零開始,自己加題目',ic:'file-text',make:()=>({title:'',dept:'臺北市政府',desc:'',fields:[]})},
-  elder:{n:'長者敬老禮金申請',d:'社會局示範:基本資料、領取方式、同意聲明',ic:'users',make:()=>({
-    title:'重陽敬老禮金申請',dept:'臺北市政府社會局',desc:'請依序回答下面的問題,約需 5 分鐘。可以請家人、里長或 1999 客服協助你。',
-    fields:[mk('text','你的姓名','請填身分證上的名字'),mk('idno','你的身分證字號','英文字母加 9 個數字'),mk('date','你的出生日期',''),mk('phone','你的聯絡電話','方便我們打給你確認'),mk('address','你住在哪裡','請填目前的住址'),mk('radio','錢要怎麼給你','',true,['匯到我的銀行帳戶','到區公所領現金']),mk('text','銀行名稱與分行','有郵局或銀行存摺的話,照著存摺上寫',false),mk('consent','我保證上面寫的都是真的','')]})},
-  repair:{n:'路燈與道路損壞通報',d:'工務局示範:地點、照片、聯絡方式',ic:'map-pin',make:()=>({
-    title:'路燈與道路損壞通報',dept:'臺北市政府工務局',desc:'發現路燈不亮或馬路破洞,請在這裡告訴我們。',
-    fields:[mk('radio','哪裡壞了','',true,['路燈不亮','馬路有洞','人行道破損','其他']),mk('address','在哪個位置','寫路名和附近的店家也可以'),mk('file','拍張照片給我們','沒有照片也可以',false),mk('phone','你的電話','處理好之後通知你',false)]})}
+/* ===== 題型 ===== */
+const TYPES={
+  radio:{n:'單選',ic:'circle-dot'},checkbox:{n:'多選',ic:'square-check'},select:{n:'下拉選單',ic:'list'},
+  text:{n:'短答',ic:'type'},textarea:{n:'詳細說明',ic:'align-left'},
+  date:{n:'日期',ic:'calendar'},number:{n:'數字',ic:'hash'},
+  phone:{n:'電話號碼',ic:'phone'},idno:{n:'身分證字號',ic:'id-card'},address:{n:'地址',ic:'map-pin'},
+  file:{n:'上傳照片或檔案',ic:'paperclip'},consent:{n:'同意聲明',ic:'shield-check'}
 };
+const QUICK=[['text','你的姓名','請填身分證上的名字','user','姓名'],['phone','你的聯絡電話','方便我們打給你確認','phone','電話'],['idno','你的身分證字號','英文字母加 9 個數字','id-card','身分證字號'],['address','你住在哪裡','請填目前的住址','map-pin','地址'],['date','你的出生日期','','calendar','出生日期']];
+const JARGON={'茲':'','俾':'讓','惟':'但是','檢附':'附上','敬請':'請','前開':'上面的','核定':'審查通過','請領':'領取','逕行':'直接','戶籍所在地':'你登記的住址','具結':'保證','屆時':'到時候','備齊':'準備好','申覆':'再申請','無誤':'沒有錯','如附':''};
+const OPT=['radio','checkbox','select'];
+const mk=(type,label,hint='',req=true,options=[])=>({id:uid(),type,label,hint,required:req,options,placeholder:''});
+function newField(type,label='',hint=''){const f=mk(type,label,hint);if(OPT.includes(type))f.options=['選項 1'];return f;}
+const TEMPLATES={
+  blank:{n:'空白表單',d:'從零開始',ic:'plus',make:()=>({title:'',dept:'臺北市政府',desc:'',fields:[newField('radio','')]})},
+  elder:{n:'長者敬老禮金申請',d:'社會局範例',ic:'users',make:()=>({title:'重陽敬老禮金申請',dept:'臺北市政府社會局',desc:'請依序回答下面的問題,約需 5 分鐘。可以請家人、里長或 1999 客服協助你。',
+    fields:[mk('text','你的姓名','請填身分證上的名字'),mk('idno','你的身分證字號','英文字母加 9 個數字'),mk('date','你的出生日期'),mk('phone','你的聯絡電話','方便我們打給你確認'),mk('address','你住在哪裡','請填目前的住址'),mk('radio','錢要怎麼給你','',true,['匯到我的銀行帳戶','到區公所領現金']),mk('text','銀行名稱與分行','有郵局或銀行存摺的話,照著存摺上寫',false),mk('consent','我保證上面寫的都是真的')]})},
+  repair:{n:'路燈與道路損壞通報',d:'工務局範例',ic:'map-pin',make:()=>({title:'路燈與道路損壞通報',dept:'臺北市政府工務局',desc:'發現路燈不亮或馬路破洞,請在這裡告訴我們。',
+    fields:[mk('radio','哪裡壞了','',true,['路燈不亮','馬路有洞','人行道破損','其他']),mk('address','在哪個位置','寫路名和附近的店家也可以'),mk('file','拍張照片給我們','沒有照片也可以',false),mk('phone','你的電話','處理好之後通知你',false)]})},
+  survey:{n:'活動報名',d:'通用範例',ic:'clipboard-list',make:()=>({title:'市民活動報名',dept:'臺北市政府',desc:'歡迎報名參加,名額有限,請盡早填寫。',
+    fields:[mk('text','你的姓名'),mk('phone','你的聯絡電話'),mk('number','參加人數','包含你自己'),mk('checkbox','想參加哪幾天','',true,['星期六上午','星期六下午','星期日上午']),mk('textarea','還有什麼想告訴我們的嗎','',false)]})}
+};
+const mkForm=(t,extra={})=>({id:uid(),...t,deadline:'',allowAssist:true,once:false,doneMsg:'已經幫你送出了,謝謝你。',status:'draft',updated:Date.now(),...extra});
 
 /* ===== 狀態 ===== */
 let S=load()||seed();
-function seed(){
-  const a=TEMPLATES.elder.make(),b=TEMPLATES.repair.make();
-  return {forms:[{id:uid(),...a,deadline:'2026-12-31',allowAssist:true,status:'open',updated:Date.now()-86400000*2},{id:uid(),...b,deadline:'',allowAssist:false,status:'draft',updated:Date.now()-3600000*5}],
-    cur:null,view:'home',step:1,sel:null,pv:0,pvSize:'l',hideWelcome:false,filter:'all'};
-}
-function load(){try{const s=JSON.parse(localStorage.getItem('tpf-admin-v2'));if(s){s.view='home';s.cur=null;}return s}catch(e){return null}}
-function save(){try{localStorage.setItem('tpf-admin-v2',JSON.stringify(S))}catch(e){}}
+function seed(){const a=TEMPLATES.elder.make(),b=TEMPLATES.repair.make();
+  return {forms:[mkForm(a,{deadline:'2026-12-31',status:'open',updated:Date.now()-86400000*2}),mkForm(b,{allowAssist:false,updated:Date.now()-3600000*5})],
+    view:'home',cur:null,tab:'q',rsub:'sum',sel:null,hideTip:false,filter:'all',q:'',menu:null,pv:null};}
+function load(){try{const s=JSON.parse(localStorage.getItem('tpf-admin-v3'));if(s){Object.assign(s,{view:'home',cur:null,menu:null,pv:null,sel:null,tab:'q'});}return s}catch(e){return null}}
+function save(){try{localStorage.setItem('tpf-admin-v3',JSON.stringify(S))}catch(e){}}
 const form=()=>S.forms.find(f=>f.id===S.cur);
-function touch(){const f=form();if(f)f.updated=Date.now();save();const e=$('#saved');if(e){e.style.opacity=1}}
-let tt;function toast(m,label,fn){const t=$('#toast');t.innerHTML=`<span>${esc(m)}</span>${label?`<button id="tact">${esc(label)}</button>`:''}`;t.classList.add('show');if(label)$('#tact').onclick=()=>{fn();t.classList.remove('show')};clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),label?6000:2600);}
 const fmt=ts=>new Date(ts).toLocaleString('zh-TW',{hour12:false,month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-const stName={draft:'草稿',open:'收件中',closed:'已結束'};
+const stName={draft:'草稿',open:'收件中',closed:'已停止收件'};
 const stIc={draft:'pencil',open:'circle-check',closed:'lock'};
+let tt;function toast(m,label,fn){const t=$('#toast');t.innerHTML=`<span>${esc(m)}</span>${label?`<button id="tact">${esc(label)}</button>`:''}`;t.classList.add('show');if(label)$('#tact').onclick=()=>{fn();t.classList.remove('show')};clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),label?7000:2800);}
+
+/* ===== 復原 / 重做 ===== */
+const H={};let snapT;
+const pick=f=>{const {live,id,updated,...r}=f;return JSON.stringify(r)};
+function hist(){const f=form();return H[f.id]||(H[f.id]={st:[pick(f)],i:0})}
+function snap(){clearTimeout(snapT);const f=form();if(!f)return;const h=hist(),j=pick(f);if(h.st[h.i]===j)return;h.st=h.st.slice(0,h.i+1);h.st.push(j);h.i++;if(h.st.length>80){h.st.shift();h.i--}updHist()}
+function touch(now){const f=form();f.updated=Date.now();save();const s=$('#savetxt');if(s)s.innerHTML=`${ic('circle-check',16)}已儲存`;clearTimeout(snapT);if(now)snap();else snapT=setTimeout(snap,500)}
+function updHist(){const h=hist(),u=$('#undo'),r=$('#redo');if(u)u.disabled=h.i<=0;if(r)r.disabled=h.i>=h.st.length-1}
+function applyHist(d){snap();const h=hist(),n=h.i+d;if(n<0||n>=h.st.length)return;h.i=n;const f=form(),o=JSON.parse(h.st[n]);Object.keys(f).forEach(k=>{if(!['id','updated','live'].includes(k))delete f[k]});Object.assign(f,o);if(!f.fields.find(x=>x.id===S.sel))S.sel=null;save();render()}
 
 /* ===== 好懂檢查 ===== */
 function readability(f){
   const w=[],t=f.label||'';
   if(t.length>20)w.push({msg:'問題有點長(超過 20 個字),長輩可能看不完。可以縮短,或拆成兩題。'});
-  for(const k in JARGON){if(t.includes(k)){const to=JARGON[k];w.push({msg:`「${k}」是公文用語,建議改成日常說法${to?`,例如「${to}」`:''}。`,fix:to?{k,to}:null});}}
+  for(const k in JARGON)if(t.includes(k)){const to=JARGON[k];w.push({msg:`「${k}」是公文用語,建議改成日常說法${to?`,例如「${to}」`:''}。`,fix:to?{k,to}:null})}
   if(/[A-Za-z]{3,}/.test(t)&&f.type!=='idno')w.push({msg:'盡量不要用英文縮寫,長輩看不懂。'});
-  if(['idno','address','file','date'].includes(f.type)&&!f.hint)w.push({msg:'建議在「給民眾的提示」寫一句話,說明要填什麼、去哪裡找。'});
-  if(['radio','checkbox','select'].includes(f.type)&&f.options.length>6)w.push({msg:'選項超過 6 個,不容易選。可以精簡一下。'});
+  if(['idno','address','file','date'].includes(f.type)&&!f.hint)w.push({msg:'建議在下面的「說明文字」寫一句話,告訴民眾要填什麼、去哪裡找。'});
+  if(OPT.includes(f.type)&&f.options.length>6)w.push({msg:'選項超過 6 個,不容易選。可以精簡一下。'});
   return w;
 }
 const warnCount=f=>f.fields.filter(x=>readability(x).length).length;
 
-/* ===== 畫面框架 ===== */
-function renderTop(){
-  const f=S.cur?form():null;
-  $('#top').innerHTML=`<button class="logo" data-act="home" aria-label="回到我的表單"><i>${ic('clipboard-list',20)}</i>台北通表單</button>
-    ${f?`<div class="crumb">${ic('chevron-right',18)}<b>${esc(f.title||'未命名表單')}</b></div>`:''}
-    <span class="sp"></span><span class="who">承辦人:王小華(示意)｜臺北市政府社會局</span>
-    <button class="btn sm" data-act="help">${ic('circle-help',18)}使用說明</button>`;
-}
+/* ===== 畫面 ===== */
 function render(){
-  renderTop();
-  $('#app').innerHTML={home:vHome,edit:vEdit,resp:vResp}[S.view]();
-  $('#foot').innerHTML=S.view==='edit'?footNav():'';
+  const v=S.view;
+  $('#root').innerHTML=v==='home'?vHome():vForm();
+  if(S.pv)$('#root').insertAdjacentHTML('beforeend',vPreview());
+  if(v==='form')updHist();
   save();
 }
+const go=(o)=>{closeDlg();Object.assign(S,{menu:null,pv:null},o);render();window.scrollTo(0,0)};
 
-/* ===== 首頁 ===== */
+/* ---- 首頁 ---- */
 function vHome(){
-  const list=S.forms.filter(f=>S.filter==='all'||f.status===S.filter);
+  const q=S.q.trim().toLowerCase();
+  const list=S.forms.filter(f=>(S.filter==='all'||f.status===S.filter)&&(!q||(f.title+f.dept).toLowerCase().includes(q))).sort((a,b)=>b.updated-a.updated);
   const cnt=k=>k==='all'?S.forms.length:S.forms.filter(f=>f.status===k).length;
-  const hero=S.hideWelcome?'':`<section class="card hero"><button class="btn sm icon x" data-act="hidewelcome" aria-label="關閉這則說明">${ic('x',18)}</button>
-    <h2>歡迎!做一份表單只要 3 個步驟</h2><p>不需要懂程式,照著畫面一步一步做就可以。</p>
-    <div class="steps3">
-      <div><span class="n">${ic('file-text',24)}</span><span><b>1. 寫基本資料</b><span class="muted small">表單叫什麼名字、是哪個單位辦的</span></span></div>
-      <div><span class="n">${ic('square-pen',24)}</span><span><b>2. 加入題目</b><span class="muted small">想請民眾回答什麼,就加一題</span></span></div>
-      <div><span class="n">${ic('send',24)}</span><span><b>3. 預覽並發布</b><span class="muted small">先看看民眾會看到什麼,再發布</span></span></div>
-    </div></section>`;
-  const items=list.map(f=>`<div class="card fitem">
-    <span class="ico">${ic('file-text',26)}</span>
-    <div class="info"><button class="nm" data-act="edit" data-id="${f.id}">${esc(f.title||'未命名表單')}</button>
-      <div class="meta"><span class="tag ${f.status}">${ic(stIc[f.status],15)}${stName[f.status]}</span><span>${ic('building-2',16)}${esc(f.dept)}</span><span>${ic('list',16)}${f.fields.length} 題</span><span>${ic('inbox',16)}${respCount(f)} 份回覆</span><span>${ic('clock',16)}${f.deadline?'截止 '+f.deadline:'不設截止日'}</span></div></div>
-    <div class="row"><button class="btn primary" data-act="edit" data-id="${f.id}">${ic('pencil',18)}編輯</button>
-      <button class="btn" data-act="resp" data-id="${f.id}">${ic('inbox',18)}看回覆</button>
-      <button class="btn icon" data-act="dup" data-id="${f.id}" title="複製這份表單" aria-label="複製這份表單">${ic('copy',18)}</button>
-      <button class="btn icon danger" data-act="del" data-id="${f.id}" title="刪除這份表單" aria-label="刪除這份表單">${ic('trash-2',18)}</button></div></div>`).join('');
-  return `${hero}<div class="homehead"><h2>我的表單</h2><span class="sp"></span><button class="btn primary lg" data-act="new">${ic('plus',22)}建立新表單</button></div>
-   <div class="filters" role="group" aria-label="篩選">${[['all','全部'],['open','收件中'],['draft','草稿'],['closed','已結束']].map(([k,n])=>`<button data-act="filter" data-k="${k}" aria-pressed="${S.filter===k}">${n}(${cnt(k)})</button>`).join('')}</div>
-   ${items||`<div class="card empty"><div class="ico">${ic('file-text',34)}</div><b>${S.forms.length?'這個分類目前沒有表單':'還沒有任何表單'}</b><p>按右上角的「建立新表單」開始吧。</p></div>`}`;
+  const cards=list.map(f=>`<div class="card fc" data-act="open" data-id="${f.id}" tabindex="0" role="link" aria-label="開啟 ${esc(f.title||'未命名表單')}">
+    <div class="th"><i class="t"></i><i></i><i style="width:85%"></i><i style="width:70%"></i></div>
+    <div class="bd"><div style="flex:1;min-width:0"><span class="nm">${esc(f.title||'未命名表單')}</span>
+      <div class="mt"><span class="tag ${f.status}">${ic(stIc[f.status],14)}${stName[f.status]}</span><span>${f.fields.length} 題</span><span>·</span><span>${respCount(f)} 份回覆</span></div>
+      <div class="mt">${ic('clock',14)}編輯於 ${fmt(f.updated)}</div></div>
+      <div style="position:relative"><button class="iconbtn more" data-act="cardmenu" data-id="${f.id}" aria-label="更多動作" aria-haspopup="true">${ic('ellipsis-vertical',22)}</button>
+      ${S.menu&&S.menu.k==='card'&&S.menu.id===f.id?`<div class="pop" style="right:0;top:42px"><button data-act="open" data-id="${f.id}">${ic('pencil',20)}開啟編輯</button><button data-act="resp" data-id="${f.id}">${ic('inbox',20)}看回覆</button><button data-act="dup" data-id="${f.id}">${ic('copy',20)}建立複本</button><button class="dg" data-act="del" data-id="${f.id}">${ic('trash-2',20)}刪除</button></div>`:''}</div></div></div>`).join('');
+  return `<header class="appbar"><div class="r1"><button class="logo" data-act="homeTop"><i>${ic('clipboard-list',22)}</i><span>台北通表單</span></button>
+     <div class="searchbox">${ic('search',20)}<input id="search" type="search" placeholder="搜尋我的表單" value="${esc(S.q)}" aria-label="搜尋表單"></div><span class="sp"></span>
+     <button class="hbtn ghost" data-act="help">${ic('circle-help',20)}<span class="tx">使用說明</span></button></div></header>
+   <div class="band"><div class="wrap"><h2>開始建立新的表單</h2><div class="tplrow">${Object.entries(TEMPLATES).map(([k,t])=>`<button class="tplc" data-act="tpl" data-k="${k}"><div class="th">${ic(t.ic,k==='blank'?44:38)}</div><b>${t.n}</b><span>${t.d}</span></button>`).join('')}</div></div></div>
+   <div class="wrap">${S.hideTip?'':`<div class="tip">${ic('lightbulb',24)}<span style="flex:1"><b>第一次使用?</b> 點選上面的範本,改一改文字就能發布,不需要懂程式。</span><button class="btn sm" data-act="help">看說明</button><button class="iconbtn" data-act="hidetip" aria-label="關閉這則提示">${ic('x',20)}</button></div>`}
+   <div class="homehead"><h2>我的表單</h2><span class="sp"></span><div class="pills" role="group" aria-label="篩選">${[['all','全部'],['open','收件中'],['draft','草稿'],['closed','已停止']].map(([k,n])=>`<button data-act="filter" data-k="${k}" aria-pressed="${S.filter===k}">${n} ${cnt(k)}</button>`).join('')}</div></div>
+   ${list.length?`<div class="fgrid">${cards}</div>`:`<div class="card empty"><div class="ico">${ic('file-text',34)}</div><b>${S.forms.length?'找不到符合的表單':'還沒有任何表單'}</b><p>從上方的範本開始建立吧。</p></div>`}</div>
+   <button class="fab" data-act="tpl" data-k="blank" aria-label="建立空白表單">${ic('plus',28)}新表單</button>`;
 }
 
-/* ===== 編輯 ===== */
-function stepper(){
-  const t=[['1','寫基本資料','表單名稱與說明'],['2','加入題目','想問民眾什麼'],['3','預覽並發布','確認後送出']];
-  return `<nav class="stepper" aria-label="步驟">${t.map(([n,a,b],i)=>{
-    const k=i+1,cls=S.step===k?'on':S.step>k?'done':'';
-    return `${i?'<span class="ln"></span>':''}<button class="${cls}" data-act="step" data-k="${k}" ${S.step===k?'aria-current="step"':''}><span class="c">${S.step>k?ic('check',20):n}</span><span class="t"><span>${a}</span><small>${b}</small></span></button>`}).join('')}</nav>`;
+/* ---- 表單頁框架 ---- */
+function vForm(){
+  const f=form(),n=respCount(f);
+  const pubBtn=f.status==='open'?`<button class="hbtn" data-act="pubdlg">${ic('circle-check',20)}<span class="tx">已發布</span></button>`:f.status==='closed'?`<button class="hbtn amber" data-act="pubdlg">${ic('send',20)}<span class="tx">重新開放</span></button>`:`<button class="hbtn amber" data-act="pubdlg">${ic('send',20)}<span class="tx">發布</span></button>`;
+  return `<header class="appbar"><div class="r1">
+    <button class="hico" data-act="homeTop" aria-label="回到我的表單" title="回到我的表單">${ic('arrow-left',24)}</button>
+    <input class="ftitle" id="ftitle" data-set="title" value="${esc(f.title)}" placeholder="未命名表單" aria-label="表單名稱" autocomplete="off">
+    <span class="savetxt" id="savetxt">${ic('circle-check',16)}已儲存</span><span class="sp"></span>
+    <button class="hico" id="undo" data-act="undo" aria-label="復原" title="復原 (Ctrl+Z)">${ic('undo-2',22)}</button>
+    <button class="hico" id="redo" data-act="redo" aria-label="重做" title="重做 (Ctrl+Y)">${ic('redo-2',22)}</button>
+    <button class="hico" data-act="preview" aria-label="預覽" title="預覽民眾看到的畫面">${ic('eye',24)}</button>${pubBtn}</div>
+    <div class="tabs" role="tablist">${[['q','問題',''],['r','回覆',n],['s','設定','']].map(([k,t,c])=>`<button role="tab" aria-selected="${S.tab===k}" data-act="tab" data-k="${k}">${t}${c!==''?`<span class="cnt">${c}</span>`:''}</button>`).join('')}</div></header>
+   ${{q:tabQ,r:tabR,s:tabS}[S.tab](f)}`;
 }
-function vEdit(){
-  const f=form();
-  const banner=f.status==='open'?`<div class="warn" style="background:var(--ok-l);color:#0f6a37;margin:0 0 16px">${ic('info',20)}<span>這份表單已經發布。你修改的內容,民眾會立刻看到。</span></div>`:'';
-  return `${stepper()}${banner}${[null,step1,step2,step3][S.step](f)}`;
+
+/* ---- 問題 ---- */
+function mockInput(x){
+  switch(x.type){
+    case 'radio':case 'checkbox':return x.options.map(o=>`<div>${ic(x.type==='radio'?'circle':'square',20)}<span>${esc(o)}</span></div>`).join('');
+    case 'select':return `<div class="ul" style="display:flex;justify-content:space-between">選擇 ${ic('chevron-down',20)}</div>`;
+    case 'textarea':return `<div class="ul" style="width:85%">詳細說明的回答</div>`;
+    case 'date':return `<div class="ul" style="display:flex;justify-content:space-between;width:220px">年 / 月 / 日 ${ic('calendar',20)}</div>`;
+    case 'file':return `<div><span class="chipbtn" style="color:var(--p700)">${ic('paperclip',18)}選擇照片或檔案</span></div>`;
+    case 'consent':return `<div>${ic('square',20)}<span>${esc(x.label)}</span></div>`;
+    case 'idno':return `<div class="ul">A12●●●●789</div>`;
+    case 'phone':return `<div class="ul">0912-345-678</div>`;
+    case 'address':return `<div class="ul" style="width:85%">臺北市…</div>`;
+    case 'number':return `<div class="ul" style="width:160px">數字</div>`;
+    default:return `<div class="ul">短答文字</div>`;
+  }
 }
-function step1(f){
-  return `<section class="card panel"><h3>先寫表單的基本資料</h3><p class="lead">這些會顯示在民眾打開表單的第一個畫面。</p>
-    <label class="lb" for="s-title">表單名稱 <small>(例如:重陽敬老禮金申請)</small></label>
-    <input type="text" id="s-title" data-set="title" value="${esc(f.title)}" placeholder="請輸入表單名稱" autocomplete="off">
-    <div class="grid2"><div><label class="lb" for="s-dept">哪個單位辦的</label><input type="text" id="s-dept" data-set="dept" value="${esc(f.dept)}"></div>
-    <div><label class="lb" for="s-dl">到什麼時候截止 <small>(不用的話留空白)</small></label><input type="date" id="s-dl" data-set="deadline" value="${esc(f.deadline)}"></div></div>
-    <label class="lb" for="s-desc">開頭說明 <small>(用一兩句白話告訴民眾這是做什麼的)</small></label>
-    <textarea id="s-desc" rows="3" data-set="desc" placeholder="例如:請依序回答下面的問題,約需 5 分鐘。">${esc(f.desc)}</textarea>
-    <label class="switch"><input type="checkbox" data-set="allowAssist" ${f.allowAssist?'checked':''}><span class="sw"></span><span><b>允許別人協助辦理</b><span class="muted small">家人、里長、看護或 1999 客服可以幫長輩填寫,最後由長輩本人確認才會送出。</span></span></label>
-  </section>`;
-}
-function typePicker(){
-  return `<h3>加入哪一種題目?</h3><p class="muted" style="margin:4px 0 10px">先選一種,加入後可以再修改文字。</p>
-   <b>常用個人資料(一鍵加入)</b><div class="quick">${QUICK.map(([t,l,h,i],k)=>`<button class="chipbtn" data-act="addquick" data-k="${k}">${ic(i,18)}${l.replace('你的','').replace('你住在哪裡','地址')}</button>`).join('')}</div>
-   <b>自己設計題目</b><div class="picker">${Object.entries(TYPES).map(([k,v])=>`<button data-act="addtype" data-k="${k}"><span class="pi">${ic(v.ic,22)}</span><span><b>${v.n}</b><span class="d">${v.d}</span></span></button>`).join('')}</div>
-   <div class="row" style="justify-content:flex-end"><button class="btn" data-act="closedlg">取消</button></div>`;
-}
-function warnHTML(x){
+function tipsHTML(x){
   const w=readability(x);
-  return w.length?w.map(a=>`<div class="warn">${ic('lightbulb',20)}<span>${esc(a.msg)}${a.fix?` <button class="btn sm" style="margin-left:6px" data-act="fix" data-id="${x.id}" data-k="${esc(a.fix.k)}" data-to="${esc(a.fix.to)}">改成「${esc(a.fix.to)}」</button>`:''}</span></div>`).join(''):`<div class="good">${ic('circle-check',20)}這題長輩看得懂</div>`;
+  return w.length?w.map(a=>`<div class="tipc">${ic('lightbulb',20)}<span>${esc(a.msg)}${a.fix?` <button class="btn sm" style="margin-left:6px" data-act="fix" data-id="${x.id}" data-k="${esc(a.fix.k)}" data-to="${esc(a.fix.to)}">改成「${esc(a.fix.to)}」</button>`:''}</span></div>`).join(''):`<div class="good">${ic('circle-check',18)}這題長輩看得懂</div>`;
 }
-function qEditor(x,i,n){
-  const multi=['radio','checkbox','select'].includes(x.type);
-  return `<div class="qed">
-   <label class="lb" for="q-label">問題 <small>(用一句白話寫)</small></label>
-   <input type="text" id="q-label" data-p="label" value="${esc(x.label)}" autocomplete="off">
-   <label class="lb" for="q-hint">給民眾的提示 <small>(選填,會顯示在問題下面,也能念出來)</small></label>
-   <input type="text" id="q-hint" data-p="hint" value="${esc(x.hint)}" placeholder="例如:請填身分證上的名字" autocomplete="off">
-   ${multi?`<label class="lb">選項</label>${x.options.map((o,j)=>`<div class="optr"><input type="text" data-opt="${j}" value="${esc(o)}" aria-label="選項 ${j+1}"><button class="btn sm icon danger" data-act="rmopt" data-k="${j}" aria-label="刪除選項 ${j+1}" ${x.options.length<=1?'disabled':''}>${ic('x',16)}</button></div>`).join('')}<button class="btn sm" data-act="addopt">${ic('plus',16)}再加一個選項</button>`:''}
-   <label class="switch compact"><input type="checkbox" data-p="required" ${x.required?'checked':''}><span class="sw"></span><span><b>民眾一定要回答</b></span></label>
-   <div id="warn-${x.id}">${warnHTML(x)}</div>
-   <div class="qtool"><button class="btn sm" data-act="mv" data-d="-1" data-id="${x.id}" ${i===0?'disabled':''}>${ic('arrow-up',16)}上移</button>
-     <button class="btn sm" data-act="mv" data-d="1" data-id="${x.id}" ${i===n-1?'disabled':''}>${ic('arrow-down',16)}下移</button>
-     <button class="btn sm" data-act="dupq" data-id="${x.id}">${ic('copy',16)}複製</button>
-     <span class="sp"></span><button class="btn sm danger" data-act="rmq" data-id="${x.id}">${ic('trash-2',16)}刪除這題</button></div></div>`;
+function qCard(x,i,n){
+  const act=S.sel===x.id,w=readability(x).length;
+  if(!act)return `<div class="qc" data-act="sel" data-id="${x.id}" data-idx="${i}" draggable="true" tabindex="0" role="button" aria-label="編輯第 ${i+1} 題">
+    <span class="grab">${ic('grip-horizontal',22)}</span>
+    <div class="qv"><div class="q">${esc(x.label||'(尚未輸入問題)')}${x.required?'<span class="rq"> *</span>':''}${w?`<span class="chip">${ic('lightbulb',13)}可以更好懂</span>`:''}</div>${x.hint?`<div class="h">${esc(x.hint)}</div>`:''}<div class="m">${mockInput(x)}</div></div></div>`;
+  const opts=OPT.includes(x.type)?`<div class="opts">${x.options.map((o,j)=>`<div class="orow"><span class="oi">${x.type==='select'?`<span style="font-size:15px">${j+1}.</span>`:ic(x.type==='radio'?'circle':'square',20)}</span><input type="text" data-opt="${j}" value="${esc(o)}" aria-label="選項 ${j+1}" autocomplete="off"><button class="iconbtn" data-act="rmopt" data-k="${j}" aria-label="刪除選項 ${j+1}" ${x.options.length<=1?'disabled':''}>${ic('x',20)}</button></div>`).join('')}
+     <button class="addopt" data-act="addopt"><span class="oi" style="width:24px;display:grid;place-items:center">${ic('plus',20)}</span>新增選項</button></div>`:`<div class="qv"><div class="m" style="margin-top:16px">${mockInput(x)}</div></div>`;
+  const menu=S.menu&&S.menu.k==='type'?`<div class="pop" role="listbox">${Object.entries(TYPES).map(([k,t])=>`<button role="option" aria-selected="${x.type===k}" data-act="settype" data-k="${k}">${ic(t.ic,20)}${t.n}</button>`).join('')}</div>`:'';
+  return `<div class="qc act" data-idx="${i}" data-id="${x.id}" draggable="true">
+    <span class="grab" title="按住拖曳,調整順序">${ic('grip-horizontal',22)}</span>
+    <div class="qtop"><input class="qin" id="q-label" data-p="label" value="${esc(x.label)}" placeholder="問題(用一句白話寫)" aria-label="問題" autocomplete="off">
+      <div class="typewrap"><button class="typebtn" data-act="typemenu" aria-haspopup="listbox">${ic(TYPES[x.type].ic,22)}<span style="flex:1;text-align:left">${TYPES[x.type].n}</span>${ic('chevron-down',20)}</button>${menu}</div></div>
+    <input class="hin" id="q-hint" data-p="hint" value="${esc(x.hint)}" placeholder="說明文字(選填,例如:請填身分證上的名字)" aria-label="說明文字" autocomplete="off">
+    ${opts}
+    <div class="tips" id="tips">${tipsHTML(x)}</div>
+    <div class="qfoot"><button class="iconbtn" data-act="mv" data-d="-1" aria-label="上移" title="上移" ${i===0?'disabled':''}>${ic('arrow-up',22)}</button><button class="iconbtn" data-act="mv" data-d="1" aria-label="下移" title="下移" ${i===n-1?'disabled':''}>${ic('arrow-down',22)}</button>
+      <button class="iconbtn" data-act="dupq" aria-label="複製這題" title="複製這題">${ic('copy',22)}</button><button class="iconbtn dg" data-act="rmq" aria-label="刪除這題" title="刪除這題">${ic('trash-2',22)}</button><span class="dv"></span>
+      <label class="switch"><span>必填</span><input type="checkbox" data-p="required" ${x.required?'checked':''}><span class="sw"></span></label></div>
+    <div class="ftool" role="toolbar" aria-label="新增題目">
+      <button class="iconbtn" data-act="addq" aria-label="新增題目" title="新增題目">${ic('plus',24)}</button>
+      <div style="position:relative"><button class="iconbtn" data-act="quickmenu" aria-label="加入常用個人資料" title="常用個人資料" aria-haspopup="true">${ic('user',24)}</button>${S.menu&&S.menu.k==='quick'?quickPop():''}</div></div></div>`;
 }
-function qCards(f){
-  return f.fields.map((x,i)=>{
-    const sel=S.sel===x.id,w=readability(x).length;
-    return `<div class="qcard ${sel?'sel':''}" draggable="true" data-idx="${i}" data-id="${x.id}">
-      <div class="qh" data-act="sel" data-id="${x.id}" role="button" tabindex="0" aria-expanded="${sel}">
-        <span class="grip" title="按住拖曳可以調整順序">${ic('grip-vertical',20)}</span><span class="num">${i+1}</span>
-        <div class="qtt"><div class="qt" id="ct-${x.id}">${esc(x.label||'(還沒寫問題)')}</div>
-        <div class="qm">${ic(TYPES[x.type].ic,15)}${TYPES[x.type].n}<span>·</span>${x.required?'一定要回答':'可以不填'}${w?`<span class="warnchip" id="wc-${x.id}">${ic('lightbulb',13)}可以更好懂</span>`:`<span id="wc-${x.id}"></span>`}</div></div>
-        ${ic(sel?'chevron-down':'chevron-right',20)}</div>
-      ${sel?qEditor(x,i,f.fields.length):''}</div>`}).join('');
+const quickPop=()=>`<div class="pop">${QUICK.map(([t,l,h,i,s],k)=>`<button data-act="addquick" data-k="${k}">${ic(i,20)}${s}</button>`).join('')}</div>`;
+function tabQ(f){
+  const n=f.fields.length;
+  return `<div class="ed"><div class="card hcard"><input class="tt" id="ttl" data-set="title" value="${esc(f.title)}" placeholder="表單名稱" aria-label="表單名稱" autocomplete="off">
+    <textarea class="ds" id="dsc" data-set="desc" rows="2" placeholder="表單說明(用一兩句白話告訴民眾這是做什麼的)" aria-label="表單說明">${esc(f.desc)}</textarea></div>
+    ${n?f.fields.map((x,i)=>qCard(x,i,n)).join(''):`<div class="card firstq"><div class="empty" style="padding:0 0 6px"><div class="ico">${ic('square-pen',34)}</div><b>還沒有題目</b></div><p class="muted">按下面的按鈕新增第一題,或直接加入常用資料。</p>
+      <div class="quick">${QUICK.map(([t,l,h,i,s],k)=>`<button class="chipbtn" data-act="addquick" data-k="${k}">${ic(i,20)}${s}</button>`).join('')}</div>
+      <div style="margin-top:18px"><button class="btn primary" data-act="addq">${ic('plus',20)}新增題目</button></div></div>`}
+    ${n&&!f.fields.find(x=>x.id===S.sel)?`<div style="text-align:center;margin-top:18px"><button class="btn" data-act="addq">${ic('plus',20)}新增題目</button></div>`:''}</div>`;
 }
-function step2(f){
-  const empty=!f.fields.length;
-  return `<div class="two"><section>
-    ${empty?`<div class="card panel" style="text-align:center"><div class="empty" style="padding:10px"><div class="ico">${ic('square-pen',34)}</div><h3>還沒有題目</h3><p class="lead" style="margin-bottom:6px">從下面挑一個,或按「新增題目」。</p></div>
-      <div class="quick" style="justify-content:center">${QUICK.map(([t,l,h,i],k)=>`<button class="chipbtn" data-act="addquick" data-k="${k}">${ic(i,18)}${l.replace('你的','').replace('你住在哪裡','地址')}</button>`).join('')}</div></div>`:`<div id="qlist">${qCards(f)}</div>`}
-    <button class="addbig" data-act="addpick">${ic('plus',24)}新增題目</button>
-   </section>
-   <aside class="sticky"><div class="pvlabel">${ic('eye',20)}民眾會看到這樣</div><div id="sidepv">${sidePV(f)}</div></aside></div>`;
+function refreshLive(){const f=form(),x=f.fields.find(a=>a.id===S.sel);if(!x)return;const t=$('#tips');if(t)t.innerHTML=tipsHTML(x)}
+
+/* ---- 回覆 ---- */
+function respCount(f){return allResp(f).length}
+function rng(seed){let s=0;for(const c of seed)s=(s*31+c.charCodeAt(0))>>>0;return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296}}
+function mockResp(f){
+  if(f.status==='draft')return [];
+  const r=rng(f.id),names=['陳美玲','林建國','黃秀英','張志明','李淑芬','王大明','吳金龍','蔡玉蘭'],by=['本人','家屬協助','里長協助','看護協助','1999 客服協助'],out=[];
+  for(let i=0;i<(f.status==='closed'?18:24);i++){
+    const row={_t:Date.now()-Math.floor(r()*86400000*6),_by:by[Math.floor(r()*by.length)]};
+    f.fields.forEach(x=>{const o=x.options||[];
+      if(x.type==='idno')row[x.id]='A'+(Math.floor(r()*2)+1)+String(Math.floor(r()*1e8)).padStart(8,'0');
+      else if(x.type==='phone')row[x.id]='09'+String(Math.floor(r()*1e8)).padStart(8,'0');
+      else if(x.type==='radio'||x.type==='select')row[x.id]=o[Math.floor(r()*r()*o.length)]||'';
+      else if(x.type==='checkbox')row[x.id]=o.filter(()=>r()>.55).join('、');
+      else if(x.type==='date')row[x.id]='19'+(30+Math.floor(r()*30))+'-0'+(1+Math.floor(r()*9))+'-1'+Math.floor(r()*9);
+      else if(x.type==='consent')row[x.id]='已同意';
+      else if(x.type==='file')row[x.id]='照片'+(i+1)+'.jpg';
+      else if(x.type==='address')row[x.id]='臺北市'+['大安','信義','中正','萬華','北投'][Math.floor(r()*5)]+'區○○路'+Math.floor(r()*200)+'號';
+      else if(x.type==='number')row[x.id]=1+Math.floor(r()*4);
+      else if(x.label.includes('姓名'))row[x.id]=names[Math.floor(r()*names.length)];
+      else row[x.id]='(示意回答)';});
+    out.push(row);}
+  return out;
 }
-function sidePV(f){
-  const i=f.fields.findIndex(x=>x.id===S.sel);
-  if(!f.fields.length)return `<div class="phone"><div class="bar">${esc(f.title||'表單名稱')}</div><div class="body"><div class="phint">${ic('info',20)}加入題目後,這裡會顯示手機畫面。</div></div></div>`;
-  if(i<0)return `<div class="phone"><div class="bar">${esc(f.title||'表單名稱')}</div><div class="body"><div class="phint">${ic('info',20)}點選左邊任何一題,這裡會顯示民眾看到的樣子。</div></div></div>`;
-  return `<div class="phone"><div class="bar">${esc(f.title||'表單名稱')}</div><div class="body" style="font-size:18px" inert>${qBody(f.fields[i],i,f.fields.length,false)}</div></div>`;
-}
-function refreshLive(){
-  const f=form(),x=f.fields.find(a=>a.id===S.sel);if(!x)return;
-  const t=$('#ct-'+x.id);if(t)t.textContent=x.label||'(還沒寫問題)';
-  const w=$('#warn-'+x.id);if(w)w.innerHTML=warnHTML(x);
-  const c=$('#wc-'+x.id);if(c)c.outerHTML=readability(x).length?`<span class="warnchip" id="wc-${x.id}">${ic('lightbulb',13)}可以更好懂</span>`:`<span id="wc-${x.id}"></span>`;
-  const p=$('#sidepv');if(p)p.innerHTML=sidePV(f);
+const allResp=f=>[...(f.live||[]),...mockResp(f)].sort((a,b)=>b._t-a._t);
+const maskVal=(x,v)=>x.type==='idno'&&v?String(v).slice(0,3)+'●●●●'+String(v).slice(-3):x.type==='phone'&&v?String(v).slice(0,4)+'●●●'+String(v).slice(-3):v;
+function tabR(f){
+  const rs=allResp(f),assist=rs.filter(r=>!r._by.startsWith('本人')).length;
+  const head=`<div class="ed" style="max-width:900px"><div class="card sc" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><div><h3 style="margin:0">${rs.length} 份回覆</h3><span class="muted small">目前是示意資料。身分證字號與電話只顯示一部分。</span></div><span class="sp"></span>
+    <label class="switch"><span>接受回覆</span><input type="checkbox" data-act="accept" ${f.status==='open'?'checked':''} ${f.status==='draft'?'disabled':''}><span class="sw"></span></label>
+    <button class="btn primary" data-act="csv" ${rs.length?'':'disabled'}>${ic('download',20)}下載成 Excel 檔</button></div>`;
+  if(!rs.length)return head+`<div class="card empty"><div class="ico">${ic('inbox',34)}</div><b>還沒有人填寫</b><p>${f.status==='draft'?'表單發布後,民眾的回覆會顯示在這裡。':'等待民眾填寫中。'}</p></div></div>`;
+  const sub=`<div class="sub" role="tablist"><button role="tab" aria-selected="${S.rsub==='sum'}" data-act="rsub" data-k="sum">摘要</button><button role="tab" aria-selected="${S.rsub==='list'}" data-act="rsub" data-k="list">全部回覆</button></div>`;
+  if(S.rsub==='list')return head+sub+`<div class="card tablewrap"><table><thead><tr><th>送出時間</th><th>誰填的</th>${f.fields.map(x=>`<th>${esc(x.label)}</th>`).join('')}</tr></thead><tbody>${rs.map(r=>`<tr><td>${fmt(r._t)}</td><td>${esc(r._by)}</td>${f.fields.map(x=>`<td>${esc(maskVal(x,r[x.id])??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+  const stats=`<div class="stats"><div class="card stat"><span class="muted">全部回覆</span><b>${rs.length}</b></div><div class="card stat"><span class="muted">別人協助填寫</span><b>${assist}</b></div><div class="card stat"><span class="muted">本人填寫</span><b>${rs.length-assist}</b></div></div>`;
+  const by={};rs.forEach(r=>by[r._by]=(by[r._by]||0)+1);
+  const mx=Math.max(...Object.values(by));
+  const who=`<div class="card sc"><h3>誰填的</h3>${Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="bar"><span class="nm">${esc(k)}</span><span class="tr"><i style="width:${v/mx*100}%"></i></span><span class="v">${v} 份(${Math.round(v/rs.length*100)}%)</span></div>`).join('')}</div>`;
+  const cards=f.fields.map(x=>{
+    const vals=rs.map(r=>r[x.id]).filter(v=>v!==undefined&&v!=='');
+    let body;
+    if(OPT.includes(x.type)){const c={};x.options.forEach(o=>c[o]=0);vals.forEach(v=>String(v).split('、').forEach(p=>{if(p in c)c[p]++}));const m=Math.max(1,...Object.values(c));
+      body=Object.entries(c).map(([k,v])=>`<div class="bar"><span class="nm">${esc(k)}</span><span class="tr"><i style="width:${v/m*100}%"></i></span><span class="v">${v} 份(${Math.round(v/Math.max(1,vals.length)*100)}%)</span></div>`).join('');}
+    else body=vals.slice(0,5).map(v=>`<div class="ans">${esc(maskVal(x,v))}</div>`).join('')+(vals.length>5?`<div class="muted small" style="margin-top:6px">還有 ${vals.length-5} 筆,請到「全部回覆」查看</div>`:'');
+    return `<div class="card sc"><h3 style="font-size:17px">${esc(x.label)}</h3><div class="muted small" style="margin-bottom:8px">${vals.length} 個回覆</div>${body}</div>`}).join('');
+  return head+sub+stats+who+cards+'</div>';
 }
 
-/* 手機題目畫面 */
-let ans={};
-function qBody(x,i,n,live){
-  return `${i===0&&form().desc&&live?`<div class="phint">${ic('info',20)}<span>${esc(form().desc)}</span></div>`:''}
-   <div class="prog"><i style="width:${(i+1)/n*100}%"></i></div>
-   <div style="color:#4c5f6d;font-size:.8em">第 ${i+1} 題,共 ${n} 題</div>
-   <div class="qtx" style="font-size:1.2em">${esc(x.label)}${x.required?'':' <span style="font-weight:500;font-size:.65em;color:#4c5f6d">(可以不填)</span>'}</div>
-   ${x.hint?`<div class="phint">${ic('lightbulb',20)}<span>${esc(x.hint)}</span></div>`:''}
-   <button class="speak" ${live?'data-act="speak"':''}>${ic('volume-2',20)}念給我聽</button>
-   <div>${pvInput(x)}</div>`;
+/* ---- 設定 ---- */
+function tabS(f){
+  return `<div class="ed"><div class="card sc"><h3>一般</h3><p class="lead">這些資訊會顯示給民眾看。</p>
+    <div class="grid2"><div><label class="lb" for="s-dept">哪個單位辦的</label><input type="text" id="s-dept" data-set="dept" value="${esc(f.dept)}"></div>
+    <div><label class="lb" for="s-dl">截止日期 <span class="muted small" style="font-weight:400">(不用就留空白)</span></label><input type="date" id="s-dl" data-set="deadline" value="${esc(f.deadline)}"></div></div></div>
+   <div class="card sc"><h3>填寫方式</h3><p class="lead">決定誰可以填、怎麼填。</p>
+    <div class="srow"><div><b>允許別人協助辦理</b><div class="d">家人、里長、看護或 1999 客服可以幫長輩填寫,最後由長輩本人確認才送出。</div></div><label class="switch"><input type="checkbox" data-set="allowAssist" ${f.allowAssist?'checked':''} aria-label="允許別人協助辦理"><span class="sw"></span></label></div>
+    <div class="srow"><div><b>每人只能填一次</b><div class="d">同一位民眾送出後,就不能再填第二次。</div></div><label class="switch"><input type="checkbox" data-set="once" ${f.once?'checked':''} aria-label="每人只能填一次"><span class="sw"></span></label></div></div>
+   <div class="card sc"><h3>送出之後</h3><p class="lead">民眾按下「確認送出」後會看到這段話。</p>
+    <label class="lb" for="s-done">確認訊息</label><textarea id="s-done" rows="2" data-set="doneMsg">${esc(f.doneMsg)}</textarea></div>
+   <div class="card sc"><h3>危險區域</h3><p class="lead">刪除後,表單和所有回覆都無法復原。</p><button class="btn alarm" data-act="del" data-id="${f.id}">${ic('trash-2',20)}刪除這份表單</button></div></div>`;
 }
+
+/* ---- 預覽(手機畫面) ---- */
+let ans={};
+const SIZES={m:'18px',l:'22px',xl:'28px'};
 function pvInput(x){
   const v=ans[x.id],o=x.options||[];
   switch(x.type){
@@ -413,102 +468,25 @@ function pvInput(x){
     default:return `<input type="text" id="pvin" value="${esc(v||'')}">`;
   }
 }
-const SIZES={m:'18px',l:'22px',xl:'28px'};
-function summary(x,v){
-  if(x.type==='idno'&&v)return v.slice(0,3)+'●●●●'+v.slice(-3);
-  if(Array.isArray(v))return v.join('、')||'(沒有填)';
-  if(x.type==='consent')return v?'已同意':'(沒有勾選)';
-  return v||'(沒有填)';
+function summary(x,v){if(x.type==='idno'&&v)return v.slice(0,3)+'●●●●'+v.slice(-3);if(Array.isArray(v))return v.join('、')||'(沒有填)';if(x.type==='consent')return v?'已同意':'(沒有勾選)';return v||'(沒有填)'}
+function vPreview(){
+  const f=form(),n=f.fields.length,P=S.pv,sz=SIZES[P.size];let body;
+  if(P.done)body=`<div class="bd" style="font-size:${sz};align-items:center;justify-content:center;text-align:center"><div style="width:96px;height:96px;border-radius:50%;background:var(--ok-l);color:var(--ok);display:grid;place-items:center">${ic('circle-check',60)}</div><div class="qtx" style="font-size:1.3em">${esc(f.doneMsg||'已經幫你送出了')}</div><button class="btn" data-act="pvreset">再填一次(試填)</button></div>`;
+  else if(!n)body=`<div class="bd"><div class="phint">${ic('info',20)}還沒有題目可以預覽。</div></div>`;
+  else if(P.i>=n)body=`<div class="bd" style="font-size:${sz}"><div class="qtx" style="font-size:1.25em">請最後確認</div>${f.fields.map(x=>`<div class="phint" style="display:block"><b>${esc(x.label)}</b><br>${esc(summary(x,ans[x.id]))}</div>`).join('')}<div class="pnav"><button data-act="pvprev">回上一題</button><button class="p" data-act="pvsubmit">確認送出</button></div></div>`;
+  else{const x=f.fields[P.i];body=`<div class="bd" style="font-size:${sz}">${P.i===0&&f.desc?`<div class="phint">${ic('info',20)}<span>${esc(f.desc)}</span></div>`:''}
+    <div class="prog"><i style="width:${(P.i+1)/n*100}%"></i></div><div style="color:var(--g600);font-size:.8em">第 ${P.i+1} 題,共 ${n} 題</div>
+    <div class="qtx" style="font-size:1.2em">${esc(x.label)}${x.required?'':' <span style="font-weight:500;font-size:.65em;color:var(--g600)">(可以不填)</span>'}</div>
+    ${x.hint?`<div class="phint">${ic('lightbulb',20)}<span>${esc(x.hint)}</span></div>`:''}
+    <button class="speak" data-act="speak">${ic('volume-2',20)}念給我聽</button><div>${pvInput(x)}</div>
+    <div class="pnav"><button data-act="pvprev" ${P.i===0?'disabled':''}>回上一題</button><button class="p" data-act="pvnext">下一題</button></div></div>`}
+  return `<div class="pvlayer" role="dialog" aria-label="預覽"><header class="appbar"><div class="r1"><button class="hico" data-act="pvclose" aria-label="關閉預覽">${ic('x',24)}</button><b style="font-size:18px">預覽</b><span style="opacity:.9" class="small">民眾在台北通看到的樣子,可以實際填填看</span><span class="sp"></span></div></header>
+   <div class="pvbody"><div class="phone"><div class="bar0">${esc(f.title||'未命名表單')}</div>${body}</div>
+   <div class="card sc" style="max-width:300px"><h3 style="font-size:17px;margin-bottom:10px">字體大小</h3><div class="seg" role="group" aria-label="字體大小">${[['m','中'],['l','大'],['xl','特大']].map(([k,t])=>`<button data-act="size" data-k="${k}" aria-pressed="${P.size===k}">${t}</button>`).join('')}</div>
+   <p class="muted small" style="margin-top:12px">長輩可以放大字體並使用朗讀。試填的資料不會真的送出。</p><div style="margin-top:12px"><button class="btn sm" data-act="pvreset">${ic('rotate-ccw',18)}重新開始</button></div></div></div></div>`;
 }
-function step3(f){
-  const n=f.fields.length,sz=SIZES[S.pvSize];
-  const wc=warnCount(f);
-  const checks=[
-    f.title.trim()?['ok','有表單名稱','']:['bad','還沒有表單名稱','回到第 1 步填寫'],
-    n?['ok',`已加入 ${n} 題`,'']:['bad','還沒有任何題目','回到第 2 步加入'],
-    wc?['warn',`有 ${wc} 題可以更好懂`,'不影響發布,但建議回第 2 步看看提示']:['ok','所有題目長輩都看得懂',''],
-    f.deadline?['ok',`截止日:${f.deadline}`,'']:['warn','沒有設定截止日','會一直收件,直到你按「結束收件」'],
-    f.allowAssist?['ok','開放協助辦理','家人、里長、看護、1999 客服可代填']:['warn','未開放協助辦理','長輩只能自己填寫']
-  ];
-  const icn={ok:'circle-check',bad:'x',warn:'triangle-alert'};
-  let body;
-  if(!n)body=`<div class="phone tall"><div class="bar">${esc(f.title)}</div><div class="body"><div class="phint">${ic('info',20)}還沒有題目可以預覽。</div></div></div>`;
-  else if(S.pv>=n)body=`<div class="phone tall"><div class="bar">${esc(f.title)}</div><div class="body" style="font-size:${sz}"><div class="qtx" style="font-size:1.25em">請最後確認</div>
-     ${f.fields.map(x=>`<div class="phint" style="display:block"><b>${esc(x.label)}</b><br>${esc(summary(x,ans[x.id]))}</div>`).join('')}
-     <div class="pnav"><button data-act="pvprev">回上一題</button><button class="p" data-act="pvsubmit">確認送出</button></div></div></div>`;
-  else body=`<div class="phone tall"><div class="bar">${esc(f.title)}</div><div class="body" style="font-size:${sz}">${qBody(f.fields[S.pv],S.pv,n,true)}
-     <div class="pnav"><button data-act="pvprev" ${S.pv===0?'disabled':''}>回上一題</button><button class="p" data-act="pvnext">下一題</button></div></div></div>`;
-  return `<div class="two" style="grid-template-columns:minmax(0,1fr) 400px">
-    <section><div class="card panel"><h3>發布前檢查</h3><p class="lead">看看有沒有漏掉的地方。</p>
-      ${checks.map(([s,a,b])=>`<div class="check"><span class="ci ${s}">${ic(icn[s],18)}</span><span><b>${a}</b>${b?`<div class="muted small">${b}</div>`:''}</span></div>`).join('')}</div>
-     <div class="card panel"><h3>試試看民眾怎麼填</h3><p class="lead">右邊是手機畫面,可以實際填填看(不會真的送出)。</p>
-       <b>字體大小</b><div style="margin:8px 0 16px"><div class="seg" role="group" aria-label="字體大小">${[['m','中'],['l','大'],['xl','特大']].map(([k,t])=>`<button data-act="size" data-k="${k}" aria-pressed="${S.pvSize===k}">${t}</button>`).join('')}</div></div>
-       <button class="btn" data-act="pvreset">${ic('rotate-ccw',18)}重新開始試填</button></div></section>
-    <aside class="sticky"><div class="pvlabel">${ic('eye',20)}手機畫面</div>${body}</aside></div>`;
-}
-function footNav(){
-  const f=form(),k=S.step;
-  return `<div class="footnav"><div class="in">
-    <span class="saved" id="saved">${ic('circle-check',18)}修改會自動儲存</span><span class="sp"></span>
-    ${k>1?`<button class="btn lg" data-act="step" data-k="${k-1}">${ic('arrow-left',20)}上一步</button>`:''}
-    ${k<3?`<button class="btn primary lg" data-act="step" data-k="${k+1}">下一步:${k===1?'加入題目':'預覽並發布'}${ic('chevron-right',20)}</button>`
-     :f.status==='open'?`<button class="btn lg" data-act="close">${ic('lock',20)}結束收件</button>`
-     :`<button class="btn primary lg" data-act="publish">${ic('send',20)}發布表單</button>`}</div></div>`;
-}
-
-/* ===== 回覆資料(示意) ===== */
-function respCount(f){return allResp(f).length}
-function rng(seed){let s=0;for(const c of seed)s=(s*31+c.charCodeAt(0))>>>0;return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296}}
-function mockResp(f){
-  if(f.status==='draft')return [];
-  const r=rng(f.id),names=['陳美玲','林建國','黃秀英','張志明','李淑芬','王大明','吳金龍','蔡玉蘭'],by=['本人','家屬協助','里長協助','看護協助','1999 客服協助'];
-  const out=[];
-  for(let i=0;i<(f.status==='closed'?6:8);i++){
-    const row={_t:Date.now()-Math.floor(r()*86400000*6),_by:by[Math.floor(r()*by.length)]};
-    f.fields.forEach(x=>{const o=x.options||[];
-      if(x.type==='idno')row[x.id]='A'+(Math.floor(r()*2)+1)+String(Math.floor(r()*1e8)).padStart(8,'0');
-      else if(x.type==='phone')row[x.id]='09'+String(Math.floor(r()*1e8)).padStart(8,'0');
-      else if(x.type==='radio'||x.type==='select')row[x.id]=o[Math.floor(r()*o.length)]||'';
-      else if(x.type==='checkbox')row[x.id]=o.slice(0,1+Math.floor(r()*o.length)).join('、');
-      else if(x.type==='date')row[x.id]='19'+(30+Math.floor(r()*30))+'-0'+(1+Math.floor(r()*9))+'-1'+Math.floor(r()*9);
-      else if(x.type==='consent')row[x.id]='已同意';
-      else if(x.type==='file')row[x.id]='照片'+(i+1)+'.jpg';
-      else if(x.type==='address')row[x.id]='臺北市'+['大安','信義','中正','萬華','北投'][Math.floor(r()*5)]+'區○○路'+Math.floor(r()*200)+'號';
-      else if(x.type==='number')row[x.id]=Math.floor(r()*10);
-      else if(x.label.includes('姓名'))row[x.id]=names[Math.floor(r()*names.length)];
-      else row[x.id]='(示意回答)';});
-    out.push(row);
-  }
-  return out;
-}
-const allResp=f=>[...(f.live||[]),...mockResp(f)].sort((a,b)=>b._t-a._t);
-const maskVal=(x,v)=>x.type==='idno'&&v?String(v).slice(0,3)+'●●●●'+String(v).slice(-3):x.type==='phone'&&v?String(v).slice(0,4)+'●●●'+String(v).slice(-3):v;
-function vResp(){
-  const f=form(),rs=allResp(f),assist=rs.filter(r=>r._by!=='本人'&&!r._by.startsWith('本人')).length;
-  return `<div class="homehead"><button class="btn" data-act="edit" data-id="${f.id}">${ic('arrow-left',18)}回編輯表單</button><h2>民眾填寫的回覆</h2><span class="sp"></span>
-    <button class="btn primary" data-act="csv" ${rs.length?'':'disabled'}>${ic('download',18)}下載成 Excel 檔(CSV)</button></div>
-   <div class="stats"><div class="card stat"><span class="muted">全部回覆</span><b>${rs.length}</b></div><div class="card stat"><span class="muted">別人協助填寫</span><b>${assist}</b></div><div class="card stat"><span class="muted">本人填寫</span><b>${rs.length-assist}</b></div></div>
-   <div class="warn" style="margin:0 0 14px">${ic('lock',20)}<span>目前是示意資料。身分證字號和電話在畫面上會遮住一部分,下載檔案時請妥善保管,避免個資外洩。</span></div>
-   <div class="card tablewrap">${rs.length?`<table><thead><tr><th>送出時間</th><th>誰填的</th>${f.fields.map(x=>`<th>${esc(x.label)}</th>`).join('')}</tr></thead><tbody>${rs.map(r=>`<tr><td>${fmt(r._t)}</td><td>${esc(r._by)}</td>${f.fields.map(x=>`<td>${esc(maskVal(x,r[x.id])??'')}</td>`).join('')}</tr>`).join('')}</tbody></table>`:`<div class="empty"><div class="ico">${ic('inbox',34)}</div><b>還沒有人填寫</b><p>表單發布後,民眾的回覆會顯示在這裡。</p></div>`}</div>`;
-}
-
-/* ===== 彈窗 ===== */
-function dlg(html,onclose){const d=$('#dlg');d.innerHTML=html;if(!d.open)d.showModal();}
-function closeDlg(){const d=$('#dlg');if(d.open)d.close();}
-function helpDlg(){dlg(`<h3>怎麼使用?</h3><p class="muted" style="margin-top:0">做一份表單只要 3 步,每一步都有「下一步」按鈕帶你走。</p>
-  <div class="steps3" style="grid-template-columns:1fr;margin:14px 0">
-   <div style="background:var(--bg)"><span class="n">${ic('file-text',24)}</span><span><b>1. 寫基本資料</b><span class="muted small">填表單名稱、單位和開頭說明。</span></span></div>
-   <div style="background:var(--bg)"><span class="n">${ic('square-pen',24)}</span><span><b>2. 加入題目</b><span class="muted small">按「新增題目」,選一種題型。右邊會即時顯示民眾在手機上看到的樣子。</span></span></div>
-   <div style="background:var(--bg)"><span class="n">${ic('send',24)}</span><span><b>3. 預覽並發布</b><span class="muted small">先試填一次,沒問題再按「發布表單」。</span></span></div></div>
-  <div class="warn" style="background:var(--brand-l);color:var(--brand-d)">${ic('lightbulb',20)}<span>小技巧:題目用日常說話的方式寫(「你住在哪裡」,而不是「戶籍所在地」),長輩會比較容易看懂。系統會幫你檢查。</span></div>
-  <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn primary" data-act="closedlg">我知道了</button></div>`);}
-function newDlg(){dlg(`<h3>要建立哪一種表單?</h3><p class="muted" style="margin:4px 0 12px">可以從範本開始,再改成你要的內容。</p>
-  <div class="picker" style="grid-template-columns:1fr">${Object.entries(TEMPLATES).map(([k,v])=>`<button data-act="tpl" data-k="${k}"><span class="pi">${ic(v.ic,22)}</span><span><b>${v.n}</b><span class="d">${v.d}</span></span></button>`).join('')}</div>
-  <div class="row" style="justify-content:flex-end"><button class="btn" data-act="closedlg">取消</button></div>`);}
-
-/* ===== 驗證 / 朗讀 ===== */
 function pvCollect(){
-  const x=form().fields[S.pv];if(!x)return null;
+  const x=form().fields[S.pv.i];if(!x)return null;
   if(x.type==='radio'){const c=document.querySelector('input[name=pv]:checked');return c?c.value:''}
   if(x.type==='checkbox')return [...document.querySelectorAll('input[name=pv]:checked')].map(i=>i.value);
   if(x.type==='consent')return $('#pvin').checked;
@@ -524,74 +502,125 @@ function validate(x,v){
 }
 function speak(t){if(!('speechSynthesis' in window)){toast('這個裝置不支援朗讀');return}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='zh-TW';u.rate=.85;speechSynthesis.speak(u)}
 
+/* ===== 彈窗 ===== */
+function dlg(html){const d=$('#dlg');d.innerHTML=html;if(!d.open)d.showModal()}
+function closeDlg(){const d=$('#dlg');if(d.open)d.close()}
+function helpDlg(){dlg(`<h3>怎麼使用?</h3><p class="muted">操作方式和 Google 表單很像。</p>
+  <div style="display:grid;gap:12px;margin:16px 0">
+   <div class="row" style="flex-wrap:nowrap;align-items:flex-start">${ic('copy',26)}<span><b>1. 從範本開始</b><br><span class="muted small">首頁選一個範本,或按「新表單」從空白開始。</span></span></div>
+   <div class="row" style="flex-wrap:nowrap;align-items:flex-start">${ic('square-pen',26)}<span><b>2. 點選題目就能修改</b><br><span class="muted small">改問題、改選項,右邊的「＋」可以新增題目。修改會自動儲存,按 Ctrl+Z 可以復原。</span></span></div>
+   <div class="row" style="flex-wrap:nowrap;align-items:flex-start">${ic('eye',26)}<span><b>3. 預覽後發布</b><br><span class="muted small">按右上角的眼睛,看看民眾在手機上的畫面,沒問題就按「發布」。</span></span></div></div>
+  <div class="tipc">${ic('lightbulb',20)}<span>題目用日常說話的方式寫,例如「你住在哪裡」,而不是「戶籍所在地」。系統會幫你檢查,長輩比較容易看懂。</span></div>
+  <div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn primary" data-act="closedlg">我知道了</button></div>`)}
+const shareLink=f=>`https://townpass.taipei/forms/${f.id}`;
+function pubDlg(){
+  const f=form(),w=warnCount(f);
+  if(f.status==='open')return dlg(`<h3>表單已發布</h3><p class="muted">民眾可以在台北通「市民表單」找到,也可以用下面的連結填寫。</p>
+    <div class="copybox"><code>${shareLink(f)}</code><button class="btn sm primary" data-act="copylink">${ic('copy',16)}複製連結</button></div>
+    <div class="muted small">連結為示意,正式上線後會由系統產生。</div>
+    <div class="row" style="justify-content:space-between;margin-top:20px"><button class="btn alarm" data-act="stopok">${ic('lock',18)}停止收件</button><button class="btn primary" data-act="closedlg">完成</button></div>`);
+  if(f.status==='closed')return dlg(`<h3>重新開放填寫?</h3><p class="muted">民眾又可以填寫這份表單了。</p><div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn" data-act="closedlg">先不要</button><button class="btn primary" data-act="pubok">${ic('send',18)}重新開放</button></div>`);
+  const issues=[];
+  if(!f.title.trim())issues.push('還沒有表單名稱');
+  if(!f.fields.length)issues.push('還沒有任何題目');
+  if(f.fields.some(x=>!x.label.trim()))issues.push('有題目還沒輸入問題');
+  if(f.fields.some(x=>OPT.includes(x.type)&&x.options.some(o=>!o.trim())))issues.push('有選項是空白的');
+  dlg(`<h3>發布這份表單</h3><p class="muted">發布後,民眾就能在台北通找到並填寫。</p>
+   <div class="card" style="background:var(--p50);box-shadow:none;padding:14px 18px;margin:14px 0"><b>${esc(f.title||'未命名表單')}</b><div class="muted small">${f.fields.length} 題｜${f.deadline?'截止 '+f.deadline:'不設截止日'}｜${f.allowAssist?'開放協助辦理':'僅限本人填寫'}</div></div>
+   ${issues.length?issues.map(t=>`<div class="tipc" style="background:var(--red50);border-color:var(--red50);color:var(--red600)">${ic('triangle-alert',20)}<span>${t}</span></div>`).join(''):w?`<div class="tipc">${ic('lightbulb',20)}<span>有 ${w} 題可以寫得更好懂。可以先發布,之後再修改。</span></div>`:`<div class="good">${ic('circle-check',18)}所有題目長輩都看得懂</div>`}
+   <div class="row" style="justify-content:flex-end;margin-top:20px"><button class="btn" data-act="closedlg">取消</button><button class="btn primary" data-act="pubok" ${issues.length?'disabled':''}>${ic('send',18)}發布</button></div>`);
+}
+
 /* ===== 操作 ===== */
-const go=(v,extra={})=>{closeDlg();Object.assign(S,{view:v},extra);render();window.scrollTo(0,0)};
-let removed=null;
-function addQ(x){const f=form();const i=f.fields.findIndex(a=>a.id===S.sel);f.fields.splice(i>=0?i+1:f.fields.length,0,x);S.sel=x.id;touch();closeDlg();render();
-  setTimeout(()=>{const e=$('#q-label');if(e){e.focus();e.select();e.scrollIntoView({block:'center',behavior:'smooth'})}},60);}
+function addQ(x,afterSel=true){
+  const f=form(),i=f.fields.findIndex(a=>a.id===S.sel);f.fields.splice(afterSel&&i>=0?i+1:f.fields.length,0,x);S.sel=x.id;S.menu=null;touch(true);render();
+  setTimeout(()=>{const e=$('#q-label');if(e){e.focus();e.select();e.closest('.qc').scrollIntoView({block:'center',behavior:'smooth'})}},40);
+}
 document.addEventListener('click',e=>{
-  const t=e.target.closest('[data-act]');if(!t)return;
+  const t=e.target.closest('[data-act]');
+  if(S.menu&&!(t&&['typemenu','quickmenu','cardmenu'].includes(t.dataset.act))&&!e.target.closest('.pop')){S.menu=null;if(!t||!['sel','open'].includes(t.dataset.act))render();}
+  if(!t)return;
   const d=t.dataset,a=d.act,f=S.cur?form():null;
-  if(a==='home')return go('home',{cur:null});
+  if(a==='open'){ans={};e.stopPropagation();delete H[d.id];return go({view:'form',cur:d.id,tab:'q',sel:null})}
+  if(a==='homeTop')return go({view:'home',cur:null});
   if(a==='help')return helpDlg();
   if(a==='closedlg')return closeDlg();
-  if(a==='hidewelcome'){S.hideWelcome=true;return render()}
+  if(a==='hidetip'){S.hideTip=true;return render()}
   if(a==='filter'){S.filter=d.k;return render()}
-  if(a==='new')return newDlg();
-  if(a==='tpl'){const m=TEMPLATES[d.k].make(),nf={id:uid(),...m,deadline:'',allowAssist:true,status:'draft',updated:Date.now()};S.forms.unshift(nf);closeDlg();go('edit',{cur:nf.id,step:1,sel:null,pv:0});ans={};return}
-  if(a==='edit'){ans={};return go('edit',{cur:d.id,step:1,sel:null,pv:0})}
-  if(a==='resp')return go('resp',{cur:d.id});
-  if(a==='dup'){const o=S.forms.find(x=>x.id===d.id),c=JSON.parse(JSON.stringify(o));c.id=uid();c.title+='(複本)';c.status='draft';c.live=[];c.updated=Date.now();c.fields.forEach(x=>x.id=uid());S.forms.unshift(c);render();return toast('已複製,放在列表最上面')}
-  if(a==='del'){const o=S.forms.find(x=>x.id===d.id);return dlg(`<h3>要刪除這份表單嗎?</h3><p><b>${esc(o.title||'未命名表單')}</b>${respCount(o)?`<br>裡面已經有 ${respCount(o)} 份民眾回覆,一起刪除後<b>無法復原</b>。`:'<br>刪除後無法復原。'}</p><div class="row" style="justify-content:flex-end"><button class="btn" data-act="closedlg">不要刪除</button><button class="btn primary danger" style="background:var(--danger);color:#fff;border-color:var(--danger)" data-act="delok" data-id="${o.id}">${ic('trash-2',18)}確定刪除</button></div>`)}
-  if(a==='delok'){S.forms=S.forms.filter(x=>x.id!==d.id);closeDlg();render();return toast('已刪除')}
-  if(a==='step'){const k=Number(d.k);if(S.step===3){S.pv=0;ans={}}S.step=k;S.sel=k===2&&f.fields.length?S.sel:null;render();return window.scrollTo(0,0)}
-  if(a==='addpick')return dlg(typePicker());
-  if(a==='addtype')return addQ(newField(d.k));
+  if(a==='tpl'){const nf=mkForm(TEMPLATES[d.k].make());S.forms.unshift(nf);delete H[nf.id];ans={};go({view:'form',cur:nf.id,tab:'q',sel:null});if(d.k==='blank')setTimeout(()=>{const x=$('#ttl');if(x)x.focus()},40);return}
+  if(a==='cardmenu'){S.menu=S.menu&&S.menu.id===d.id?null:{k:'card',id:d.id};return render()}
+  if(a==='resp'){return go({view:'form',cur:d.id,tab:'r'})}
+  if(a==='dup'){const o=S.forms.find(x=>x.id===d.id),c=JSON.parse(JSON.stringify(o));c.id=uid();c.title=(c.title||'未命名表單')+' 的複本';c.status='draft';c.live=[];c.updated=Date.now();c.fields.forEach(x=>x.id=uid());S.forms.unshift(c);S.menu=null;render();return toast('已建立複本')}
+  if(a==='del'){const o=S.forms.find(x=>x.id===d.id);S.menu=null;return dlg(`<h3>刪除這份表單?</h3><p><b>${esc(o.title||'未命名表單')}</b><br>${respCount(o)?`裡面有 ${respCount(o)} 份民眾回覆,會一起刪除,<b>無法復原</b>。`:'刪除後無法復原。'}</p><div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" data-act="closedlg">取消</button><button class="btn alarm" data-act="delok" data-id="${o.id}">${ic('trash-2',18)}刪除</button></div>`)}
+  if(a==='delok'){S.forms=S.forms.filter(x=>x.id!==d.id);closeDlg();go({view:'home',cur:null});return toast('已刪除表單')}
+  if(a==='tab'){S.tab=d.k;S.menu=null;render();return window.scrollTo(0,0)}
+  if(a==='rsub'){S.rsub=d.k;return render()}
+  if(a==='undo')return applyHist(-1);
+  if(a==='redo')return applyHist(1);
+  if(a==='preview'){ans={};S.pv={i:0,size:'l',done:false};return render()}
+  if(a==='pvclose'){S.pv=null;return render()}
+  if(a==='size'){S.pv.size=d.k;return render()}
+  if(a==='pvreset'){S.pv.i=0;S.pv.done=false;ans={};return render()}
+  if(a==='speak'){const x=f.fields[S.pv.i];return speak(x.label+'。'+(x.hint||'')+(x.options.length?'。選項有:'+x.options.join('、'):''))}
+  if(a==='pvprev'){if(S.pv.i<f.fields.length)ans[f.fields[S.pv.i].id]=pvCollect();if(S.pv.i>0)S.pv.i--;return render()}
+  if(a==='pvnext'){const x=f.fields[S.pv.i],v=pvCollect(),er=validate(x,v);if(er)return toast(er);ans[x.id]=v;S.pv.i++;return render()}
+  if(a==='pvsubmit'){const r={_t:Date.now(),_by:'本人(試填)'};f.fields.forEach(x=>r[x.id]=Array.isArray(ans[x.id])?ans[x.id].join('、'):ans[x.id]);f.live=f.live||[];f.live.unshift(r);S.pv.done=true;ans={};save();return render()}
+  if(a==='sel'){if(S.sel!==d.id){S.sel=d.id;S.menu=null;render();const el=document.querySelector('.qc.act');if(el)el.scrollIntoView({block:'nearest',behavior:'smooth'})}return}
+  if(a==='typemenu'){S.menu=S.menu&&S.menu.k==='type'?null:{k:'type'};return render()}
+  if(a==='quickmenu'){S.menu=S.menu&&S.menu.k==='quick'?null:{k:'quick'};return render()}
+  if(a==='settype'){const x=f.fields.find(q=>q.id===S.sel);x.type=d.k;if(OPT.includes(d.k)&&!x.options.length)x.options=['選項 1'];S.menu=null;touch(true);return render()}
+  if(a==='addq')return addQ(newField('radio'));
   if(a==='addquick'){const q=QUICK[d.k];return addQ(newField(q[0],q[1],q[2]))}
-  if(a==='sel'){S.sel=S.sel===d.id?null:d.id;return render()}
-  if(a==='mv'){const i=f.fields.findIndex(x=>x.id===d.id),j=i+Number(d.d);[f.fields[i],f.fields[j]]=[f.fields[j],f.fields[i]];touch();return render()}
-  if(a==='dupq'){const i=f.fields.findIndex(x=>x.id===d.id),c=JSON.parse(JSON.stringify(f.fields[i]));c.id=uid();f.fields.splice(i+1,0,c);S.sel=c.id;touch();render();return toast('已複製這一題')}
-  if(a==='rmq'){const i=f.fields.findIndex(x=>x.id===d.id),x=f.fields.splice(i,1)[0];S.sel=null;touch();render();return toast('已刪除這一題','復原',()=>{f.fields.splice(i,0,x);S.sel=x.id;touch();render()})}
-  if(a==='addopt'){f.fields.find(x=>x.id===S.sel).options.push('新選項');touch();render();const o=document.querySelectorAll('[data-opt]');const l=o[o.length-1];if(l){l.focus();l.select()}return}
-  if(a==='rmopt'){f.fields.find(x=>x.id===S.sel).options.splice(Number(d.k),1);touch();return render()}
-  if(a==='fix'){const x=f.fields.find(q=>q.id===d.id);x.label=x.label.split(d.k).join(d.to);touch();render();return toast('已幫你改好了')}
-  if(a==='publish'){
-    if(!f.title.trim()){toast('請先回第 1 步,填寫表單名稱');return}
-    if(!f.fields.length){toast('請先回第 2 步,加入至少一題');return}
-    const w=warnCount(f);
-    return dlg(`<h3>確定要發布嗎?</h3><p class="muted" style="margin-top:0">發布後,民眾就能在台北通找到這份表單。</p>
-      <div class="card" style="background:var(--bg);padding:14px 18px;margin:12px 0"><b>${esc(f.title)}</b><div class="muted small">${f.fields.length} 題｜${f.deadline?'截止 '+f.deadline:'不設截止日'}｜${f.allowAssist?'開放協助辦理':'僅限本人填寫'}</div></div>
-      ${w?`<div class="warn">${ic('lightbulb',20)}<span>還有 ${w} 題可以寫得更好懂。想先修改的話,按「先不要」。</span></div>`:`<div class="good">${ic('circle-check',20)}所有題目長輩都看得懂</div>`}
-      <div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn" data-act="closedlg">先不要</button><button class="btn primary" data-act="pubok">${ic('send',18)}確定發布</button></div>`)}
-  if(a==='pubok'){f.status='open';touch();return dlg(`<div style="text-align:center;padding:10px 0"><div class="empty" style="padding:0"><div class="ico" style="background:var(--ok-l);color:var(--ok)">${ic('circle-check',36)}</div></div><h3>發布成功!</h3><p class="muted">民眾現在可以在台北通找到「${esc(f.title)}」。<br>有人填寫後,可以到「看回覆」查看。</p>
-     <div class="row" style="justify-content:center;margin-top:14px"><button class="btn" data-act="home">回到我的表單</button><button class="btn primary" data-act="resp" data-id="${f.id}">${ic('inbox',18)}看回覆</button></div></div>`)}
-  if(a==='close'){return dlg(`<h3>要結束收件嗎?</h3><p>結束後,民眾就不能再填寫這份表單。已經收到的回覆還是會保留。</p><div class="row" style="justify-content:flex-end"><button class="btn" data-act="closedlg">先不要</button><button class="btn primary" data-act="closeok">${ic('lock',18)}結束收件</button></div>`)}
-  if(a==='closeok'){f.status='closed';touch();closeDlg();render();return toast('已結束收件')}
-  if(a==='size'){S.pvSize=d.k;return render()}
-  if(a==='pvreset'){S.pv=0;ans={};return render()}
-  if(a==='speak'){const x=f.fields[S.pv];return speak(x.label+'。'+(x.hint||'')+(x.options.length?'。選項有:'+x.options.join('、'):''))}
-  if(a==='pvprev'){if(S.pv<f.fields.length)ans[f.fields[S.pv].id]=pvCollect();if(S.pv>0)S.pv--;return render()}
-  if(a==='pvnext'){const x=f.fields[S.pv],v=pvCollect(),er=validate(x,v);if(er)return toast(er);ans[x.id]=v;S.pv++;return render()}
-  if(a==='pvsubmit'){const r={_t:Date.now(),_by:'本人(試填)'};f.fields.forEach(x=>r[x.id]=Array.isArray(ans[x.id])?ans[x.id].join('、'):ans[x.id]);f.live=f.live||[];f.live.unshift(r);S.pv=0;ans={};save();render();return toast('試填已送出,可在「看回覆」看到這一筆')}
+  if(a==='addopt'){const x=f.fields.find(q=>q.id===S.sel);x.options.push('選項 '+(x.options.length+1));touch(true);render();const o=document.querySelectorAll('[data-opt]');const l=o[o.length-1];if(l){l.focus();l.select()}return}
+  if(a==='rmopt'){f.fields.find(q=>q.id===S.sel).options.splice(Number(d.k),1);touch(true);return render()}
+  if(a==='mv'){const i=f.fields.findIndex(x=>x.id===S.sel),j=i+Number(d.d);[f.fields[i],f.fields[j]]=[f.fields[j],f.fields[i]];touch(true);render();return document.querySelector('.qc.act').scrollIntoView({block:'center',behavior:'smooth'})}
+  if(a==='dupq'){const i=f.fields.findIndex(x=>x.id===S.sel),c=JSON.parse(JSON.stringify(f.fields[i]));c.id=uid();f.fields.splice(i+1,0,c);S.sel=c.id;touch(true);render();return toast('已複製這一題')}
+  if(a==='rmq'){const i=f.fields.findIndex(x=>x.id===S.sel),x=f.fields.splice(i,1)[0];S.sel=f.fields[Math.min(i,f.fields.length-1)]?.id||null;touch(true);render();return toast('已刪除這一題','復原',()=>{f.fields.splice(i,0,x);S.sel=x.id;touch(true);render()})}
+  if(a==='fix'){const x=f.fields.find(q=>q.id===d.id);x.label=x.label.split(d.k).join(d.to);touch(true);render();return toast('已改好')}
+  if(a==='pubdlg')return pubDlg();
+  if(a==='pubok'){f.status='open';touch(true);render();dlg(`<div style="text-align:center"><div style="width:84px;height:84px;border-radius:50%;background:var(--ok-l);color:var(--ok);display:grid;place-items:center;margin:0 auto 12px">${ic('circle-check',52)}</div><h3>發布成功!</h3><p class="muted">民眾現在可以在台北通找到「${esc(f.title)}」。</p></div>
+    <div class="copybox"><code>${shareLink(f)}</code><button class="btn sm primary" data-act="copylink">${ic('copy',16)}複製連結</button></div>
+    <div class="row" style="justify-content:center;margin-top:14px"><button class="btn" data-act="homeTop">回到我的表單</button><button class="btn primary" data-act="closedlg">完成</button></div>`);return}
+  if(a==='stopok'){f.status='closed';touch(true);closeDlg();render();return toast('已停止收件')}
+  if(a==='copylink'){try{navigator.clipboard.writeText(shareLink(f))}catch(e){}return toast('已複製連結')}
   if(a==='csv'){
     const rs=allResp(f),q=s=>'"'+String(s??'').replace(/"/g,'""')+'"';
     const lines=[['送出時間','誰填的',...f.fields.map(x=>x.label)].map(q).join(',')];
     rs.forEach(r=>lines.push([fmt(r._t),r._by,...f.fields.map(x=>maskVal(x,r[x.id]))].map(q).join(',')));
     const a2=document.createElement('a');a2.href=URL.createObjectURL(new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}));a2.download=(f.title||'表單')+'_回覆資料.csv';a2.click();return toast('已下載');}
 });
-document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('qh')){e.preventDefault();e.target.click()}});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.dataset.act==='accept'){const f=form();f.status=t.checked?'open':'closed';touch(true);render();toast(t.checked?'已開始接受回覆':'已停止接受回覆')}
+});
+document.addEventListener('keydown',e=>{
+  const t=e.target;
+  if(['Enter',' '].includes(e.key)&&t.matches&&t.matches('[data-act=sel],.fc[data-act=open]')){e.preventDefault();t.click();return}
+  if(t.dataset&&t.dataset.opt!==undefined){
+    const f=form(),x=f.fields.find(q=>q.id===S.sel),j=Number(t.dataset.opt);
+    if(e.key==='Enter'){e.preventDefault();x.options.splice(j+1,0,'選項 '+(x.options.length+1));touch(true);render();const o=document.querySelectorAll('[data-opt]')[j+1];if(o){o.focus();o.select()}}
+    else if(e.key==='Backspace'&&t.value===''&&x.options.length>1){e.preventDefault();x.options.splice(j,1);touch(true);render();const o=document.querySelectorAll('[data-opt]')[Math.max(0,j-1)];if(o)o.focus()}
+    return}
+  if(e.key==='Escape'){if(S.pv){S.pv=null;render()}else if(S.menu){S.menu=null;render()}return}
+  const tag=(t.tagName||'').toLowerCase();
+  if(S.view==='form'&&(e.ctrlKey||e.metaKey)&&!['input','textarea'].includes(tag)){
+    if(e.key==='z'&&!e.shiftKey){e.preventDefault();applyHist(-1)}
+    else if(e.key==='y'||(e.key==='z'&&e.shiftKey)){e.preventDefault();applyHist(1)}}
+});
 document.addEventListener('input',e=>{
-  const t=e.target,f=S.cur?form():null;if(!f)return;
-  if(t.dataset.set){f[t.dataset.set]=t.type==='checkbox'?t.checked:t.value;touch();if(t.dataset.set==='title')renderTop();return}
+  const t=e.target;
+  if(t.id==='search'){S.q=t.value;const p=t.selectionStart;render();const s=$('#search');s.focus();s.setSelectionRange(p,p);return}
+  const f=S.cur?form():null;if(!f)return;
+  if(t.dataset.set){f[t.dataset.set]=t.type==='checkbox'?t.checked:t.value;if(t.dataset.set==='title'){const o=t.id==='ttl'?$('#ftitle'):$('#ttl');if(o)o.value=t.value}touch();return}
   const x=f.fields.find(a=>a.id===S.sel);if(!x)return;
-  if(t.dataset.p){x[t.dataset.p]=t.type==='checkbox'?t.checked:t.value;touch();if(t.dataset.p==='required'){const m=document.querySelector('.qcard.sel .qm');render()}else refreshLive();return}
+  if(t.dataset.p){x[t.dataset.p]=t.type==='checkbox'?t.checked:t.value;touch(t.type==='checkbox');if(t.dataset.p==='required')return render();refreshLive();return}
   if(t.dataset.opt!==undefined){x.options[Number(t.dataset.opt)]=t.value;touch();refreshLive()}
 });
 /* 拖曳排序 */
 let dragIdx=null;
-document.addEventListener('dragstart',e=>{const c=e.target.closest&&e.target.closest('.qcard');if(c){dragIdx=Number(c.dataset.idx);e.dataTransfer.effectAllowed='move'}});
-document.addEventListener('dragover',e=>{const c=e.target.closest&&e.target.closest('.qcard');if(c&&dragIdx!==null){e.preventDefault();document.querySelectorAll('.dragover').forEach(n=>n.classList.remove('dragover'));c.classList.add('dragover')}});
-document.addEventListener('drop',e=>{const c=e.target.closest&&e.target.closest('.qcard');if(c&&dragIdx!==null){e.preventDefault();const to=Number(c.dataset.idx),f=form(),[m]=f.fields.splice(dragIdx,1);f.fields.splice(to,0,m);dragIdx=null;touch();render()}});
+document.addEventListener('dragstart',e=>{const c=e.target.closest&&e.target.closest('.qc');if(c){dragIdx=Number(c.dataset.idx);e.dataTransfer.effectAllowed='move'}});
+document.addEventListener('dragover',e=>{const c=e.target.closest&&e.target.closest('.qc');if(c&&dragIdx!==null){e.preventDefault();document.querySelectorAll('.dragover').forEach(n=>n.classList.remove('dragover'));c.classList.add('dragover')}});
+document.addEventListener('drop',e=>{const c=e.target.closest&&e.target.closest('.qc');if(c&&dragIdx!==null){e.preventDefault();const to=Number(c.dataset.idx),f=form(),[m]=f.fields.splice(dragIdx,1);f.fields.splice(to,0,m);S.sel=m.id;dragIdx=null;touch(true);render()}});
 document.addEventListener('dragend',()=>{dragIdx=null;document.querySelectorAll('.dragover').forEach(n=>n.classList.remove('dragover'))});
 
 render();
