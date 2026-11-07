@@ -259,7 +259,7 @@ img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(x)}
  * 已安裝台北通的 iPhone 會透過 Universal Link 直接打開 App，不會看到這頁；
  * 沒有安裝、或連結還沒生效時，才會在 Safari 看到這頁，按按鈕用 townpass:// 開 App。
  */
-export function landingPage(form, url, id) {
+export function landingPage(form, url, id, qrSvg = '') {
   const appLink = `townpass://f/${encodeURIComponent(id ?? '')}`;
   return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(form?.title ?? '找不到表單')}｜台北通</title>
@@ -267,12 +267,17 @@ export function landingPage(form, url, id) {
 .card{max-width:420px;width:100%}.brand{font-size:17px;font-weight:700;color:#2EB6C7;margin-bottom:28px}
 h1{font-size:30px;margin:0 0 8px}.dept{font-size:16px;color:#6E6E73}p{font-size:17px;line-height:1.6;color:#6E6E73}
 a.btn{display:block;margin:28px 0 12px;padding:16px;border-radius:14px;background:#2EB6C7;color:#fff;font-size:19px;font-weight:700;text-decoration:none}
-.small{font-size:13px;color:#91A0A8;word-break:break-all}</style></head>
+.small{font-size:13px;color:#91A0A8;word-break:break-all}
+.qr{display:none}.desk .qr{display:block;margin:26px auto 6px;width:220px;padding:12px;border:1px solid #DCE3E6;border-radius:18px}
+.qr svg{display:block;width:100%;height:auto}.desk a.btn,.desk .mobile{display:none}.desk-only{display:none}.desk .desk-only{display:block}</style>
+<script>if(!/iPhone|iPad|Android/i.test(navigator.userAgent))document.documentElement.classList.add('desk')</script></head>
 <body><div class="card"><div class="brand">台北通</div>${
     form
       ? `<h1>${esc(form.title)}</h1><div class="dept">${esc(form.dept)}</div>
 <a class="btn" href="${esc(appLink)}">使用台北通開啟</a>
-<p>請先安裝並登入台北通 App。<br>也可以打開台北通，點選「掃描」再掃一次 QR Code。</p>`
+<p class="mobile">請先安裝並登入台北通 App。<br>也可以打開台北通，點選「掃描」再掃一次 QR Code。</p>
+${qrSvg ? `<div class="qr" role="img" aria-label="這份表單的 QR Code">${qrSvg}</div>` : ''}
+<p class="desk-only">用手機相機掃描 QR Code，<br>就會直接在台北通打開這份表單。</p>`
       : `<h1>找不到這份表單</h1><p>這份表單可能已經停止收件。</p>`
   }<p class="small">${esc(url)}</p></div>${
     form

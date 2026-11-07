@@ -248,3 +248,31 @@ test('陪辦進行中，承辦人改表單（加題、改成草稿）不會讓�
     await h.close();
   }
 });
+
+test('「本表單支援台北通」徽章、嵌入碼頁與局處網站示意', async () => {
+  const h = await startTestServer({ dataDir: null });
+  try {
+    const svg = await fetch(`${h.base}/badge.svg?theme=light`);
+    assert.equal(svg.status, 200);
+    assert.match(svg.headers.get('content-type'), /image\/svg\+xml/);
+    assert.match(await svg.text(), /本表單支援/);
+
+    const kit = await (await fetch(`${h.base}/badge`)).text();
+    assert.match(kit, /複製程式碼/);
+
+    const agency = await fetch(`${h.base}/demo/agency?form=flu-shot`);
+    const html = await agency.text();
+    assert.equal(agency.status, 200);
+    assert.match(html, /示意頁面/);
+    assert.match(html, /長者流感疫苗預約/);
+    assert.ok(html.includes(`${h.base}/f/flu-shot`), '徽章連到台北通的表單網址');
+
+    // 找不到表單時退回第一份開放的表單，不會壞掉
+    assert.equal((await fetch(`${h.base}/demo/agency?form=nope`)).status, 200);
+
+    // 電腦上點徽章：說明頁有 QR Code
+    assert.match(await (await fetch(`${h.base}/f/demo`)).text(), /<svg/);
+  } finally {
+    await h.close();
+  }
+});
