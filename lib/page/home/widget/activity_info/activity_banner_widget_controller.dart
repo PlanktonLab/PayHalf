@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
+import 'package:town_pass/service/subscription_service.dart';
 
 import 'package:town_pass/bean/activity.dart';
-import 'package:town_pass/gen/assets.gen.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 class ActivityBannerWidgetController extends GetxController {
@@ -26,10 +24,9 @@ class ActivityBannerWidgetController extends GetxController {
 
     Timer.periodic(
       const Duration(seconds: 2),
-      (timer) async {
+      (timer) {
         timer.cancel();
-        final String activityData = await rootBundle.loadString(Assets.mockData.activity);
-        list = ActivityList.fromJson(jsonDecode(activityData));
+        list = Get.find<SubscriptionService>().activities;
         isLoading = false;
       },
     );

@@ -5,6 +5,11 @@ import 'package:town_pass/page/activity_detail/activity_detail_view.dart';
 import 'package:town_pass/page/activity_list/activity_list_view.dart';
 import 'package:town_pass/page/app_home_page/app_home_page_controller.dart';
 import 'package:town_pass/page/app_home_page/app_home_page_view.dart';
+import 'package:town_pass/page/assist/assist_legal/assist_legal_view.dart';
+import 'package:town_pass/page/assist/assist_pairing/assist_pairing_view.dart';
+import 'package:town_pass/page/assist/assist_records/assist_records_view.dart';
+import 'package:town_pass/page/assist/assist_request/assist_request_view.dart';
+import 'package:town_pass/page/assist/assist_session/assist_session_view.dart';
 import 'package:town_pass/page/basic_info/basic_info_view.dart';
 import 'package:town_pass/page/basic_info/basic_info_view_controller.dart';
 import 'package:town_pass/page/basic_info_edit/basic_info_edit_view.dart';
@@ -59,6 +64,13 @@ abstract class TPRoute {
   static const String subscription = '/subscription';
   static const String suspendAccount = '/suspend_account';
   static const String webView = '/web_view';
+
+  // 陪辦（協辦）
+  static const String assistPairing = '/assist_pairing';
+  static const String assistRequest = '/assist_request';
+  static const String assistSession = '/assist_session';
+  static const String assistRecords = '/assist_records';
+  static const String assistLegal = '/assist_legal';
 
   static final List<GetPage> page = [
     GetPage(
@@ -185,6 +197,11 @@ abstract class TPRoute {
       name: activityDetail,
       page: () => const ActivityDetailView(),
     ),
+    GetPage(name: assistPairing, page: () => const AssistPairingView()),
+    GetPage(name: assistRequest, page: () => const AssistRequestView()),
+    GetPage(name: assistSession, page: () => const AssistSessionView()),
+    GetPage(name: assistRecords, page: () => const AssistRecordsView()),
+    GetPage(name: assistLegal, page: () => const AssistLegalView()),
   ];
 
   static Future openUri({required String uri, String? forceTitle}) async {
@@ -195,7 +212,8 @@ abstract class TPRoute {
     return switch (Uri.tryParse(uri)) {
       null => Future.value(null),
       Uri uri => switch (uri.scheme) {
-          'local' => Get.toNamed(uri.host),
+          // local://assist_pairing → /assist_pairing（路由名稱都以 / 開頭）
+          'local' => Get.toNamed('/${uri.host}'),
           _ => Get.toNamed(
               TPRoute.webView,
               arguments: WebViewArgument(

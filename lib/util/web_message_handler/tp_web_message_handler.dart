@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/gen/assets.gen.dart';
@@ -250,6 +251,13 @@ class NotifyMessageHandler extends TPWebMessageHandler {
           content: json['content'],
         );
         final String content = json['content'];
+        const related = SubscriptionService.relatedTitle;
+        if (content == '已訂閱$related' || content == '已取消訂閱$related') {
+          if (isMainFrame && sourceOrigin?.origin == Uri.parse(SubscriptionService.settingsUrl).origin) {
+            await Get.find<SubscriptionService>().setRelated(content == '已訂閱$related');
+          }
+          return;
+        }
         if (RegExp(r'已訂閱(.+)').hasMatch(content)) {
           final String target = RegExp(r'已訂閱(.+)').firstMatch(content)!.group(1)!;
           Get.find<SubscriptionService>().addSubscription(title: target);
@@ -279,5 +287,64 @@ class QRCodeScanMessageHandler extends TPWebMessageHandler {
     onReply?.call(
       replyWebMessage(data: result),
     );
+  }
+}
+
+/// 朗讀(Text-to-Speech):使用手機系統內建的語音引擎,不使用任何雲端語音服務。
+///
+/// 網頁傳入:`{ "action": "speak" | "stop", "text": "...", "lang": "zh-TW" }`
+/// 回覆:`{ "ok": true }` 或 `{ "ok": false, "error": "LANG_UNAVAILABLE" | "EMPTY" | "FAILED" }`
+class TtsWebMessageHandler extends TPWebMessageHandler {
+  static final FlutterTts _tts = FlutterTts();
+
+  @override
+  String get name => 'tts';
+
+  @override
+  Future<void> handle({
+    required Object? message,
+    required WebUri? sourceOrigin,
+    required bool isMainFrame,
+    required onReply,
+  }) async {
+    final Map<String, dynamic> data =
+        message is Map ? Map<String, dynamic>.from(message) : <String, dynamic>{};
+    final String action = data['action'] as String? ?? 'speak';
+
+    try {
+      if (action == 'stop') {
+        await _tts.stop();
+        onReply?.call(replyWebMessage(data: {'ok': true}));
+        return;
+      }
+
+      final String text = (data['text'] as String? ?? '').trim();
+      final String lang = data['lang'] as String? ?? 'zh-TW';
+
+      if (text.isEmpty) {
+        onReply?.call(replyWebMessage(data: {'ok': false, 'error': 'EMPTY'}));
+        return;
+      }
+
+      // 手機若沒有安裝該語言的語音,回報給網頁,由畫面提示使用者,不默默失敗。
+      final dynamic available = await _tts.isLanguageAvailable(lang);
+      if (available != true && available != 1) {
+        onReply?.call(replyWebMessage(data: {
+          'ok': false,
+          'error': 'LANG_UNAVAILABLE',
+          'lang': lang,
+        }));
+        return;
+      }
+
+      await _tts.stop();
+      await _tts.setLanguage(lang);
+      await _tts.setSpeechRate(0.45);
+      await _tts.speak(text);
+      onReply?.call(replyWebMessage(data: {'ok': true}));
+    } catch (error) {
+      debugPrint('TtsWebMessageHandler error: $error');
+      onReply?.call(replyWebMessage(data: {'ok': false, 'error': 'FAILED'}));
+    }
   }
 }

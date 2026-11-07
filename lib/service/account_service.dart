@@ -6,20 +6,20 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 class AccountService extends GetxService {
-  Account? _account;
+  final _account = Rxn<Account>();
 
-  Account? get account => _account;
+  Account? get account => _account.value;
 
   Future<AccountService> init() async {
     final jsonString = await rootBundle.loadString(Assets.mockData.account);
     final accountResponse = AccountResponse.fromJson(
       jsonDecode(jsonString),
     );
-    _account = accountResponse.account;
+    _account.value = accountResponse.account;
     return this;
   }
 
   void updateAccount(Account account) {
-    _account = account;
+    _account.value = account;
   }
 }

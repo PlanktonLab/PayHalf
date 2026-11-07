@@ -2,6 +2,8 @@ import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
+import 'package:town_pass/service/subscription_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:get/get.dart';
@@ -77,8 +79,18 @@ class TPWebView extends StatelessWidget {
         controller: appBarController,
       ),
       body: TPInAppWebView(
-        onWebViewCreated: (controller) {
+        onWebViewCreated: (controller) async {
           webViewController.value = controller;
+          if (url == SubscriptionService.settingsUrl) {
+            final html = await rootBundle.loadString('assets/web/subscription.html');
+            final enabled = Get.find<SubscriptionService>().relatedEnabled;
+            await controller.loadData(
+              data: html.replaceFirst('__RELATED_ENABLED__', enabled.toString()),
+              baseUrl: WebUri(SubscriptionService.settingsUrl),
+              historyUrl: WebUri(SubscriptionService.settingsUrl),
+            );
+            return;
+          }
           try {
             controller.loadUrl(urlRequest: URLRequest(url: WebUri(url)));
           } catch (_) {

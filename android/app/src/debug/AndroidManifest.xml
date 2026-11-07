@@ -4,4 +4,7 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 只在 debug 版允許 http,讓模擬器能連到本機開發伺服器(http://10.0.2.2:5173,「陪辦」微服務)。
+         release 版不受影響,仍禁止明碼連線。 -->
+    <application android:usesCleartextTraffic="true" />
 </manifest>
