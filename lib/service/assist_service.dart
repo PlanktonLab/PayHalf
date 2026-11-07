@@ -105,7 +105,7 @@ class AssistService extends GetxService {
 
   /// 用「幫別人辦」的身分（helperId）登入時，有哪些長輩把我加為信任的人。
   /// 首頁用它顯示「幫某某辦事」的捷徑；一支手機同時當長輩與協助者是 demo 才有的情境。
-  final RxList<({String elderId, String displayName})> helperTrusting = <({String elderId, String displayName})>[].obs;
+  final RxList<TrustingElder> helperTrusting = <TrustingElder>[].obs;
   final Set<String> _sheetShown = {};
 
   /// 這支手機以「協助者」身分開的案件。測試時同一支手機常常同時是長輩與協助者（同一位長輩），
@@ -192,6 +192,12 @@ class AssistService extends GetxService {
       'serviceId': serviceId,
     }, false) as Map;
     return res['id'] as String;
+  }
+
+  /// 可以幫忙辦的項目（申辦業務＋收件中的表單），含機關、預估時間，給「幫別人辦」搜尋用
+  Future<List<Map<String, dynamic>>> serviceCatalog() async {
+    final list = await _request('GET', '/services', null, false) as List;
+    return [for (final e in list) Map<String, dynamic>.from(e as Map)];
   }
 
   /// 可申辦的業務清單（id／名稱）
@@ -312,9 +318,7 @@ class AssistService extends GetxService {
       if (_helperToken == null) return;
       final list = await _helperGet('/helper/trusted-elders') as List;
       if (gen != _generation) return;
-      helperTrusting.assignAll([
-        for (final e in list) (elderId: (e as Map)['elderId'] as String, displayName: e['displayName'] as String),
-      ]);
+      helperTrusting.assignAll([for (final e in list) trustingElderFromJson(Map<String, dynamic>.from(e as Map))]);
     } catch (_) {
       if (gen == _generation) helperTrusting.clear();
     }
@@ -833,3 +837,14 @@ class AssistService extends GetxService {
     super.onClose();
   }
 }
+
+/// 把這支手機的協助者加為「信任的人」的長輩（好友）
+typedef TrustingElder = ({String elderId, String displayName, String name, String? account, DateTime? since});
+
+TrustingElder trustingElderFromJson(Map<String, dynamic> m) => (
+  elderId: m['elderId'] as String,
+  displayName: m['displayName'] as String,
+  name: m['name'] as String? ?? m['displayName'] as String,
+  account: m['account'] as String?,
+  since: m['since'] is num ? DateTime.fromMillisecondsSinceEpoch((m['since'] as num).toInt()) : null,
+);

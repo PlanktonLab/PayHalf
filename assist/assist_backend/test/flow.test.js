@@ -583,6 +583,10 @@ test('信任的人：陪辦過才能加入；信任的人不用配對碼也能�
     const list = (await helper.get('/helper/trusted-elders')).body;
     assert.deepEqual(list.filter((e) => e.elderId === 'elder-wang').map((e) => [e.elderId, e.displayName]), [['elder-wang', '王○明']]);
     assert.ok(!JSON.stringify(list).includes('A102837499'));
+    const wang = list.find((e) => e.elderId === 'elder-wang');
+    assert.equal(wang.name, '王大明');
+    assert.equal(wang.account, 'wz7786');
+    assert.ok(!JSON.stringify(list).includes('0912'));
     await elder.post(`/sessions/${id}/end`);
 
     // 不用配對碼直接請求 → 長輩收到推播，仍是等待同意

@@ -8,9 +8,10 @@ import 'assist/workbench.dart';
 import 'forms/form_editor.dart';
 import 'forms/form_store.dart';
 import 'forms/forms_home.dart';
+import 'sop/quick_test.dart';
 import 'web_utils.dart';
 
-enum Section { workbench, history, audit, forms }
+enum Section { workbench, history, audit, forms, quickTest }
 
 /// 台北通承辦工作台：陪辦（協助長輩）與表單（建立民眾表單）共用同一個平台。
 class ConsoleApp extends StatefulWidget {
@@ -213,10 +214,13 @@ class _ShellState extends State<_Shell> {
   bool bigText = false;
 
   HelperController get c => widget.c;
+  late final QuickTestState quickTest;
 
   @override
   void initState() {
     super.initState();
+    // 一登入就開始收示範表單的回覆：測試的人可能先去手機操作，才打開「1 分鐘測試」
+    quickTest = QuickTestState(c);
     // 表單存在後端：登入（或換身分）後重新載入；不是承辦人員時表單頁會說明原因
     widget.forms.attach(c);
     HardwareKeyboard.instance.addHandler(_onKey);
@@ -225,6 +229,7 @@ class _ShellState extends State<_Shell> {
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onKey);
+    quickTest.dispose();
     super.dispose();
   }
 
@@ -244,6 +249,7 @@ class _ShellState extends State<_Shell> {
       LogicalKeyboardKey.keyR => Section.history,
       LogicalKeyboardKey.keyA => Section.audit,
       LogicalKeyboardKey.keyF => Section.forms,
+      LogicalKeyboardKey.keyT => Section.quickTest,
       _ => null,
     };
     if (target == null) return false;
@@ -311,6 +317,17 @@ class _ShellState extends State<_Shell> {
         },
       ),
       Section.audit => AuditView(c: c),
+      Section.quickTest => QuickTestView(
+        c: c,
+        state: quickTest,
+        store: widget.forms,
+        onOpenWorkbench: () => go(Section.workbench),
+        onOpenResponses: () => setState(() {
+          section = Section.forms;
+          formId = kQuickTestFormId;
+          formTab = 1;
+        }),
+      ),
       Section.forms =>
         formId == null
             ? FormsHome(
@@ -362,6 +379,7 @@ class _ShellState extends State<_Shell> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               item(Icons.handshake_outlined, '工作台（W）', '選業務、輸入長輩念給您的配對碼。長輩同意後，您帶著他一步一步辦，個資由長輩自己授權。'),
+              item(Icons.playlist_add_check_rounded, '1 分鐘測試（T）', '照著做一遍就能測完長輩自己填、找人協助、後台收到回覆。能自動確認的步驟會自己打勾。'),
               item(Icons.history_rounded, '陪辦紀錄（R）與稽核紀錄（A）', '查看過去的陪辦，以及不可竄改的操作紀錄。'),
               if (c.isStaff) item(Icons.description_outlined, '表單（F）', '從範本建立民眾要填的表單，點題目就能修改；右側即時預覽長輩看到的畫面，沒問題就按「發布」。'),
               const SizedBox(height: 4),
@@ -521,6 +539,15 @@ class _Sidebar extends StatelessWidget {
             rail: rail,
             selected: section == Section.forms,
             onTap: () => onGo(Section.forms),
+          ),
+          group('測試'),
+          _NavItem(
+            icon: Icons.playlist_add_check_rounded,
+            label: '1 分鐘測試',
+            kbd: 'T',
+            rail: rail,
+            selected: section == Section.quickTest,
+            onTap: () => onGo(Section.quickTest),
           ),
           const Spacer(),
           _NavItem(

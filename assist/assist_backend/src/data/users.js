@@ -40,6 +40,8 @@ export const ELDERS = [
     verifyLevel: 3,
     // 對應台北通 App 模擬帳號（TownPass/assets/mock_data/account.json）的 id
     townpassAccountId: '7f3562f4-bb3f-4ec7-89b9-da3b4b5ff250',
+    // 台北通帳號名稱（好友列表直接顯示這個，不用另外取暱稱）
+    account: 'wz7786',
     profile: {
       realName: '王大明',
       birthday: '1948-03-15',
@@ -52,6 +54,7 @@ export const ELDERS = [
     id: 'elder-lee',
     role: 'elder',
     verifyLevel: 3,
+    account: 'lee1102',
     profile: {
       realName: '李秀英',
       birthday: '1951-11-02',

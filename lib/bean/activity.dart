@@ -40,7 +40,12 @@ class ActivityItem {
 
   final String content;
 
+  /// 這個活動可以直接在台北通填表報名：對應陪辦後端的表單代號
+  @JsonKey(name: 'form_id')
+  final String? formId;
+
   const ActivityItem({
+    this.formId,
     this.audience,
     required this.webUrl,
     required this.startDateTime,

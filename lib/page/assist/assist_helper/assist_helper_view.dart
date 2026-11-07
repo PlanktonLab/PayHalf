@@ -13,7 +13,7 @@ import 'package:town_pass/util/tp_colors.dart';
 /// 協助者（里長、家人、1999 客服）用手機陪長輩辦事的畫面。
 /// 由首頁「掃描」掃到長輩的配對 QR Code 進來（帶入配對碼），或從「設定 › 測試身分」打開。
 class AssistHelperView extends StatefulWidget {
-  const AssistHelperView({super.key, this.code, this.elderId, this.serviceId});
+  const AssistHelperView({super.key, this.code, this.elderId, this.serviceId, this.autoSend = false});
   final String? code;
 
   /// 長輩在某份表單裡求助：直接選好那份表單
@@ -22,8 +22,14 @@ class AssistHelperView extends StatefulWidget {
   /// 從首頁「幫某某辦事」進來：直接選好這位信任我的長輩
   final String? elderId;
 
-  static Future<void> open({String? code, String? elderId, String? serviceId}) async {
-    await Get.to(() => AssistHelperView(code: code, elderId: elderId, serviceId: serviceId), routeName: '/assist_helper');
+  /// 對象跟項目都已經在「幫別人辦」選好了：進來直接送出請求，不用再按一次
+  final bool autoSend;
+
+  static Future<void> open({String? code, String? elderId, String? serviceId, bool autoSend = false}) async {
+    await Get.to(
+      () => AssistHelperView(code: code, elderId: elderId, serviceId: serviceId, autoSend: autoSend),
+      routeName: '/assist_helper',
+    );
   }
 
   @override
@@ -70,6 +76,7 @@ class _AssistHelperViewState extends State<AssistHelperView> {
           code: widget.code,
           elderId: widget.elderId,
           serviceId: widget.serviceId,
+          autoSend: widget.autoSend,
           onOpenRecent: (session) {
             _pastResultId = session.isOpen ? null : session.id;
             c.focusedId.value = session.id;
@@ -242,11 +249,12 @@ ButtonStyle _secondary() => OutlinedButton.styleFrom(
 // ═════════════════════════════════════════════ 新陪辦
 
 class _NewRequest extends StatefulWidget {
-  const _NewRequest({required this.c, this.code, this.elderId, this.serviceId, required this.onOpenRecent});
+  const _NewRequest({required this.c, this.code, this.elderId, this.serviceId, this.autoSend = false, required this.onOpenRecent});
   final AssistHelperController c;
   final String? code;
   final String? elderId;
   final String? serviceId;
+  final bool autoSend;
   final ValueChanged<AssistSession> onOpenRecent;
   @override
   State<_NewRequest> createState() => _NewRequestState();
@@ -277,6 +285,7 @@ class _NewRequestState extends State<_NewRequest> {
         WidgetsBinding.instance.addPostFrameCallback((_) => focus.requestFocus());
       }
     }
+    if (widget.autoSend && ready) WidgetsBinding.instance.addPostFrameCallback((_) => send());
   }
 
   @override

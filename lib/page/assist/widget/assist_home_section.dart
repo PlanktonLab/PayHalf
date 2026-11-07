@@ -234,7 +234,7 @@ class AssistEntryCard extends StatelessWidget {
               ),
               title: '我也能幫別人辦',
               subtitle: '幫爸媽、長輩或鄰居代辦，對方的個資您看不到。',
-              onTap: () => Get.to(() => const AssistHelpOthersView(), routeName: '/assist_help_others'),
+              onTap: AssistHelpOthersView.open,
             ),
           ],
         ),

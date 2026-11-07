@@ -18,11 +18,14 @@ import 'package:town_pass/util/tp_route.dart';
 /// 任何時候都可以按右上角「找人幫我」：線上客服／旁邊的人／信任的人，
 /// 已經填好的答案會帶進陪辦，對方從還沒填的地方接著陪。
 class AssistFormView extends StatefulWidget {
-  const AssistFormView({super.key, required this.formId});
+  const AssistFormView({super.key, required this.formId, this.askHelp = false});
   final String formId;
 
-  static Future<void> open(String formId) async {
-    await Get.to(() => AssistFormView(formId: formId), routeName: '/assist_form');
+  /// 從活動頁按「需要別人協助填寫」進來：表單一載入就直接打開求助選單
+  final bool askHelp;
+
+  static Future<void> open(String formId, {bool askHelp = false}) async {
+    await Get.to(() => AssistFormView(formId: formId, askHelp: askHelp), routeName: '/assist_form');
   }
 
   @override
@@ -68,6 +71,7 @@ class _AssistFormViewState extends State<AssistFormView> {
       final f = await service.openForm(widget.formId);
       if (!mounted) return;
       setState(() => form = f);
+      if (widget.askHelp) WidgetsBinding.instance.addPostFrameCallback((_) => mounted ? help() : null);
     } catch (e) {
       if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', ''));
     }
@@ -182,7 +186,7 @@ class _AssistFormViewState extends State<AssistFormView> {
     return AssistTextScaleCap(
       child: Scaffold(
         backgroundColor: TPColors.grayscale50,
-        appBar: const TPAppBar(title: '掃碼填表'),
+        appBar: const TPAppBar(title: '填寫表單'),
         body: Column(
           children: [
             if (showHelp) _HelpBar(form: f, page: page, total: fields.length, onHelp: help),
@@ -307,9 +311,9 @@ class _Intro extends StatelessWidget {
           AssistCard(
             child: Column(
               children: [
-                _Fact(Icons.format_list_numbered_rounded, '一共 $n 題，大約 ${(n * 0.6).ceil().clamp(1, 30)} 分鐘'),
+                _Fact(Icons.format_list_numbered_rounded, '一共 $n 題，大約 ${assistFormMinutes(form.fields)} 分鐘'),
                 if (d != null) _Fact(Icons.event_rounded, '${d.month} 月 ${d.day} 日前填好'),
-                if (hasProfile) _Fact(Icons.badge_rounded, '姓名、電話這些可以從台北通帳號帶入，你按了才會帶入'),
+                if (hasProfile) _Fact(Icons.badge_rounded, '${_profileNames(form.fields)}可以從台北通帳號帶入，你按了才會帶入'),
                 _Fact(Icons.front_hand_rounded, '不會填的時候，按右上角「找人幫我」'),
               ],
             ),
@@ -926,4 +930,26 @@ class _Option extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// 預估要填幾分鐘：個資題按一下就帶入（約 15 秒）、選擇題約 20 秒、要打字的約 30 秒
+int assistFormMinutes(List<StaticFormField> fields) {
+  var sec = 0;
+  for (final f in fields) {
+    sec += f.profile != null || f.type == 'consent'
+        ? 15
+        : const {'radio', 'select', 'checkbox'}.contains(f.type)
+        ? 20
+        : 30;
+  }
+  return (sec / 60).ceil().clamp(1, 30);
+}
+
+/// 可以帶入的個資題名稱，例如「姓名、身分證字號」
+String _profileNames(List<StaticFormField> fields) {
+  final names = [
+    for (final f in fields)
+      if (f.profile != null) f.label.replaceFirst(RegExp(r'^(你|您)的'), ''),
+  ];
+  return names.length <= 3 ? names.join('、') : '${names.take(2).join('、')}這些';
 }

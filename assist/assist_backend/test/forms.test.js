@@ -207,3 +207,23 @@ test('請旁邊的人幫我：配對碼綁定這份表單；信任的人收到�
     await h.close();
   }
 });
+
+test('測試 SOP 的示範表單：三題、三個陪辦步驟，可以重複填', async () => {
+  const h = await startTestServer();
+  try {
+    const f = await h.call(null, 'GET', '/forms/demo');
+    assert.equal(f.status, 200);
+    assert.deepEqual(f.body.fields.map((x) => x.type), ['text', 'idno', 'radio']);
+    const svc = await h.call(null, 'GET', '/services/form-demo');
+    // 說明 → 基本資料 → 回答問題 → 確認送出
+    assert.deepEqual(svc.body.steps.map((s) => s.title).slice(1), ['基本資料', '回答問題', '確認送出']);
+    const elder = await h.login('elder-wang');
+    const answers = { q1: '王大明', q2: 'A102837499', q3: '12/6（六）上午 9 點' };
+    for (let i = 0; i < 2; i++) {
+      const r = await elder.post('/elder/forms/demo/submit', { answers });
+      assert.equal(r.status, 200, JSON.stringify(r.body));
+    }
+  } finally {
+    await h.close();
+  }
+});

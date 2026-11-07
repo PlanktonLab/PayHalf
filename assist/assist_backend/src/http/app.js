@@ -373,7 +373,8 @@ export function buildHttpApp({ config, tokens, assist, audit, forms }) {
         const file = path.join(config.staticDir, 'main.dart.js');
         const mtime = fs.statSync(file).mtimeMs;
         if (mtime !== cache.mtime) {
-          const v = crypto.createHash('sha1').update(fs.readFileSync(file)).digest('hex').slice(0, 10);
+          // 改寫規則本身變了也要換版本（加在雜湊裡），不然瀏覽器會繼續用舊的改寫結果
+          const v = crypto.createHash('sha1').update('rewrite-2').update(fs.readFileSync(file)).digest('hex').slice(0, 10);
           cache = { mtime, v };
         }
         return cache.v;
@@ -392,8 +393,19 @@ export function buildHttpApp({ config, tokens, assist, audit, forms }) {
     );
     app.get('/flutter_bootstrap.js', (_req, res) =>
       sendRewritten(res, 'flutter_bootstrap.js', 'text/javascript; charset=utf-8', (t, v) =>
-        t.replaceAll('"mainJsPath":"main.dart.js"', `"mainJsPath":"main.dart.js?v=${v}"`),
+        t
+          .replaceAll('"mainJsPath":"main.dart.js"', `"mainJsPath":"main.dart.js?v=${v}"`)
+          // 字型、圖示、AssetManifest 也沒有 hash：改從 /v/<雜湊>/assets/… 載入，部署後新增的圖示才不會缺字
+          .replace('_flutter.loader.load({', `_flutter.loader.load({ config: { assetBase: "/v/${v}/" },`),
       ),
+    );
+    // /v/<雜湊>/… 就是同一份靜態檔；網址隨版本變，可以放心長期快取
+    app.use(
+      '/v/:v',
+      express.static(config.staticDir, {
+        index: false,
+        setHeaders: (res) => res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'),
+      }),
     );
     // Flutter Web 的 main.dart.js 等檔名沒有 hash，部署後檔名不變。
     // 一律 no-cache（每次向伺服器確認，沒變就回 304），避免 CDN／瀏覽器拿舊版好幾個小時

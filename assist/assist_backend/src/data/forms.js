@@ -51,6 +51,27 @@ export function seedForms(now) {
   seq = 0;
   const t = now();
   const list = [
+    // Demo／測試 SOP 專用：三題、約 1 分鐘，走完核心流程（實名帶入、身分證遮罩授權、選擇題、送出），可重複填。
+    // 內容改了就把 seedVersion 加一：伺服器上舊版會被換掉（舊的試填回覆一併清掉）
+    {
+      id: 'demo',
+      seedVersion: 2,
+      title: '長者免費健康檢查報名',
+      dept: '臺北市中山區健康服務中心',
+      desc: '65 歲以上免費，檢查約 1 小時。只要三步驟：填姓名、填身分證字號、選時段。',
+      fields: [
+        q('text', '你的姓名', '請填身分證上的名字'),
+        q('idno', '你的身分證字號', '英文字母加 9 個數字'),
+        q('radio', '想在哪個時段檢查', '', true, ['12/6（六）上午 9 點', '12/6（六）下午 2 點', '12/13（六）上午 9 點']),
+      ],
+      deadline: '2026-12-31',
+      allowAssist: true,
+      once: false,
+      doneMsg: '報名好了！檢查當天請帶健保卡，早上不要吃東西。',
+      status: 'open',
+      createdAt: t - 1 * 86400000,
+      updated: t - 1 * 86400000,
+    },
     {
       id: 'chongyang',
       title: '重陽敬老餐會報名',
@@ -130,7 +151,16 @@ export function formToService(form) {
     agency: form.dept || '臺北市政府',
     legalBasis: '個人資料保護法第 15 條：執行法定職務必要範圍內（Demo 示意）',
     retention: '依各局處表單保存規定（Demo 示意）',
-    estMinutes: Math.max(2, Math.ceil(form.fields.length * 0.8)),
+    // 個資題按一下帶入約 15 秒、選擇題約 20 秒、要打字的約 30 秒（App 的表單說明頁用同一套算法）
+    estMinutes: Math.max(
+      1,
+      Math.ceil(
+        form.fields.reduce(
+          (sec, f) => sec + (profileKeyOf(f) || f.type === 'consent' ? 15 : ['radio', 'select', 'checkbox'].includes(f.type) ? 20 : 30),
+          0,
+        ) / 60,
+      ),
+    ),
     steps: [],
   };
   const profile = [];
@@ -183,7 +213,7 @@ export function formToService(form) {
     const chunk = others.slice(i, i + 2);
     service.steps.push({
       id: `q${i / 2 + 1}`,
-      title: `回答問題（${i / 2 + 1}／${Math.ceil(others.length / 2)}）`,
+      title: others.length <= 2 ? '回答問題' : `回答問題（${i / 2 + 1}／${Math.ceil(others.length / 2)}）`,
       elderGuide: '請您自己在手機上回答。',
       helperScript: '把題目念給長輩聽，讓長輩自己在手機上回答。',
       fields: chunk,

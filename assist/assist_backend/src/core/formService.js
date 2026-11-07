@@ -46,6 +46,14 @@ export function createFormService({ config, assist, audit, notify = () => {}, no
     // 預設表單被刪掉以外，永遠補回來（QR Code 已經印出去了）
     for (const f of seeds) if (!forms.has(f.id) && !(saved?.deleted ?? []).includes(f.id)) forms.set(f.id, f);
     for (const [id, list] of Object.entries(saved?.rows ?? {})) rows.set(id, list);
+    // 預設表單出了新版（seedVersion 變大）：換成新版，舊題目的回覆對不上，一併清掉
+    for (const f of seeds) {
+      const cur = forms.get(f.id);
+      if (f.seedVersion && cur && (cur.seedVersion ?? 1) < f.seedVersion) {
+        forms.set(f.id, f);
+        rows.delete(f.id);
+      }
+    }
     for (const f of seeds) samples.set(f.id, sampleRows(f, now));
     deleted = new Set(saved?.deleted ?? []);
     for (const f of forms.values()) register(f);

@@ -1,4 +1,5 @@
 import 'package:town_pass/page/activity_list/activity_tag.dart';
+import 'package:town_pass/page/assist/assist_form/assist_form_view.dart';
 import 'package:town_pass/util/tp_cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -68,6 +69,21 @@ class ActivityDetailView extends StatelessWidget {
         ],
       ),
       bottomNavigationBar: switch (activity.webUrl) {
+        _ when activity.formId != null => TPBottomSheet(
+            child: Column(
+              children: [
+                TPButton.primary(
+                  text: '立即報名',
+                  onPressed: () => AssistFormView.open(activity.formId!),
+                ),
+                const SizedBox(height: 12),
+                TPButton.secondary(
+                  text: '需要別人協助填寫',
+                  onPressed: () => AssistFormView.open(activity.formId!, askHelp: true),
+                ),
+              ],
+            ),
+          ),
         null => null,
         String() => TPBottomSheet(
             child: Column(

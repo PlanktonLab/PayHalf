@@ -649,16 +649,25 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     }));
   }
 
-  /** 協助者看到「信任我的長輩」：只有遮罩後的姓名，不含上線狀態或任何個資。 */
+  /**
+   * 協助者看到「信任我的長輩」（好友）：長輩本人按過「加入」，所以給台北通帳號名稱與姓名，
+   * 方便認人；不含上線狀態、身分證、電話、地址等任何其他個資。
+   */
   function listTrustingElders(helper) {
     const out = [];
     for (const [elderId, list] of trust) {
       const t = list.get(helper.id);
       if (!t) continue;
       const elder = findUser(elderId);
-      out.push({ elderId, displayName: maskName(elder.profile.realName), since: t.since });
+      out.push({
+        elderId,
+        displayName: maskName(elder.profile.realName),
+        name: elder.profile.realName,
+        account: elder.account ?? null,
+        since: t.since,
+      });
     }
-    return out;
+    return out.sort((a, b) => b.since - a.since);
   }
 
   /** 信任的人直接發起請求：不用配對碼，長輩一樣要按同意、一樣逐項授權。 */
