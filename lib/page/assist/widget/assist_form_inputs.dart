@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/util/tp_colors.dart';
+import 'package:get/get.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 表單題目共用的大字作答元件：陪辦畫面與「自己填」的靜態 QR 表單都用這裡。
 
 /// 一個選項（單選圓點／多選方框），整列都可以點
 class AssistOptionRow extends StatelessWidget {
-  const AssistOptionRow({super.key, required this.label, required this.selected, required this.onTap, this.multi = false});
+  AssistOptionRow({super.key, required this.label, required this.selected, required this.onTap, this.multi = false});
   final String label;
   final bool selected;
   final bool multi;
@@ -32,8 +34,8 @@ class AssistOptionRow extends StatelessWidget {
             onTap();
           },
           child: Container(
-            constraints: const BoxConstraints(minHeight: 60),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            constraints: BoxConstraints(minHeight: 60),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: selected ? TPColors.primary500 : TPColors.grayscale200, width: 2),
@@ -43,10 +45,10 @@ class AssistOptionRow extends StatelessWidget {
                 ExcludeSemantics(
                   child: Icon(icon, color: selected ? TPColors.primary500 : TPColors.grayscale400, size: context.iconSize(28)),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    label,
+                    label.tr,
                     style: AssistText.body.copyWith(fontSize: 20, fontWeight: selected ? FontWeight.w600 : null),
                   ),
                 ),
@@ -61,7 +63,7 @@ class AssistOptionRow extends StatelessWidget {
 
 /// 多選題：可以勾好幾個，勾好再按「選好了」
 class AssistMultiChoice extends StatefulWidget {
-  const AssistMultiChoice({
+  AssistMultiChoice({
     super.key,
     required this.options,
     required this.value,
@@ -94,7 +96,7 @@ class _AssistMultiChoiceState extends State<AssistMultiChoice> {
     if (old.value != widget.value) picked = _parse(widget.value);
   }
 
-  String get joined => widget.options.where(picked.contains).join('、');
+  String get joined => widget.options.where(picked.contains).join('、'.tr);
 
   @override
   Widget build(BuildContext context) {
@@ -103,10 +105,10 @@ class _AssistMultiChoiceState extends State<AssistMultiChoice> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('可以選好幾個', style: AssistText.footnote),
+        Text('可以選好幾個'.tr, style: AssistText.footnote),
         for (var i = 0; i < widget.options.length; i++)
           Padding(
-            padding: const EdgeInsets.only(top: 10),
+            padding: EdgeInsets.only(top: 10),
             child: AssistOptionRow(
               multi: true,
               label: widget.labels?[i] ?? widget.options[i],
@@ -119,9 +121,9 @@ class _AssistMultiChoiceState extends State<AssistMultiChoice> {
             ),
           ),
         if (widget.onConfirm != null && (changed || saved.isEmpty)) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           AssistButton(
-            widget.confirmLabel,
+            widget.confirmLabel.tr,
             icon: Icons.check_rounded,
             onPressed: picked.isEmpty ? null : () => widget.onConfirm!(joined),
           ),
@@ -133,7 +135,7 @@ class _AssistMultiChoiceState extends State<AssistMultiChoice> {
 
 /// 文字題：大字輸入框＋「填好了」。日期題改用日曆選，數字題跳數字鍵盤。
 class AssistTextAnswer extends StatefulWidget {
-  const AssistTextAnswer({
+  AssistTextAnswer({
     super.key,
     required this.label,
     required this.inputType,
@@ -189,7 +191,7 @@ class _AssistTextAnswerState extends State<AssistTextAnswer> {
 
   String get pretty {
     final d = DateTime.tryParse(c.text);
-    return d == null ? '點這裡選日期' : '${d.year} 年 ${d.month} 月 ${d.day} 日';
+    return d == null ? '點這裡選日期'.tr : trf('{0} 年 {1} 月 {2} 日', [d.year, d.month, d.day]);
   }
 
   @override
@@ -240,7 +242,7 @@ class _AssistTextAnswerState extends State<AssistTextAnswer> {
         inputFormatters: type == 'number' ? [FilteringTextInputFormatter.digitsOnly] : null,
         style: AssistText.body.copyWith(fontSize: 21, color: TPColors.grayscale900),
         decoration: InputDecoration(
-          hintText: widget.hint.isEmpty ? '請在這裡輸入' : widget.hint,
+          hintText: widget.hint.isEmpty ? '請在這裡輸入'.tr : widget.hint,
           hintStyle: AssistText.body.copyWith(color: TPColors.grayscale400),
           counterText: '',
           filled: true,
@@ -269,12 +271,12 @@ class _AssistTextAnswerState extends State<AssistTextAnswer> {
               children: [
                 Icon(Icons.check_circle_rounded, color: AssistColors.green500, size: context.iconSize(22)),
                 const SizedBox(width: 6),
-                const Text('已經填好了，要改可以直接修改', style: AssistText.callout),
+                Text('已經填好了，要改可以直接修改'.tr, style: AssistText.callout),
               ],
             )
           else
             AssistButton(
-              widget.submitLabel,
+              widget.submitLabel.tr,
               icon: Icons.check_rounded,
               onPressed: c.text.trim().isEmpty
                   ? null

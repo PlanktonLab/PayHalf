@@ -7,6 +7,7 @@ import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_route.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 陪辦進行中：整個畫面外圍亮起一圈流動的光框，狀態列下方出現「某某 正在陪您操作」。
 ///
@@ -137,8 +138,8 @@ class _BannerState extends State<_Banner> with SingleTickerProviderStateMixin {
                       text: name,
                       style: const TextStyle(color: TPColors.grayscale900, fontWeight: FontWeight.w700),
                     ),
-                    const TextSpan(
-                      text: '  正在陪您操作',
+                    TextSpan(
+                      text: '  正在陪您操作'.tr,
                       style: TextStyle(color: TPColors.primary700, fontWeight: FontWeight.w500),
                     ),
                   ],
@@ -159,7 +160,7 @@ class _BannerState extends State<_Banner> with SingleTickerProviderStateMixin {
     return Center(
       child: Semantics(
         button: true,
-        label: '$name 正在陪您操作手機。點兩下回到協助畫面',
+        label: trf('{0} 正在陪您操作手機。點兩下回到協助畫面', [name]),
         child: GestureDetector(
           onTap: () {
             if (Get.currentRoute != TPRoute.assistSession) {

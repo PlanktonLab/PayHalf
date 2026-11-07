@@ -91,7 +91,7 @@ class TPDialog {
                 color: TPColors.grayscale950,
               )
             : null,
-        buttonText: '確認',
+        buttonText: '確認'.tr,
         buttonColor: TPColors.primary500,
         contentRequiresTitle: true, // 保持原始行為：內容只有在標題存在時才顯示
       ),
@@ -105,7 +105,7 @@ class TPDialog {
       content: _buildStandardDialogBody(
         title: title,
         contentWidget: content,
-        buttonText: '關閉',
+        buttonText: '關閉'.tr,
         buttonColor: TPColors.grayscale500,
         contentRequiresTitle: true, // 保持原始行為：內容只有在標題存在時才顯示
       ),

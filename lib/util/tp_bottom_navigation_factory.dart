@@ -5,24 +5,25 @@ import 'package:town_pass/page/city_service/city_service_view.dart';
 import 'package:town_pass/page/home/home_view.dart';
 import 'package:town_pass/page/perk/perk_view.dart';
 import 'package:town_pass/util/extension/svg_gen_image.dart';
+import 'package:get/get.dart';
 
 class TPBottomNavigationFactory {
   static List<BottomNavigationBarItem> get barItemList => [
         BottomNavigationBarItem(
           icon: Assets.svg.iconTabbarServiceDefault.icon(),
-          label: '服務',
+          label: '服務'.tr,
         ),
         BottomNavigationBarItem(
           icon: Assets.svg.iconTabbarHomeDefault.icon(),
-          label: '首頁',
+          label: '首頁'.tr,
         ),
         BottomNavigationBarItem(
           icon: Assets.svg.iconTabbarCouponDefault.icon(),
-          label: '優惠',
+          label: '優惠'.tr,
         ),
         BottomNavigationBarItem(
           icon: Assets.svg.iconTabbarAccountDefault.icon(),
-          label: '帳務',
+          label: '帳務'.tr,
         ),
       ];
 

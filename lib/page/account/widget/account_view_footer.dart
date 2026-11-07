@@ -19,7 +19,7 @@ class AccountViewFooter extends GetView<AccountViewController> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           TPText(
-            '隱私權政策',
+            '隱私權政策'.tr,
             style: TPTextStyles.h3Regular.copyWith(decoration: TextDecoration.underline),
             color: TPColors.grayscale950,
             onTap: () async => await TPRoute.openUri(
@@ -30,7 +30,7 @@ class AccountViewFooter extends GetView<AccountViewController> {
           const TPLine.vertical(color: TPColors.grayscale400),
           const SizedBox(width: 24),
           TPText(
-            '與我們聯絡',
+            '與我們聯絡'.tr,
             style: TPTextStyles.h3Regular.copyWith(decoration: TextDecoration.underline),
             color: TPColors.grayscale950,
             onTap: () async {
@@ -43,7 +43,7 @@ class AccountViewFooter extends GetView<AccountViewController> {
               if (await canLaunchUrl(url)) {
                 await launchUrl(url);
               } else {
-                Fluttertoast.showToast(msg: '無法開啟郵件 App');
+                Fluttertoast.showToast(msg: '無法開啟郵件 App'.tr);
               }
             },
           ),

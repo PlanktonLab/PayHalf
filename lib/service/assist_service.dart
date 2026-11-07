@@ -15,6 +15,7 @@ import 'package:town_pass/service/account_service.dart';
 import 'package:town_pass/service/notification_service.dart';
 import 'package:town_pass/service/shared_preferences_service.dart';
 import 'package:town_pass/util/tp_route.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 class AssistApiException implements Exception {
   AssistApiException(this.status, this.code, this.message);
@@ -52,14 +53,14 @@ class AssistService extends GetxService {
   static const String _prefKey = 'assist_api_base';
 
   /// 測試用身分（對應後端 demo 帳號）。王大明是台北通模擬帳號本人，走正式的 townpass-login
-  static const elderAccounts = [
-    (id: 'elder-wang', name: '王大明', note: '台北通帳號本人'),
-    (id: 'elder-lee', name: '李秀英', note: '另一位長輩'),
+  static List<({String id, String name, String note})> get elderAccounts => [
+    (id: 'elder-wang', name: '王大明', note: '台北通帳號本人'.tr),
+    (id: 'elder-lee', name: '李秀英', note: '另一位長輩'.tr),
   ];
-  static const helperAccounts = [
-    (id: 'helper-chief', name: '陳美玲', note: '里長・市府認證'),
-    (id: 'helper-family', name: '王小華', note: '家人／親友'),
-    (id: 'helper-1999', name: '林志明', note: '1999 客服・市府認證'),
+  static List<({String id, String name, String note})> get helperAccounts => [
+    (id: 'helper-chief', name: '陳美玲', note: '里長・市府認證'.tr),
+    (id: 'helper-family', name: '王小華', note: '家人／親友'.tr),
+    (id: 'helper-1999', name: '林志明', note: '1999 客服・市府認證'.tr),
   ];
   static const _elderKey = 'assist_elder_id';
   static const _helperKey = 'assist_helper_id';
@@ -121,6 +122,16 @@ class AssistService extends GetxService {
 
   String? _token;
   io.Socket? _socket;
+  // 留著參照，listener 才不會被回收
+  // ignore: unused_field
+  AppLifecycleListener? _lifecycle;
+
+  void _onResume() {
+    if (_token == null) return;
+    if (_socket?.connected != true) _socket?.connect();
+    if (_helperSocket?.connected != true) _helperSocket?.connect();
+    refresh().catchError((_) {});
+  }
   Timer? _retry;
   String? _watchingId;
   final Set<String> _notifiedRequests = {};
@@ -147,6 +158,8 @@ class AssistService extends GetxService {
     final saved = prefs.getString(_prefKey);
     server.value = normalizeBase(saved ?? (_apiOverride.isNotEmpty ? _apiOverride : localBase));
     _link();
+    // App 從背景回來：iOS 可能已經把連線悄悄斷掉，馬上重連並重新整理，不用等心跳逾時
+    _lifecycle = AppLifecycleListener(onResume: _onResume);
     return this;
   }
 
@@ -166,7 +179,7 @@ class AssistService extends GetxService {
     final base = normalizeBase(raw);
     final uri = Uri.tryParse(base);
     if (uri == null || !uri.hasAuthority || !(uri.scheme == 'http' || uri.scheme == 'https')) {
-      throw const FormatException('網址格式不正確');
+      throw FormatException('網址格式不正確'.tr);
     }
     await Get.find<SharedPreferencesService>().instance.setString(_prefKey, base);
     server.value = base;
@@ -194,16 +207,22 @@ class AssistService extends GetxService {
     return res['id'] as String;
   }
 
+  static const _shownKeys = {'title', 'agency', 'category', 'summary', 'dept'};
+
   /// 可以幫忙辦的項目（申辦業務＋收件中的表單），含機關、預估時間，給「幫別人辦」搜尋用
   Future<List<Map<String, dynamic>>> serviceCatalog() async {
     final list = await _request('GET', '/services', null, false) as List;
-    return [for (final e in list) Map<String, dynamic>.from(e as Map)];
+    // 名稱、機關等是後端給的中文：依介面語言顯示（搜尋也用看得到的文字）
+    return [
+      for (final e in list)
+        Map<String, dynamic>.from(e as Map).map((k, v) => MapEntry(k, v is String && _shownKeys.contains(k) ? v.tr : v)),
+    ];
   }
 
   /// 可申辦的業務清單（id／名稱）
   Future<List<({String id, String title})>> listServices() async {
     final list = await _request('GET', '/services') as List;
-    return [for (final e in list) (id: (e as Map)['id'] as String, title: e['title'] as String)];
+    return [for (final e in list) (id: (e as Map)['id'] as String, title: (e['title'] as String).tr)];
   }
 
   Future<void> useHelper(String id) async {
@@ -245,8 +264,8 @@ class AssistService extends GetxService {
           if (r.status == 'accepted' || r.status == 'rejected') {
             Get.closeAllSnackbars();
             Get.snackbar(
-              r.status == 'accepted' ? '${r.elderName} 已把您加為信任的人' : '${r.elderName} 這次沒有加您',
-              r.status == 'accepted' ? '之後他可以直接請您幫忙，您也不用再掃配對碼。' : '需要的話，請長輩再給您一次邀請碼。',
+              r.status == 'accepted' ? trf('{0} 已把您加為信任的人', [r.elderName]) : trf('{0} 這次沒有加您', [r.elderName]),
+              r.status == 'accepted' ? '之後他可以直接請您幫忙，您也不用再掃配對碼。'.tr : '需要的話，請長輩再給您一次邀請碼。'.tr,
               snackPosition: SnackPosition.TOP,
               margin: const EdgeInsets.all(12),
               backgroundColor: const Color(0xFF2E3A40),
@@ -281,7 +300,7 @@ class AssistService extends GetxService {
     final data = jsonDecode(utf8.decode(res.bodyBytes));
     if (res.statusCode >= 400) {
       final err = (data is Map ? data['error'] : null) as Map?;
-      throw AssistApiException(res.statusCode, err?['code'] as String? ?? 'ERROR', err?['message'] as String? ?? '系統忙碌中');
+      throw AssistApiException(res.statusCode, err?['code'] as String? ?? 'ERROR', err?['message'] as String? ?? '系統忙碌中'.tr);
     }
     final m = Map<String, dynamic>.from(data as Map);
     return m['status'] == 'already' ? null : TrustRequest(m);
@@ -304,8 +323,8 @@ class AssistService extends GetxService {
     if (_helpNotified.add(r.id)) {
       HapticFeedback.heavyImpact();
       _notify(
-        title: '${r.elderName} 請您幫忙',
-        content: '他把您加為信任的人。打開台北通，就能陪他一起辦。',
+        title: trf('{0} 請您幫忙', [r.elderName]),
+        content: '他把您加為信任的人。打開台北通，就能陪他一起辦。'.tr,
       );
       AssistHelpCallSheet.show(r.id);
     }
@@ -380,15 +399,15 @@ class AssistService extends GetxService {
   static Future<String?> probe(String raw) async {
     try {
       final res = await http.get(Uri.parse('${normalizeBase(raw)}/api/legal')).timeout(const Duration(seconds: 5));
-      return res.statusCode == 200 ? null : '伺服器回應 ${res.statusCode}';
+      return res.statusCode == 200 ? null : trf('伺服器回應 {0}', [res.statusCode]);
     } on TimeoutException {
-      return '連線逾時，伺服器沒有回應';
+      return '連線逾時，伺服器沒有回應'.tr;
     } catch (e) {
       final text = e.toString();
-      if (text.contains('Failed host lookup')) return '找不到這個網域（DNS 可能還沒設定好）';
-      if (text.contains('Connection refused')) return '連不上，該位址沒有在執行後端';
-      if (text.contains('HandshakeException') || text.contains('CERTIFICATE')) return 'HTTPS 憑證有問題';
-      return '連不上（$text）';
+      if (text.contains('Failed host lookup')) return '找不到這個網域（DNS 可能還沒設定好）'.tr;
+      if (text.contains('Connection refused')) return '連不上，該位址沒有在執行後端'.tr;
+      if (text.contains('HandshakeException') || text.contains('CERTIFICATE')) return 'HTTPS 憑證有問題'.tr;
+      return trf('連不上（{0}）', [text]);
     }
   }
 
@@ -418,6 +437,28 @@ class AssistService extends GetxService {
       res = await _request('POST', '/auth/demo-login', {'userId': elderId.value}, false) as Map;
     }
     _token = res['token'] as String;
+    // 帳號上存的介面語言（使用者自己選過才有）
+    final lang = (res['user'] as Map?)?['lang'] as String?;
+    if (lang != null) TPLanguage.apply(lang);
+  }
+
+  /// 換介面語言：整個 App 立刻換，並記在帳號上（長輩與協助者兩個身分都記）
+  Future<void> setLanguage(String code) async {
+    await TPLanguage.apply(code);
+    try {
+      await _request('PUT', '/me/lang', {'lang': code});
+    } catch (_) {}
+    if (_helperToken != null) {
+      try {
+        await http
+            .put(
+              Uri.parse('$apiBase/api/me/lang'),
+              headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $_helperToken'},
+              body: jsonEncode({'lang': code}),
+            )
+            .timeout(const Duration(seconds: 8));
+      } catch (_) {}
+    }
   }
 
   Future<void> _link() async {
@@ -510,6 +551,8 @@ class AssistService extends GetxService {
     final headers = {'Content-Type': 'application/json', if (auth && _token != null) 'Authorization': 'Bearer $_token'};
     final res = method == 'GET'
         ? await http.get(uri, headers: headers).timeout(const Duration(seconds: 8))
+        : method == 'PUT'
+        ? await http.put(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(const Duration(seconds: 8))
         : await http.post(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(const Duration(seconds: 8));
     final text = utf8.decode(res.bodyBytes);
     final data = text.isEmpty ? null : jsonDecode(text);
@@ -518,7 +561,7 @@ class AssistService extends GetxService {
       throw AssistApiException(
         res.statusCode,
         err?['code'] as String? ?? 'ERROR',
-        err?['message'] as String? ?? '系統忙碌中，請稍後再試',
+        err?['message'] as String? ?? '系統忙碌中，請稍後再試'.tr,
       );
     }
     return data;
@@ -566,8 +609,8 @@ class AssistService extends GetxService {
         final h = s.helper;
         HapticFeedback.heavyImpact();
         _notify(
-          title: '${h?.name ?? ''} ${h?.title ?? ''} 想協助您',
-          content: '辦理「${s.serviceTitle}」。請打開台北通首頁查看並回應。',
+          title: trf('{0} {1} 想協助您', [h?.name ?? '', h?.title ?? '']),
+          content: trf('辦理「{0}」。請打開台北通首頁查看並回應。', [s.serviceTitle]),
         );
       });
     }
@@ -590,8 +633,8 @@ class AssistService extends GetxService {
         _notifiedAuth.add(authKey);
         HapticFeedback.mediumImpact();
         _notify(
-          title: '有一項資料需要您確認',
-          content: '${s.helper?.name ?? '協助者'} 請您確認是否提供「${s.pendingAuthField?.label ?? ''}」',
+          title: '有一項資料需要您確認'.tr,
+          content: trf('{0} 請您確認是否提供「{1}」', [s.helper?.name ?? '協助者', s.pendingAuthField?.label ?? '']),
           throttle: true,
         );
       }
@@ -607,6 +650,10 @@ class AssistService extends GetxService {
     final gen = _generation;
     final list = await _request('GET', '/elder/sessions') as List;
     if (gen != _generation) return;
+    // 伺服器重啟（重新部署）後舊的陪辦已經不存在：清掉，不然首頁會一直顯示一個按了就 404 的陪辦
+    final ids = {for (final e in list) (e as Map)['id'] as String};
+    sessions.removeWhere((id, _) => !ids.contains(id) && !isHelping(id));
+    if (_watchingId != null && !ids.contains(_watchingId)) _watchingId = null;
     for (final e in list.reversed) {
       final s = AssistSession(Map<String, dynamic>.from(e as Map));
       // 啟動前就已存在的請求不再重複發系統通知
@@ -725,7 +772,7 @@ class AssistService extends GetxService {
     return [
       for (final e in list.cast<Map>())
         if ((e['id'] as String).startsWith('form-'))
-          (id: (e['id'] as String).substring(5), title: e['title'] as String, agency: e['agency'] as String? ?? ''),
+          (id: (e['id'] as String).substring(5), title: (e['title'] as String).tr, agency: (e['agency'] as String? ?? '').tr),
     ];
   }
 

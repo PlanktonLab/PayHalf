@@ -4,6 +4,7 @@ import 'package:town_pass/gen/fonts.gen.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_text.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:get/get.dart';
 
 class CityNewsWidget extends StatelessWidget {
   const CityNewsWidget({super.key});
@@ -18,7 +19,7 @@ class CityNewsWidget extends StatelessWidget {
           Flexible(
             child: _Button(
               icon: Assets.svg.iconPoster.svg(),
-              text: '市政新聞',
+              text: '市政新聞'.tr,
               onTap: () {},
             ),
           ),

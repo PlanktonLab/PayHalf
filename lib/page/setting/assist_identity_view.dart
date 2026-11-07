@@ -4,6 +4,7 @@ import 'package:town_pass/page/assist/widget/assist_scan.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 設定 › 開發測試 › 測試身分：
 /// 一支手機可以當「長輩」接受協助，也可以掃別人的 QR Code 當「協助者」。
@@ -14,7 +15,7 @@ class AssistIdentityView extends StatelessWidget {
   static String summary(AssistService s) {
     String name(List<({String id, String name, String note})> list, String id) =>
         list.firstWhereOrNull((a) => a.id == id)?.name ?? id;
-    return '${name(AssistService.elderAccounts, s.elderId.value)}／${name(AssistService.helperAccounts, s.helperId.value)}';
+    return trf('{0}／{1}', [name(AssistService.elderAccounts, s.elderId.value), name(AssistService.helperAccounts, s.helperId.value)]);
   }
 
   @override
@@ -22,14 +23,14 @@ class AssistIdentityView extends StatelessWidget {
     final service = Get.find<AssistService>();
     return Scaffold(
       backgroundColor: TPColors.grayscale50,
-      appBar: const TPAppBar(title: '測試身分'),
+      appBar: TPAppBar(title: '測試身分'.tr),
       body: Obx(() {
         final elder = service.elderId.value;
         final helper = service.helperId.value;
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const _Title('這支手機是哪位長輩', '接受協助、出示配對 QR Code 時用這個身分。切換後會結束目前的陪辦並重新登入。'),
+            _Title('這支手機是哪位長輩'.tr, '接受協助、出示配對 QR Code 時用這個身分。切換後會結束目前的陪辦並重新登入。'.tr),
             for (final a in AssistService.elderAccounts) ...[
               _Option(
                 title: a.name,
@@ -38,13 +39,13 @@ class AssistIdentityView extends StatelessWidget {
                 onTap: () async {
                   await service.useElder(a.id);
                   Get.closeAllSnackbars();
-                  Get.snackbar('已切換', '這支手機現在是長輩「${a.name}」', snackPosition: SnackPosition.BOTTOM);
+                  Get.snackbar('已切換'.tr, trf('這支手機現在是長輩「{0}」', [a.name]), snackPosition: SnackPosition.BOTTOM);
                 },
               ),
               const SizedBox(height: 8),
             ],
             const SizedBox(height: 16),
-            const _Title('掃 QR Code 時以誰協助', '在首頁按「掃描」掃長輩的配對 QR Code，會用這個身分開始陪辦。'),
+            _Title('掃 QR Code 時以誰協助'.tr, '在首頁按「掃描」掃長輩的配對 QR Code，會用這個身分開始陪辦。'.tr),
             for (final a in AssistService.helperAccounts) ...[
               _Option(
                 title: a.name,
@@ -61,7 +62,7 @@ class AssistIdentityView extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: assistScan,
                     icon: const Icon(Icons.qr_code_scanner_rounded),
-                    label: const Text('掃描'),
+                    label: Text('掃描'.tr),
                     style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
                   ),
                 ),
@@ -70,7 +71,7 @@ class AssistIdentityView extends StatelessWidget {
                   child: FilledButton.icon(
                     onPressed: () => openHelperConsole(),
                     icon: const Icon(Icons.open_in_new_rounded),
-                    label: const Text('開始陪辦'),
+                    label: Text('開始陪辦'.tr),
                     style: FilledButton.styleFrom(
                       backgroundColor: TPColors.primary600,
                       minimumSize: const Size.fromHeight(46),
@@ -80,8 +81,8 @@ class AssistIdentityView extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            const Text(
-              '小提醒：用兩支手機測試時，兩邊不要選同一位長輩，不然兩支手機都會收到協助請求。',
+            Text(
+              '小提醒：用兩支手機測試時，兩邊不要選同一位長輩，不然兩支手機都會收到協助請求。'.tr,
               style: TextStyle(color: TPColors.grayscale500, fontSize: 13, height: 1.5),
             ),
           ],

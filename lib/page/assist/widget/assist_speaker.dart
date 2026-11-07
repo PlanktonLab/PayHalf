@@ -3,6 +3,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/util/tp_colors.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 朗讀：使用手機系統內建語音，不使用雲端服務（沿用陪辦微服務的做法）。
 ///
@@ -20,7 +21,6 @@ abstract final class AssistSpeaker {
       await _tts.setIosAudioCategory(IosTextToSpeechAudioCategory.playback, [
         IosTextToSpeechAudioCategoryOptions.duckOthers,
       ]);
-      await _tts.setLanguage('zh-TW');
       await _tts.setSpeechRate(0.45);
       _tts.setCompletionHandler(() => speakingKey.value = null);
       _tts.setCancelHandler(() => speakingKey.value = null);
@@ -28,11 +28,28 @@ abstract final class AssistSpeaker {
     } catch (_) {}
   }
 
+  /// 依介面語言選語音；文字還是中文（尚未翻譯）時仍用中文語音念
+  static String _voiceFor(String text) {
+    final code = TPLanguage.current.code;
+    final hasHan = RegExp(r'[\u4e00-\u9fff]').hasMatch(text);
+    if (code == 'ja') return 'ja-JP';
+    if (hasHan || code == 'zh-TW') return 'zh-TW';
+    return switch (code) {
+      'en' => 'en-US',
+      'vi' => 'vi-VN',
+      'id' => 'id-ID',
+      'th' => 'th-TH',
+      'ko' => 'ko-KR',
+      _ => 'zh-TW',
+    };
+  }
+
   static Future<void> speak(String key, String text) async {
     await _init();
     await _tts.stop();
     speakingKey.value = key;
     try {
+      await _tts.setLanguage(_voiceFor(text));
       await _tts.speak(text);
     } catch (_) {
       speakingKey.value = null;
@@ -74,7 +91,7 @@ class _AssistReadButtonState extends State<AssistReadButton> {
       final fg = widget.onDark ? TPColors.white : TPColors.primary700;
       return Semantics(
         button: true,
-        label: on ? '停止朗讀' : '念給我聽',
+        label: on ? '停止朗讀'.tr : '念給我聽'.tr,
         excludeSemantics: true,
         child: TextButton.icon(
           onPressed: () => on ? AssistSpeaker.stop() : AssistSpeaker.speak(widget.id, widget.text()),
@@ -87,7 +104,7 @@ class _AssistReadButtonState extends State<AssistReadButton> {
           ),
           icon: Icon(on ? Icons.stop_circle_rounded : Icons.volume_up_rounded, size: context.iconSize(22)),
           label: Text(
-            on ? '停止' : '念給我聽',
+            on ? '停止'.tr : '念給我聽'.tr,
             style: AssistText.callout.copyWith(color: fg, fontWeight: FontWeight.w600),
           ),
         ),

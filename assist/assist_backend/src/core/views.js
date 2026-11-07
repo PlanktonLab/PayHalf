@@ -6,7 +6,7 @@ import { findUser, publicHelper } from '../data/users.js';
  * 這裡是「協助者永遠看不到長輩個資」的唯一出口，測試會直接檢查。
  */
 function commonView(s) {
-  const service = findService(s.serviceId);
+  const service = (s.service ?? findService(s.serviceId));
   return {
     id: s.id,
     serviceId: s.serviceId,
@@ -34,7 +34,7 @@ function commonView(s) {
 }
 
 export function helperView(s, { maxFieldRequests }) {
-  const service = findService(s.serviceId);
+  const service = (s.service ?? findService(s.serviceId));
   const fields = {};
   for (const f of allFields(service)) {
     const st = s.fields[f.key];
@@ -57,7 +57,7 @@ export function helperView(s, { maxFieldRequests }) {
 }
 
 export function elderView(s) {
-  const service = findService(s.serviceId);
+  const service = (s.service ?? findService(s.serviceId));
   const helper = findUser(s.helperId);
   const fields = {};
   const elder = s.elderId ? findUser(s.elderId) : null;

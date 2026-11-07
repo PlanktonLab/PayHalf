@@ -8,6 +8,7 @@ import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_route.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 首頁最上方的持續性徽章。
 ///
@@ -74,7 +75,7 @@ class _IncomingBadge extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
-        child: const Text('查看並回應', style: AssistText.button),
+        child: Text('查看並回應'.tr, style: AssistText.button),
       ),
     );
 
@@ -138,7 +139,7 @@ class _IncomingBadge extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               ExcludeSemantics(
-                child: Text('想陪您辦理「${s.serviceTitle}」', style: AssistText.title.copyWith(color: TPColors.white)),
+                child: Text(trf('想陪您辦理「{0}」', [s.serviceTitle]), style: AssistText.title.copyWith(color: TPColors.white)),
               ),
               const SizedBox(height: 16),
               respond,
@@ -161,7 +162,7 @@ class _ActiveBadge extends StatelessWidget {
     final needsYou = s.pendingAuthField != null || s.isReviewing;
     final big = context.largeText;
     final goBack = AssistButton(
-      needsYou ? '前往確認' : '回到協助畫面',
+      needsYou ? '前往確認'.tr : '回到協助畫面'.tr,
       icon: Icons.arrow_forward_rounded,
       onPressed: () => Get.toNamed(TPRoute.assistSession, arguments: s.id),
     );
@@ -180,7 +181,7 @@ class _ActiveBadge extends StatelessWidget {
                   child: AssistHelperName(
                     h,
                     trusted: s.helperTrusted,
-                    suffix: ' 正在陪您辦理「${s.serviceTitle}」',
+                    suffix: trf(' 正在陪您辦理「{0}」', [s.serviceTitle]),
                     style: AssistText.headline,
                   ),
                 ),
@@ -194,7 +195,7 @@ class _ActiveBadge extends StatelessWidget {
                 icon: Icons.touch_app_rounded,
                 color: TPColors.secondary800,
                 background: TPColors.secondary100,
-                text: s.isReviewing ? '請您確認資料並送出' : '有一項資料等您確認：「${s.pendingAuthField!.label}」',
+                text: s.isReviewing ? '請您確認資料並送出'.tr : trf('有一項資料等您確認：「{0}」', [s.pendingAuthField!.label]),
               ),
             ],
             if (!big) ...[const SizedBox(height: 14), goBack],
@@ -219,8 +220,8 @@ class AssistEntryCard extends StatelessWidget {
             _EntryTile(
               // 與服務頁「陪辦」使用同一個台北通風格圖示
               leading: Assets.svg.iconAccompany.svg(width: context.iconSize(52), height: context.iconSize(52)),
-              title: '不會用嗎？請人陪我辦',
-              subtitle: '讓里長、家人或 1999 客服，陪您用手機一起辦。',
+              title: '不會用嗎？請人陪我辦'.tr,
+              subtitle: '讓里長、家人或 1999 客服，陪您用手機一起辦。'.tr,
               onTap: () => Get.toNamed(TPRoute.assistPairing),
             ),
             const SizedBox(height: 10),
@@ -232,8 +233,8 @@ class AssistEntryCard extends StatelessWidget {
                 decoration: const BoxDecoration(shape: BoxShape.circle, color: TPColors.secondary500),
                 child: Icon(Icons.volunteer_activism_rounded, color: TPColors.white, size: context.iconSize(28)),
               ),
-              title: '我也能幫別人辦',
-              subtitle: '幫爸媽、長輩或鄰居代辦，對方的個資您看不到。',
+              title: '我也能幫別人辦'.tr,
+              subtitle: '幫爸媽、長輩或鄰居代辦，對方的個資您看不到。'.tr,
               onTap: AssistHelpOthersView.open,
             ),
           ],
@@ -259,7 +260,7 @@ class _EntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: '$title。$subtitle',
+      label: trf('{0}。{1}', [title, subtitle]),
       child: Material(
         color: TPColors.white,
         borderRadius: BorderRadius.circular(18),
@@ -325,12 +326,12 @@ class AssistHelpCallCard extends StatelessWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              '${r.elderName} 請您幫忙',
+                              trf('{0} 請您幫忙', [r.elderName]),
                               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: TPColors.grayscale900),
                             ),
                           ),
-                          const Text(
-                            '去幫他',
+                          Text(
+                            '去幫他'.tr,
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: TPColors.secondary800),
                           ),
                           const Icon(Icons.chevron_right_rounded, color: TPColors.secondary800),

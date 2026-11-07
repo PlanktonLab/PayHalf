@@ -7,6 +7,7 @@ import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_dialog.dart';
 import 'package:town_pass/util/tp_route.dart';
 import 'package:town_pass/util/tp_web_view.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 開啟掃描。掃到長輩的配對 QR Code 時，直接以選定的協助者打開陪辦工作台並帶入配對碼。
 Future<void> assistScan() async {
@@ -34,7 +35,7 @@ Future<void> assistScan() async {
     return;
   }
   await TPDialog.showInfo(
-    title: '掃描結果',
+    title: '掃描結果'.tr,
     content: Text(raw, style: const TextStyle(fontSize: 16, color: TPColors.grayscale700)),
   );
 }
@@ -55,8 +56,8 @@ class AssistScanButton extends StatelessWidget {
       foregroundColor: TPColors.white,
       elevation: 3,
       icon: const Icon(Icons.qr_code_scanner_rounded),
-      label: const Text('掃描', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-      tooltip: '掃 QR Code（掃長輩的配對碼可以協助對方）',
+      label: Text('掃描'.tr, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      tooltip: '掃 QR Code（掃長輩的配對碼可以協助對方）'.tr,
     );
   }
 }
@@ -69,8 +70,8 @@ Future<void> assistAcceptTrustInvite(String code) async {
     final r = await service.acceptTrustInvite(code);
     Get.closeAllSnackbars();
     Get.snackbar(
-      r == null ? '您已經是對方信任的人' : '已送出，等 ${r.elderName} 按「加入」',
-      r == null ? '不用再加一次。' : '長輩手機會問他要不要加您（$me）。',
+      r == null ? '您已經是對方信任的人'.tr : trf('已送出，等 {0} 按「加入」', [r.elderName]),
+      r == null ? '不用再加一次。'.tr : trf('長輩手機會問他要不要加您（{0}）。', [me]),
       snackPosition: SnackPosition.TOP,
       margin: const EdgeInsets.all(12),
       backgroundColor: TPColors.grayscale800,
@@ -79,8 +80,8 @@ Future<void> assistAcceptTrustInvite(String code) async {
   } catch (e) {
     Get.closeAllSnackbars();
     Get.snackbar(
-      '沒有加成功',
-      e is AssistApiException ? e.message : '連不上陪辦伺服器',
+      '沒有加成功'.tr,
+      e is AssistApiException ? e.message : '連不上陪辦伺服器'.tr,
       snackPosition: SnackPosition.TOP,
       margin: const EdgeInsets.all(12),
       backgroundColor: TPColors.grayscale800,
@@ -114,19 +115,19 @@ class _TrustCodeDialogState extends State<_TrustCodeDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('輸入長輩給的邀請碼'),
+      title: Text('輸入長輩給的邀請碼'.tr),
       content: TextField(
         controller: controller,
         autofocus: true,
         keyboardType: TextInputType.number,
         maxLength: 6,
         style: const TextStyle(fontSize: 28, letterSpacing: 6),
-        decoration: const InputDecoration(hintText: '6 位數字', counterText: ''),
+        decoration: InputDecoration(hintText: '6 位數字'.tr, counterText: ''),
         onSubmitted: (v) => Get.back(result: v.trim()),
       ),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('取消')),
-        FilledButton(onPressed: () => Get.back(result: controller.text.trim()), child: const Text('加好友')),
+        TextButton(onPressed: () => Get.back(), child: Text('取消'.tr)),
+        FilledButton(onPressed: () => Get.back(result: controller.text.trim()), child: Text('加好友'.tr)),
       ],
     );
   }

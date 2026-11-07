@@ -10,6 +10,7 @@ import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_route.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 協辦進行中：跟著協助者的步驟走，個資逐項授權，最後由長輩自己送出。
 class AssistSessionView extends StatefulWidget {
@@ -64,7 +65,7 @@ class _AssistSessionViewState extends State<AssistSessionView> {
       } else if (!s.isOpen) {
         body = _Result(s: s);
       } else if (s.isPending) {
-        body = const Center(child: Text('等待您回應協助請求', style: AssistText.headline));
+        body = Center(child: Text('等待您回應協助請求'.tr, style: AssistText.headline));
       } else {
         body = Column(
           children: [
@@ -84,7 +85,7 @@ class _AssistSessionViewState extends State<AssistSessionView> {
             children: [
               Scaffold(
                 backgroundColor: TPColors.grayscale50,
-                appBar: TPAppBar(title: s?.serviceTitle ?? '陪辦'),
+                appBar: TPAppBar(title: s?.serviceTitle ?? '陪辦'.tr),
                 body: body,
               ),
               Positioned.fill(
@@ -139,7 +140,7 @@ class _HelperStrip extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 AssistHelperName(h, trusted: s.helperTrusted, style: AssistText.headline.copyWith(fontSize: 18)),
-                const Text('正在陪您辦理', style: AssistText.footnote),
+                Text('正在陪您辦理'.tr, style: AssistText.footnote),
               ],
             ),
           ),
@@ -151,13 +152,13 @@ class _HelperStrip extends StatelessWidget {
             ),
             onPressed: () async {
               final ok = await assistConfirm(
-                title: '結束這次協助？',
-                message: '${h.name} 會馬上斷線，還沒送出的資料都不會送出。',
-                confirmLabel: '結束協助',
+                title: '結束這次協助？'.tr,
+                message: trf('{0} 會馬上斷線，還沒送出的資料都不會送出。', [h.name]),
+                confirmLabel: '結束協助'.tr,
               );
               if (ok) await assistRun(() => Get.find<AssistService>().end(s.id));
             },
-            child: Text('結束協助', style: AssistText.headline.copyWith(fontSize: 18, color: TPColors.red600)),
+            child: Text('結束協助'.tr, style: AssistText.headline.copyWith(fontSize: 18, color: TPColors.red600)),
           ),
         ],
       ),
@@ -179,7 +180,7 @@ class _Steps extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(20, 18, 20, 24 + MediaQuery.paddingOf(context).bottom),
       children: [
         Semantics(
-          label: '第 ${s.currentStep + 1} 步，共 ${def.steps.length} 步',
+          label: trf('第 {0} 步，共 {1} 步', [s.currentStep + 1, def.steps.length]),
           child: ExcludeSemantics(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,10 +189,10 @@ class _Steps extends StatelessWidget {
                   TextSpan(
                     children: [
                       TextSpan(
-                        text: '第 ${s.currentStep + 1} 步',
+                        text: trf('第 {0} 步', [s.currentStep + 1]),
                         style: AssistText.callout.copyWith(color: TPColors.primary600, fontWeight: FontWeight.w600),
                       ),
-                      TextSpan(text: '，共 ${def.steps.length} 步', style: AssistText.callout),
+                      TextSpan(text: trf('，共 {0} 步', [def.steps.length]), style: AssistText.callout),
                     ],
                   ),
                 ),
@@ -223,7 +224,7 @@ class _Steps extends StatelessWidget {
         const SizedBox(height: 10),
         Align(
           alignment: Alignment.centerLeft,
-          child: AssistReadButton(id: 'step-${s.id}-${s.currentStep}', text: () => '${step.title}。${step.elderGuide}'),
+          child: AssistReadButton(id: 'step-${s.id}-${s.currentStep}', text: () => trf('{0}。{1}', [step.title, step.elderGuide])),
         ),
         const SizedBox(height: 18),
         for (final f in step.fields) ...[_FieldCard(s: s, f: f), const SizedBox(height: 14)],
@@ -232,13 +233,13 @@ class _Steps extends StatelessWidget {
             icon: Icons.hearing_rounded,
             color: TPColors.primary800,
             background: TPColors.primary50,
-            text: '請聽 ${s.helper!.name} 說明，聽完可以按「下一頁」。',
+            text: trf('請聽 {0} 說明，聽完可以按「下一頁」。', [s.helper!.name]),
           ),
         const SizedBox(height: 8),
         _StepNav(s: s, def: def),
         const SizedBox(height: 8),
         AssistButton(
-          '我的權利與法規說明',
+          '我的權利與法規說明'.tr,
           style: AssistButtonStyle.plain,
           icon: Icons.gavel_rounded,
           onPressed: () => Get.toNamed(TPRoute.assistLegal),
@@ -311,11 +312,11 @@ class _FieldCardState extends State<_FieldCard> {
           TextButton(
             style: TextButton.styleFrom(minimumSize: const Size(44, 44), foregroundColor: TPColors.red600),
             onPressed: () async {
-              final ok = await assistConfirm(title: '撤回「${f.label}」？', message: '撤回後，這項資料不會被送出。', confirmLabel: '撤回');
+              final ok = await assistConfirm(title: trf('撤回「{0}」？', [f.label]), message: '撤回後，這項資料不會被送出。'.tr, confirmLabel: '撤回'.tr);
               if (ok) await assistRun(() => service.revoke(s.id, f.key));
             },
             child: Text(
-              '撤回',
+              '撤回'.tr,
               style: AssistText.callout.copyWith(color: TPColors.red600, fontWeight: FontWeight.w600),
             ),
           ),
@@ -324,7 +325,7 @@ class _FieldCardState extends State<_FieldCard> {
       if (st.edited) {
         body = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [body, const Text('您已修改過這項資料', style: AssistText.footnote)],
+          children: [body, Text('您已修改過這項資料'.tr, style: AssistText.footnote)],
         );
       }
     } else if (f.sensitive && s.elderSelfAuth && s.pendingAuth == null && st.preview != null) {
@@ -334,12 +335,12 @@ class _FieldCardState extends State<_FieldCard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (st.status == 'denied') ...[
-            const Text('您剛才選擇不提供，想提供也可以。', style: AssistText.callout),
+            Text('您剛才選擇不提供，想提供也可以。'.tr, style: AssistText.callout),
             const SizedBox(height: 10),
           ] else
             const SizedBox(height: 4),
           AssistButton(
-            '填入我的${f.label}',
+            trf('填入我的{0}', [profileKindName(f.maskKey, f.raw['label'] as String? ?? '')]),
             style: AssistButtonStyle.secondary,
             onPressed: () {
               HapticFeedback.selectionClick();
@@ -350,9 +351,9 @@ class _FieldCardState extends State<_FieldCard> {
       );
     } else {
       body = Text(switch (st.status) {
-        'denied' => '您選擇不提供這項資料',
-        'requested' => '請看跳出來的確認畫面',
-        _ => '等 ${s.helper!.name} 請您確認',
+        'denied' => '您選擇不提供這項資料'.tr,
+        'requested' => '請看跳出來的確認畫面'.tr,
+        _ => trf('等 {0} 請您確認', [s.helper!.name]),
       }, style: AssistText.callout.copyWith(color: st.status == 'denied' ? TPColors.red600 : null));
     }
 
@@ -377,7 +378,7 @@ class _FieldCardState extends State<_FieldCard> {
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
-                      '${s.helper!.name} 請您看這裡',
+                      trf('{0} 請您看這裡', [s.helper!.name]),
                       style: AssistText.headline.copyWith(color: TPColors.secondary700),
                     ),
                   ),
@@ -558,7 +559,7 @@ class _AuthSheetState extends State<_AuthSheet> {
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
-                          high ? '重要資料，請看清楚' : '資料授權',
+                          high ? '重要資料，請看清楚'.tr : '資料授權'.tr,
                           style: AssistText.callout.copyWith(color: accent, fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -567,13 +568,13 @@ class _AuthSheetState extends State<_AuthSheet> {
                   const SizedBox(height: 8),
                   Semantics(
                     header: true,
-                    label: widget.self ? '要提供您的${f.label}嗎？' : '${s.helper!.name} 請您確認：要提供您的${f.label}嗎？',
+                    label: widget.self ? trf('要提供您的{0}嗎？', [f.label]) : trf('{0} 請您確認：要提供您的{1}嗎？', [s.helper!.name, f.label]),
                     child: ExcludeSemantics(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('要提供您的', style: AssistText.headline),
-                          Text('「${f.label}」嗎？', style: AssistText.largeTitle.copyWith(fontSize: 34)),
+                          Text('要提供您的'.tr, style: AssistText.headline),
+                          Text(trf('「{0}」嗎？', [f.label]), style: AssistText.largeTitle.copyWith(fontSize: 34)),
                         ],
                       ),
                     ),
@@ -601,7 +602,7 @@ class _AuthSheetState extends State<_AuthSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(edited == null ? '將提供' : '將提供（您修改過）', style: AssistText.callout),
+                        Text(edited == null ? '將提供'.tr : '將提供（您修改過）'.tr, style: AssistText.callout),
                         AssistRevealValue(
                           key: ValueKey(edited),
                           fieldKey: f.maskKey,
@@ -617,17 +618,17 @@ class _AuthSheetState extends State<_AuthSheet> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: AssistButton(
-                      '內容不對？我要修改',
+                      '內容不對？我要修改'.tr,
                       style: AssistButtonStyle.plain,
                       icon: Icons.edit_rounded,
                       onPressed: busy ? null : change,
                     ),
                   ),
-                  info(Icons.account_balance_rounded, '給誰用', f.recipient ?? s.agency ?? ''),
+                  info(Icons.account_balance_rounded, '給誰用'.tr, f.recipient ?? s.agency ?? ''),
                   const Divider(height: 1),
-                  info(Icons.help_outline_rounded, '做什麼用', f.purpose ?? ''),
+                  info(Icons.help_outline_rounded, '做什麼用'.tr, f.purpose ?? ''),
                   const Divider(height: 1),
-                  info(Icons.schedule_rounded, '保存多久', f.retention ?? ''),
+                  info(Icons.schedule_rounded, '保存多久'.tr, f.retention ?? ''),
                   const SizedBox(height: 12),
                   AssistNotice(
                     icon: Icons.visibility_off_rounded,
@@ -640,13 +641,13 @@ class _AuthSheetState extends State<_AuthSheet> {
                     icon: Icons.warning_amber_rounded,
                     color: high ? TPColors.red700 : TPColors.secondary800,
                     background: accentBg,
-                    title: '請注意',
-                    text: [...f.risks, '不想提供可以按「先不要」，不會有任何處罰。'].map((r) => '・$r').join('\n'),
+                    title: '請注意'.tr,
+                    text: [...f.risks, '不想提供可以按「先不要」，不會有任何處罰。'.tr].map((r) => '・$r').join('\n'),
                   ),
                   const SizedBox(height: 12),
-                  Text('法令依據：${f.legalBasis ?? ''}', style: AssistText.footnote),
+                  Text(trf('法令依據：{0}', [f.legalBasis ?? '']), style: AssistText.footnote),
                   AssistButton(
-                    '看我的權利與詳細法規',
+                    '看我的權利與詳細法規'.tr,
                     style: AssistButtonStyle.plain,
                     icon: Icons.gavel_rounded,
                     onPressed: () => Get.toNamed(TPRoute.assistLegal),
@@ -656,8 +657,8 @@ class _AuthSheetState extends State<_AuthSheet> {
             ),
           ],
           actions: [
-            AssistButton('同意提供', icon: Icons.check_rounded, onPressed: busy ? null : () => answer(true)),
-            AssistButton('先不要', style: AssistButtonStyle.secondary, onPressed: busy ? null : () => answer(false)),
+            AssistButton('同意提供'.tr, icon: Icons.check_rounded, onPressed: busy ? null : () => answer(true)),
+            AssistButton('先不要'.tr, style: AssistButtonStyle.secondary, onPressed: busy ? null : () => answer(false)),
           ],
         ),
       ),
@@ -685,7 +686,7 @@ class _ReviewState extends State<_Review> {
     final fields = widget.def.allFields;
     return AssistActionLayout(
       content: [
-        Semantics(header: true, child: const Text('請確認您的資料', style: AssistText.largeTitle)),
+        Semantics(header: true, child: Text('請確認您的資料'.tr, style: AssistText.largeTitle)),
         const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerLeft,
@@ -697,7 +698,7 @@ class _ReviewState extends State<_Review> {
           ),
         ),
         const SizedBox(height: 4),
-        Text('「${s.serviceTitle}」', style: AssistText.callout),
+        Text(trf('「{0}」', [s.serviceTitle]), style: AssistText.callout),
         const SizedBox(height: 16),
         AssistCard(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
@@ -744,12 +745,12 @@ class _ReviewState extends State<_Review> {
           icon: Icons.send_rounded,
           color: TPColors.primary800,
           background: TPColors.primary50,
-          text: '按下「確認送出」後，這些資料會直接填進申請表，交給 ${s.agency}。${s.helper!.name} 看不到內容。送出鍵只有您能按。',
+          text: trf('按下「確認送出」後，這些資料會直接填進申請表，交給 {0}。{1} 看不到內容。送出鍵只有您能按。', [s.agency, s.helper!.name]),
         ),
       ],
       actions: [
         AssistButton(
-          '確認送出',
+          '確認送出'.tr,
           style: AssistButtonStyle.success,
           icon: Icons.send_rounded,
           onPressed: busy
@@ -762,7 +763,7 @@ class _ReviewState extends State<_Review> {
                 },
         ),
         AssistButton(
-          '我要再看一下',
+          '我要再看一下'.tr,
           style: AssistButtonStyle.secondary,
           onPressed: busy ? null : () => assistRun(() => service.submit(s.id, false)),
         ),
@@ -786,11 +787,11 @@ class _Result extends StatelessWidget {
     final undoLeft = ok && s.undoUntil != null ? s.undoUntil!.difference(now) : Duration.zero;
     final canUndo = undoLeft > Duration.zero;
     final message = switch ((s.endedBy, s.endReason)) {
-      (_, 'submitted') => '辦好了！',
-      (_, 'timeout') => '太久沒有動作，協助已自動結束',
-      (_, 'blocked') => '已封鎖對方，協助已結束',
-      ('elder', _) => '您已經結束這次協助',
-      _ => '${s.helper?.name ?? '協助者'} 結束了這次協助',
+      (_, 'submitted') => '辦好了！'.tr,
+      (_, 'timeout') => '太久沒有動作，協助已自動結束'.tr,
+      (_, 'blocked') => '已封鎖對方，協助已結束'.tr,
+      ('elder', _) => '您已經結束這次協助'.tr,
+      _ => trf('{0} 結束了這次協助', [s.helper?.name ?? '協助者']),
     };
     return AssistActionLayout(
       content: [
@@ -820,8 +821,8 @@ class _Result extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           ok
-              ? '「${s.serviceTitle}」已經送出。\n${s.helper?.name ?? '陪辦的人'} 陪您一起完成，辛苦了！'
-              : '「${s.serviceTitle}」',
+              ? trf('「{0}」已經送出。\n{1} 陪您一起完成，辛苦了！', [s.serviceTitle, s.helper?.name ?? '陪辦的人'])
+              : trf('「{0}」', [s.serviceTitle]),
           textAlign: TextAlign.center,
           style: ok ? AssistText.body : AssistText.callout,
         ),
@@ -830,11 +831,11 @@ class _Result extends StatelessWidget {
           AssistCard(
             color: TPColors.primary50,
             child: Semantics(
-              label: '案件編號 ${s.caseNo}',
+              label: trf('案件編號 {0}', [s.caseNo]),
               child: ExcludeSemantics(
                 child: Column(
                   children: [
-                    Text('案件編號', style: AssistText.callout.copyWith(color: TPColors.primary700)),
+                    Text('案件編號'.tr, style: AssistText.callout.copyWith(color: TPColors.primary700)),
                     FittedBox(
                       child: Text(
                         s.caseNo ?? '',
@@ -852,15 +853,15 @@ class _Result extends StatelessWidget {
         Center(
           child: AssistReadButton(
             id: 'result-${s.id}',
-            text: () => ok ? '$message案件編號：${(s.caseNo ?? '').split('').join(' ')}。' : message,
+            text: () => ok ? trf('{0}案件編號：{1}。', [message, (s.caseNo ?? '').split('').join(' ')]) : message,
           ),
         ),
         const SizedBox(height: 18),
-        const Text('這次的紀錄在「歷程與授權管理」。', textAlign: TextAlign.center, style: AssistText.callout),
+        Text('這次的紀錄在「歷程與授權管理」。'.tr, textAlign: TextAlign.center, style: AssistText.callout),
       ],
       actions: [
         AssistButton(
-          '回到首頁',
+          '回到首頁'.tr,
           onPressed: () {
             Get.find<AssistService>().dismissResult();
             Get.until((route) => route.settings.name == TPRoute.main || route.isFirst);
@@ -868,10 +869,10 @@ class _Result extends StatelessWidget {
         ),
         if (canUndo)
           AssistButton(
-            '撤回送出（${undoLeft.inSeconds + 1} 秒）',
+            trf('撤回送出（{0} 秒）', [undoLeft.inSeconds + 1]),
             style: AssistButtonStyle.destructive,
             icon: Icons.undo_rounded,
-            semanticsHint: '按錯了可以撤回，撤回後會回到確認畫面',
+            semanticsHint: '按錯了可以撤回，撤回後會回到確認畫面'.tr,
             onPressed: () => assistRun(() => Get.find<AssistService>().undoSubmit(s.id)),
           ),
       ],
@@ -898,8 +899,8 @@ class _EditButton extends StatelessWidget {
         if (v != null && v != value) await assistRun(() => Get.find<AssistService>().editField(s.id, f.key, v));
       },
       child: Text(
-        '修改',
-        semanticsLabel: '修改${f.label}',
+        '修改'.tr,
+        semanticsLabel: trf('修改{0}', [f.label]),
         style: AssistText.callout.copyWith(color: TPColors.primary700, fontWeight: FontWeight.w600),
       ),
     );
@@ -935,7 +936,7 @@ class _StepNavState extends State<_StepNav> {
         icon: Icons.front_hand_rounded,
         color: TPColors.primary800,
         background: TPColors.primary50,
-        text: '$name 會帶您到下一步，請等一下。',
+        text: trf('{0} 會帶您到下一步，請等一下。', [name]),
       );
     }
     final waiting = s.pendingAuth != null;
@@ -944,7 +945,7 @@ class _StepNavState extends State<_StepNav> {
       children: [
         if (s.currentStep < last)
           AssistButton(
-            '下一頁',
+            '下一頁'.tr,
             icon: Icons.arrow_forward_rounded,
             onPressed: busy || waiting ? null : () => go(s.currentStep + 1),
           )
@@ -953,12 +954,12 @@ class _StepNavState extends State<_StepNav> {
             icon: Icons.send_rounded,
             color: TPColors.primary800,
             background: TPColors.primary50,
-            text: '這是最後一步。$name 會請您確認資料，再由您按送出。',
+            text: trf('這是最後一步。{0} 會請您確認資料，再由您按送出。', [name]),
           ),
         if (s.currentStep > 0) ...[
           const SizedBox(height: 10),
           AssistButton(
-            '上一頁',
+            '上一頁'.tr,
             style: AssistButtonStyle.secondary,
             icon: Icons.arrow_back_rounded,
             onPressed: busy || waiting ? null : () => go(s.currentStep - 1),

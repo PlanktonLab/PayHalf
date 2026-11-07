@@ -20,7 +20,7 @@ class ActivityListView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: TPColors.white,
-      appBar: const TPAppBar(title: '活動訊息'),
+      appBar: TPAppBar(title: '活動訊息'.tr),
       body: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: list.data.length,
@@ -63,7 +63,7 @@ class _ActivityItemWidget extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TPText(
-                    item.title,
+                    item.title.tr,
                     style: TPTextStyles.h3SemiBold,
                     color: TPColors.grayscale800,
                     maxLines: 2,

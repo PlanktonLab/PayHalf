@@ -7,6 +7,7 @@ import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_route.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 有人想協助您：看清楚是誰、要辦什麼，再由長輩自己決定。
 class AssistRequestView extends StatelessWidget {
@@ -19,7 +20,7 @@ class AssistRequestView extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: TPColors.grayscale50,
-      appBar: const TPAppBar(title: '協助請求'),
+      appBar: TPAppBar(title: '協助請求'.tr),
       body: AssistTextScaleCap(
         child: Obx(() {
           final s = service.sessions[id];
@@ -79,31 +80,31 @@ class _Body extends StatelessWidget {
         AssistCard(
           child: Column(
             children: [
-              const Text('想陪您辦理', style: AssistText.callout),
+              Text('想陪您辦理'.tr, style: AssistText.callout),
               const SizedBox(height: 2),
-              Text('「${s.serviceTitle}」', textAlign: TextAlign.center, style: AssistText.title),
+              Text(trf('「{0}」', [s.serviceTitle]), textAlign: TextAlign.center, style: AssistText.title),
             ],
           ),
         ),
         const SizedBox(height: 12),
         // 一個畫面只留一個提醒：信任的人／不是公務人員。資料保護與防詐，在真正要提供資料時再講
         if (!s.helperTrusted && !h.verified) ...[
-          const AssistNotice(
+          AssistNotice(
             icon: Icons.info_rounded,
             color: TPColors.secondary800,
             background: TPColors.secondary100,
-            title: '對方不是公務人員',
-            text: '請確認您認識他。',
+            title: '對方不是公務人員'.tr,
+            text: '請確認您認識他。'.tr,
           ),
           const SizedBox(height: 12),
         ],
-        const Text('資料會一項一項先問您，送出也只有您能按。', textAlign: TextAlign.center, style: AssistText.callout),
+        Text('資料會一項一項先問您，送出也只有您能按。'.tr, textAlign: TextAlign.center, style: AssistText.callout),
         const SizedBox(height: 12),
         Semantics(
-          label: '這個請求還有 ${assistSpokenDuration(left)} 會自動取消',
+          label: trf('這個請求還有 {0} 會自動取消', [assistSpokenDuration(left)]),
           child: ExcludeSemantics(
             child: Text(
-              '${assistMmss(left)} 後這個請求自動取消',
+              trf('{0} 後這個請求自動取消', [assistMmss(left)]),
               textAlign: TextAlign.center,
               style: AssistText.callout.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
             ),
@@ -112,7 +113,7 @@ class _Body extends StatelessWidget {
       ],
       actions: [
         AssistButton(
-          '好，請他幫我',
+          '好，請他幫我'.tr,
           icon: Icons.check_rounded,
           onPressed: () async {
             if (await assistRun(() => service.respond(s.id, true))) {
@@ -121,21 +122,21 @@ class _Body extends StatelessWidget {
           },
         ),
         AssistButton(
-          '不要',
+          '不要'.tr,
           style: AssistButtonStyle.secondary,
           onPressed: () async {
             if (await assistRun(() => service.respond(s.id, false))) Get.back();
           },
         ),
         AssistButton(
-          '我不認識這個人',
+          '我不認識這個人'.tr,
           style: AssistButtonStyle.destructivePlain,
-          semanticsHint: '封鎖並回報這個人',
+          semanticsHint: '封鎖並回報這個人'.tr,
           onPressed: () async {
             final ok = await assistConfirm(
-              title: '封鎖這個人？',
-              message: '${h.name} 以後不能再傳協助請求給您，市府也會收到回報。',
-              confirmLabel: '封鎖並回報',
+              title: '封鎖這個人？'.tr,
+              message: trf('{0} 以後不能再傳協助請求給您，市府也會收到回報。', [h.name]),
+              confirmLabel: '封鎖並回報'.tr,
             );
             if (ok && await assistRun(() => service.block(s.id))) Get.back();
           },
@@ -155,12 +156,12 @@ class _Gone extends StatelessWidget {
       const SizedBox(height: 40),
       Icon(Icons.timer_off_rounded, size: context.iconSize(56), color: TPColors.grayscale400),
       const SizedBox(height: 16),
-      Text(s.isActive ? '您已經接受這次協助' : '這個請求已經失效', textAlign: TextAlign.center, style: AssistText.title),
+      Text(s.isActive ? '您已經接受這次協助'.tr : '這個請求已經失效'.tr, textAlign: TextAlign.center, style: AssistText.title),
       const SizedBox(height: 8),
-      const Text('如果還需要幫忙，可以請對方重新送出，或撥打 1999。', textAlign: TextAlign.center, style: AssistText.callout),
+      Text('如果還需要幫忙，可以請對方重新送出，或撥打 1999。'.tr, textAlign: TextAlign.center, style: AssistText.callout),
       const SizedBox(height: 24),
       AssistButton(
-        s.isActive ? '前往協助畫面' : '回到首頁',
+        s.isActive ? '前往協助畫面'.tr : '回到首頁'.tr,
         onPressed: () => s.isActive ? Get.offNamed(TPRoute.assistSession, arguments: s.id) : Get.back(),
       ),
     ],

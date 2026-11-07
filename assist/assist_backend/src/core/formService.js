@@ -27,7 +27,7 @@ export function createFormService({ config, assist, audit, notify = () => {}, no
   const samples = new Map(); // formId -> 示意回覆
   const drafts = new Map(); // `${elderId}:${serviceId}` -> { answers, expiresAt }
   const tickets = new Map();
-  const ticketLimiter = createRateLimiter({ max: 5, windowMs: 10 * 60 * 1000, now });
+  const ticketLimiter = createRateLimiter({ ...(config.ticketLimit ?? { max: 5, windowMs: 10 * 60 * 1000 }), now });
   const file = config.dataDir ? path.join(config.dataDir, 'forms.json') : null;
 
   // ───────────────────────── 載入與保存

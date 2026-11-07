@@ -8,6 +8,7 @@ import 'package:town_pass/page/home/widget/news/news_banner_widget.dart';
 import 'package:town_pass/page/home/widget/subscription/subscription_widget.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
+import 'package:get/get.dart';
 
 class HomeView extends StatelessWidget {
   const HomeView({super.key});
@@ -17,7 +18,7 @@ class HomeView extends StatelessWidget {
     return Scaffold(
       appBar: TPAppBar(
         showLogo: true,
-        title: '首頁',
+        title: '首頁'.tr,
         // Demo：左上角直接切換「這支手機是誰」，帳戶頁從切換面板進
         leading: const AssistPersonaButton(),
         leadingWidth: AssistPersonaButton.width,

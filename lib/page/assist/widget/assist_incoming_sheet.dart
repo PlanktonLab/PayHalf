@@ -5,6 +5,7 @@ import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_route.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 有人想協助長輩時，從底部彈出的提示。
 ///
@@ -138,7 +139,7 @@ class _AssistIncomingSheetState extends State<AssistIncomingSheet> with SingleTi
               child: AssistHelperName(
                 h,
                 trusted: s.helperTrusted,
-                suffix: '\n想協助您',
+                suffix: '\n想協助您'.tr,
                 textAlign: TextAlign.center,
                 style: AssistText.largeTitle,
               ),
@@ -150,21 +151,21 @@ class _AssistIncomingSheetState extends State<AssistIncomingSheet> with SingleTi
               color: TPColors.primary50,
               child: Column(
                 children: [
-                  Text('想陪您辦理', style: AssistText.callout.copyWith(color: TPColors.primary700)),
+                  Text('想陪您辦理'.tr, style: AssistText.callout.copyWith(color: TPColors.primary700)),
                   const SizedBox(height: 2),
-                  Text('「${s.serviceTitle}」', textAlign: TextAlign.center, style: AssistText.title),
+                  Text(trf('「{0}」', [s.serviceTitle]), textAlign: TextAlign.center, style: AssistText.title),
                 ],
               ),
             ),
             const SizedBox(height: 12),
             Text(
-              '先關掉也沒關係，首頁上方會留著（${assistMmss(left)}）',
+              trf('先關掉也沒關係，首頁上方會留著（{0}）', [assistMmss(left)]),
               textAlign: TextAlign.center,
               style: AssistText.footnote.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
             ),
             const SizedBox(height: 16),
             AssistButton(
-              '查看並回應',
+              '查看並回應'.tr,
               icon: Icons.arrow_forward_rounded,
               onPressed: () {
                 closing = true;
@@ -173,7 +174,7 @@ class _AssistIncomingSheetState extends State<AssistIncomingSheet> with SingleTi
               },
             ),
             const SizedBox(height: 10),
-            AssistButton('等一下再說', style: AssistButtonStyle.plain, onPressed: close),
+            AssistButton('等一下再說'.tr, style: AssistButtonStyle.plain, onPressed: close),
           ],
         ),
       ),

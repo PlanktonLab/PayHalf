@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ApiError, unauthorized, forbidden, badRequest } from '../core/errors.js';
-import { HELPERS, ELDERS, findUser, findElderByTownpassAccount, publicHelper, publicElder } from '../data/users.js';
+import { HELPERS, ELDERS, LANGS, findUser, findElderByTownpassAccount, publicHelper, publicElder, setUserLang } from '../data/users.js';
 import { SERVICES, findService, serviceSummary } from '../data/services.js';
 import { LEGAL_INFO } from '../data/legal.js';
 import { posterSvg, posterPage, landingPage, LAYOUTS } from '../poster/poster.js';
@@ -176,6 +176,15 @@ export function buildHttpApp({ config, tokens, assist, audit, forms }) {
         ? { role: 'helper', ...publicHelper(req.user) }
         : { role: 'elder', ...publicElder(req.user) },
     ),
+  );
+  // 介面語言：每個人自己選，存在帳號上
+  api.put(
+    '/me/lang',
+    wrap((req) => {
+      const lang = req.body?.lang;
+      if (!setUserLang(req.user.id, lang)) throw badRequest(`不支援的語言，可用：${LANGS.join(', ')}`);
+      return { lang };
+    }),
   );
   api.get('/audit/verify', (_req, res) => res.json(audit.verify()));
 

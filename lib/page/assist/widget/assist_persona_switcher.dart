@@ -7,7 +7,9 @@ import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/page/setting/assist_server_view.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 import 'package:town_pass/util/tp_route.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 首頁左上角：這支手機現在是誰。整個 App 都是 demo，所以切換身分放在最顯眼的地方，
 /// 點開是一個面板：切長輩、切協助者、一鍵讓信任的人發出請求、切伺服器。
@@ -26,7 +28,7 @@ class AssistPersonaButton extends StatelessWidget {
         final online = service.connected.value;
         return Semantics(
           button: true,
-          label: '目前身分 $name，切換身分',
+          label: trf('目前身分 {0}，切換身分', [name]),
           child: Material(
             color: TPColors.primary50,
             borderRadius: BorderRadius.circular(99),
@@ -157,8 +159,8 @@ class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
       Navigator.of(context).pop();
       Get.closeAllSnackbars();
       Get.snackbar(
-        '$helperName 已送出請求',
-        '一兩秒後這支手機會跳出「有人想協助您」',
+        trf('{0} 已送出請求', [helperName]),
+        '一兩秒後這支手機會跳出「有人想協助您」'.tr,
         snackPosition: SnackPosition.BOTTOM,
         margin: const EdgeInsets.all(12),
         backgroundColor: TPColors.grayscale800,
@@ -170,8 +172,8 @@ class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
       setState(() => sending = false);
       Get.closeAllSnackbars();
       Get.snackbar(
-        '沒有送出',
-        e is AssistApiException ? e.message : '連不上陪辦伺服器',
+        '沒有送出'.tr,
+        e is AssistApiException ? e.message : '連不上陪辦伺服器'.tr,
         snackPosition: SnackPosition.BOTTOM,
         margin: const EdgeInsets.all(12),
         backgroundColor: TPColors.grayscale800,
@@ -204,8 +206,8 @@ class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
             const SizedBox(height: 14),
             Row(
               children: [
-                const Expanded(
-                  child: Text('切換身分', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: TPColors.grayscale900)),
+                Expanded(
+                  child: Text('切換身分'.tr, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: TPColors.grayscale900)),
                 ),
                 TextButton.icon(
                   onPressed: () {
@@ -213,12 +215,12 @@ class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
                     Get.toNamed(TPRoute.account);
                   },
                   icon: const Icon(Icons.person_outline_rounded, size: 18),
-                  label: const Text('帳戶頁'),
+                  label: Text('帳戶頁'.tr),
                 ),
               ],
             ),
             const SizedBox(height: 6),
-            const _Section('這支手機是'),
+            _Section('這支手機是'.tr),
             for (final a in AssistService.elderAccounts)
               _Row(
                 name: a.name,
@@ -227,7 +229,33 @@ class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
                 onTap: () => service.useElder(a.id),
               ),
             const SizedBox(height: 18),
-            const _Section('一鍵發出協助請求'),
+            // 語言是使用者帳號的設定（正式版在註冊時選），存在後端，換手機登入也一樣
+            _Section('介面語言 · Language'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final l in TPLanguage.all)
+                  ChoiceChip(
+                    label: Text(l.nativeName),
+                    selected: TPLanguage.current.code == l.code,
+                    showCheckmark: false,
+                    labelStyle: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: TPLanguage.current.code == l.code ? TPColors.white : TPColors.grayscale800,
+                    ),
+                    selectedColor: TPColors.primary500,
+                    backgroundColor: TPColors.white,
+                    onSelected: (_) async {
+                      await service.setLanguage(l.code);
+                      if (mounted) setState(() {});
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _Section('一鍵發出協助請求'.tr),
             _DemoCard(
               elderName: service.elderName,
               trusted: [for (final t in trusted) (id: t.helper.id, name: t.helper.name, title: t.helper.title)],
@@ -238,7 +266,7 @@ class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
               onSend: _send,
             ),
             const SizedBox(height: 18),
-            const _Section('幫別人辦時，我是'),
+            _Section('幫別人辦時，我是'.tr),
             for (final a in AssistService.helperAccounts)
               _Row(
                 name: a.name,
@@ -255,7 +283,7 @@ class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
                     AssistHelperView.open(elderId: service.helperTrusting.first.elderId);
                   },
                   icon: const Icon(Icons.volunteer_activism_rounded),
-                  label: Text('幫 ${service.helperTrusting.map((e) => e.displayName).join('、')} 辦事（信任您，不用配對碼）'),
+                  label: Text(trf('幫 {0} 辦事（信任您，不用配對碼）', [service.helperTrusting.map((e) => e.displayName).join('、')])),
                   style: FilledButton.styleFrom(
                     backgroundColor: AssistColors.green700,
                     minimumSize: const Size.fromHeight(48),
@@ -273,7 +301,7 @@ class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
                       assistScan();
                     },
                     icon: const Icon(Icons.qr_code_scanner_rounded),
-                    label: const Text('掃 QR Code'),
+                    label: Text('掃 QR Code'.tr),
                     style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
                   ),
                 ),
@@ -285,7 +313,7 @@ class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
                       openHelperConsole();
                     },
                     icon: const Icon(Icons.volunteer_activism_rounded),
-                    label: const Text('陪辦工作台'),
+                    label: Text('陪辦工作台'.tr),
                     style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
                   ),
                 ),
@@ -293,7 +321,7 @@ class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
             ),
             if (forms.isNotEmpty) ...[
               const SizedBox(height: 18),
-              const _Section('海報上的表單（假裝掃了 QR Code）'),
+              _Section('海報上的表單（假裝掃了 QR Code）'.tr),
               Container(
                 decoration: BoxDecoration(color: TPColors.white, borderRadius: BorderRadius.circular(14)),
                 child: Column(
@@ -314,13 +342,13 @@ class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
               ),
             ],
             const SizedBox(height: 18),
-            const _Section('伺服器'),
+            _Section('伺服器'.tr),
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(color: TPColors.white, borderRadius: BorderRadius.circular(14)),
               child: Row(
                 children: [
-                  for (final (label, value) in [('雲端', AssistService.cloudBase), ('本機', AssistService.localBase)])
+                  for (final (label, value) in [('雲端'.tr, AssistService.cloudBase), ('本機'.tr, AssistService.localBase)])
                     Expanded(
                       child: _Seg(
                         label: label,
@@ -330,7 +358,7 @@ class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
                     ),
                   Expanded(
                     child: _Seg(
-                      label: '其他…',
+                      label: '其他…'.tr,
                       selected: base != AssistService.cloudBase && base != AssistService.localBase,
                       onTap: () {
                         Navigator.of(context).pop();
@@ -343,7 +371,7 @@ class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
             ),
             const SizedBox(height: 6),
             Text(
-              '目前：$base${service.connected.value ? '（已連線）' : '（連線中…）'}',
+              trf('目前：{0}{1}', [base, service.connected.value ? '（已連線）' : '（連線中…）']),
               style: const TextStyle(fontSize: 12, color: TPColors.grayscale500),
             ),
           ],
@@ -443,12 +471,12 @@ class _DemoCard extends StatelessWidget {
         children: [
           if (trusted.isEmpty)
             Text(
-              '$elderName 還沒有信任的人。到「請人陪我辦」按「加信任的人」，讓家人掃 QR Code。',
+              trf('{0} 還沒有信任的人。到「請人陪我辦」按「加信任的人」，讓家人掃 QR Code。', [elderName]),
               style: const TextStyle(fontSize: 14, color: TPColors.grayscale600, height: 1.5),
             )
           else ...[
             Text(
-              '$elderName 信任的人可以不用配對碼直接發請求，這支手機會馬上跳出通知。',
+              trf('{0} 信任的人可以不用配對碼直接發請求，這支手機會馬上跳出通知。', [elderName]),
               style: const TextStyle(fontSize: 13, color: TPColors.grayscale600, height: 1.5),
             ),
             const SizedBox(height: 10),
@@ -477,7 +505,7 @@ class _DemoCard extends StatelessWidget {
                   icon: sending
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: TPColors.white))
                       : const Icon(Icons.notifications_active_rounded),
-                  label: Text('讓 ${t.name}（${t.title}）發出請求'),
+                  label: Text(trf('讓 {0}（{1}）發出請求', [t.name, t.title])),
                   style: FilledButton.styleFrom(
                     backgroundColor: AssistColors.green700,
                     minimumSize: const Size.fromHeight(48),

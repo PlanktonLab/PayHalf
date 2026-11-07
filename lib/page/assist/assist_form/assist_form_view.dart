@@ -11,6 +11,7 @@ import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_route.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 靜態 QR Code 表單：長輩用台北通掃了海報上的 QR Code，自己一題一題填。
 ///
@@ -137,9 +138,9 @@ class _AssistFormViewState extends State<AssistFormView> {
     if (error != null) {
       body = _Message(
         icon: Icons.error_outline_rounded,
-        title: '打不開這份表單',
+        title: '打不開這份表單'.tr,
         text: error!,
-        action: AssistButton('再試一次', onPressed: load),
+        action: AssistButton('再試一次'.tr, onPressed: load),
       );
     } else if (f == null) {
       body = const Center(child: CircularProgressIndicator());
@@ -148,16 +149,16 @@ class _AssistFormViewState extends State<AssistFormView> {
     } else if (f.submitted != null) {
       body = _Message(
         icon: Icons.task_alt_rounded,
-        title: '你已經填過這份表單了',
-        text: '收件編號 ${f.submitted!['receiptNo']}\n有問題可以打 1999 市民熱線。',
-        action: AssistButton('回到首頁', onPressed: () => Get.until((r) => r.isFirst)),
+        title: '你已經填過這份表單了'.tr,
+        text: trf('收件編號 {0}\n有問題可以打 1999 市民熱線。', [f.submitted!['receiptNo']]),
+        action: AssistButton('回到首頁'.tr, onPressed: () => Get.until((r) => r.isFirst)),
       );
     } else if (f.status != 'open') {
       body = _Message(
         icon: Icons.event_busy_rounded,
-        title: '這份表單已經停止收件了',
-        text: '「${f.title}」目前沒有在收件。有問題可以打 1999 市民熱線。',
-        action: AssistButton('回到首頁', onPressed: () => Get.until((r) => r.isFirst)),
+        title: '這份表單已經停止收件了'.tr,
+        text: trf('「{0}」目前沒有在收件。有問題可以打 1999 市民熱線。', [f.title]),
+        action: AssistButton('回到首頁'.tr, onPressed: () => Get.until((r) => r.isFirst)),
       );
     } else if (page < 0) {
       body = _Intro(form: f, onStart: () => go(0));
@@ -186,7 +187,7 @@ class _AssistFormViewState extends State<AssistFormView> {
     return AssistTextScaleCap(
       child: Scaffold(
         backgroundColor: TPColors.grayscale50,
-        appBar: const TPAppBar(title: '填寫表單'),
+        appBar: TPAppBar(title: '填寫表單'.tr),
         body: Column(
           children: [
             if (showHelp) _HelpBar(form: f, page: page, total: fields.length, onHelp: help),
@@ -214,8 +215,8 @@ class _HelpBar extends StatelessWidget {
     final label = page < 0
         ? form.dept
         : page >= total
-        ? '最後一步：確認送出'
-        : '第 ${page + 1} 題，共 $total 題';
+        ? '最後一步：確認送出'.tr
+        : trf('第 {0} 題，共 {1} 題', [page + 1, total]);
     return Container(
       color: TPColors.white,
       padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
@@ -230,7 +231,7 @@ class _HelpBar extends StatelessWidget {
                 final waiting = service.formTicket.value?['status'] == 'waiting';
                 return Semantics(
                   button: true,
-                  label: waiting ? '已經通知客服，點兩下查看' : '不會填？找人幫我',
+                  label: waiting ? '已經通知客服，點兩下查看'.tr : '不會填？找人幫我'.tr,
                   excludeSemantics: true,
                   child: Material(
                     color: waiting ? TPColors.secondary100 : TPColors.primary50,
@@ -250,7 +251,7 @@ class _HelpBar extends StatelessWidget {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              waiting ? '客服馬上來' : '找人幫我',
+                              waiting ? '客服馬上來'.tr : '找人幫我'.tr,
                               style: AssistText.callout.copyWith(
                                 fontWeight: FontWeight.w700,
                                 color: waiting ? TPColors.secondary800 : TPColors.primary700,
@@ -311,16 +312,16 @@ class _Intro extends StatelessWidget {
           AssistCard(
             child: Column(
               children: [
-                _Fact(Icons.format_list_numbered_rounded, '一共 $n 題，大約 ${assistFormMinutes(form.fields)} 分鐘'),
-                if (d != null) _Fact(Icons.event_rounded, '${d.month} 月 ${d.day} 日前填好'),
-                if (hasProfile) _Fact(Icons.badge_rounded, '${_profileNames(form.fields)}可以從台北通帳號帶入，你按了才會帶入'),
-                _Fact(Icons.front_hand_rounded, '不會填的時候，按右上角「找人幫我」'),
+                _Fact(Icons.format_list_numbered_rounded, trf('一共 {0} 題，大約 {1} 分鐘', [n, assistFormMinutes(form.fields)])),
+                if (d != null) _Fact(Icons.event_rounded, trf('{0} 月 {1} 日前填好', [d.month, d.day])),
+                if (hasProfile) _Fact(Icons.badge_rounded, trf('{0}可以從台北通帳號帶入，你按了才會帶入', [_profileNames(form.fields)])),
+                _Fact(Icons.front_hand_rounded, '不會填的時候，按右上角「找人幫我」'.tr),
               ],
             ),
           ),
         ],
       )],
-      actions: [AssistButton('開始填寫', icon: Icons.edit_rounded, onPressed: onStart)],
+      actions: [AssistButton('開始填寫'.tr, icon: Icons.edit_rounded, onPressed: onStart)],
     );
   }
 }
@@ -404,13 +405,13 @@ class _Question extends StatelessWidget {
     } else if (f.type == 'checkbox') {
       input = AssistMultiChoice(options: f.options, value: v, onConfirm: null, onChanged: set);
     } else if (f.type == 'consent') {
-      input = AssistOptionRow(multi: true, label: '我同意', selected: v.isNotEmpty, onTap: () => set(v.isEmpty ? '我同意' : ''));
+      input = AssistOptionRow(multi: true, label: '我同意'.tr, selected: v.isNotEmpty, onTap: () => set(v.isEmpty ? '我同意'.tr : ''));
     } else if (f.type == 'file') {
-      input = const AssistNotice(
+      input = AssistNotice(
         icon: Icons.photo_camera_back_rounded,
         color: TPColors.primary800,
         background: TPColors.primary50,
-        text: '照片可以之後再補，先按「下一題」就好。',
+        text: '照片可以之後再補，先按「下一題」就好。'.tr,
       );
     } else {
       input = AssistTextAnswer(
@@ -438,7 +439,7 @@ class _Question extends StatelessWidget {
           ],
           if (!f.required) ...[
             const SizedBox(height: 4),
-            const Text('這題可以不填', style: AssistText.footnote),
+            Text('這題可以不填'.tr, style: AssistText.footnote),
           ],
           const SizedBox(height: 18),
           input,
@@ -446,11 +447,11 @@ class _Question extends StatelessWidget {
       )],
       actions: [
         AssistButton(
-          last ? '看一下，準備送出' : (!f.required && empty ? '跳過這題' : '下一題'),
+          last ? '看一下，準備送出'.tr : (!f.required && empty ? '跳過這題'.tr : '下一題'.tr),
           icon: Icons.arrow_forward_rounded,
           onPressed: onNext,
         ),
-        AssistButton(index == 0 ? '回到說明' : '上一題', style: AssistButtonStyle.plain, onPressed: onPrev),
+        AssistButton(index == 0 ? '回到說明'.tr : '上一題'.tr, style: AssistButtonStyle.plain, onPressed: onPrev),
       ],
     );
   }
@@ -473,7 +474,7 @@ class _ProfileAnswer extends StatelessWidget {
   final ValueChanged<String> onEdit;
   final VoidCallback onType;
 
-  String get bare => f.label.replaceFirst(RegExp(r'^(你|您)的'), '');
+  String get bare => profileKindName(f.profile, f.raw['label'] as String? ?? '');
 
   @override
   Widget build(BuildContext context) {
@@ -482,7 +483,7 @@ class _ProfileAnswer extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AssistButton(
-            '填入我的$bare',
+            trf('填入我的{0}', [bare]),
             icon: Icons.badge_rounded,
             style: AssistButtonStyle.secondary,
             onPressed: () {
@@ -491,11 +492,11 @@ class _ProfileAnswer extends StatelessWidget {
             },
           ),
           const SizedBox(height: 8),
-          const Text('會用你台北通帳號裡的資料，按了才會帶入。', style: AssistText.footnote),
+          Text('會用你台北通帳號裡的資料，按了才會帶入。'.tr, style: AssistText.footnote),
           const SizedBox(height: 4),
           Align(
             alignment: Alignment.centerLeft,
-            child: TextButton(onPressed: onType, child: Text('我自己輸入', style: AssistText.callout.copyWith(color: TPColors.primary600))),
+            child: TextButton(onPressed: onType, child: Text('我自己輸入'.tr, style: AssistText.callout.copyWith(color: TPColors.primary600))),
           ),
         ],
       );
@@ -508,7 +509,7 @@ class _ProfileAnswer extends StatelessWidget {
             children: [
               Icon(Icons.check_circle_rounded, color: AssistColors.green500, size: context.iconSize(22)),
               const SizedBox(width: 6),
-              const Text('已經帶入', style: AssistText.callout),
+              Text('已經帶入'.tr, style: AssistText.callout),
             ],
           ),
           const SizedBox(height: 6),
@@ -522,11 +523,11 @@ class _ProfileAnswer extends StatelessWidget {
                   final v = await assistEditValue(label: bare, initial: value);
                   if (v != null && v.trim().isNotEmpty) onEdit(v.trim());
                 },
-                child: Text('修改', style: AssistText.callout.copyWith(color: TPColors.primary600, fontWeight: FontWeight.w600)),
+                child: Text('修改'.tr, style: AssistText.callout.copyWith(color: TPColors.primary600, fontWeight: FontWeight.w600)),
               ),
               TextButton(
                 onPressed: () => onEdit(''),
-                child: Text('不要帶入', style: AssistText.callout.copyWith(color: TPColors.red600)),
+                child: Text('不要帶入'.tr, style: AssistText.callout.copyWith(color: TPColors.red600)),
               ),
             ],
           ),
@@ -555,9 +556,9 @@ class _Review extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 8),
-          const Text('看一下對不對', style: AssistText.largeTitle),
+          Text('看一下對不對'.tr, style: AssistText.largeTitle),
           const SizedBox(height: 6),
-          const Text('要改哪一題，點那一題就可以回去改。', style: AssistText.callout),
+          Text('要改哪一題，點那一題就可以回去改。'.tr, style: AssistText.callout),
           const SizedBox(height: 16),
           AssistCard(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -578,7 +579,7 @@ class _Review extends StatelessWidget {
                                 Text(fs[i].label, style: AssistText.callout),
                                 if ((answers[fs[i].id] ?? '').isEmpty)
                                   Text(
-                                    fs[i].type == 'file' ? '之後再補' : (fs[i].required ? '還沒回答' : '沒有填'),
+                                    fs[i].type == 'file' ? '之後再補'.tr : (fs[i].required ? '還沒回答'.tr : '沒有填'.tr),
                                     style: AssistText.headline.copyWith(
                                       color: missing.contains(i) ? TPColors.red600 : TPColors.grayscale400,
                                     ),
@@ -605,15 +606,15 @@ class _Review extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Text('送出後由「${form.dept}」受理。', style: AssistText.footnote),
+          Text(trf('送出後由「{0}」受理。', [form.dept]), style: AssistText.footnote),
         ],
       )],
       actions: [
         if (missing.isNotEmpty)
-          AssistButton('還有 ${missing.length} 題沒回答', style: AssistButtonStyle.secondary, onPressed: () => onEdit(missing.first))
+          AssistButton(trf('還有 {0} 題沒回答', [missing.length]), style: AssistButtonStyle.secondary, onPressed: () => onEdit(missing.first))
         else
-          AssistButton('確認送出', icon: Icons.lock_rounded, style: AssistButtonStyle.success, onPressed: busy ? null : onSubmit),
-        AssistButton('上一題', style: AssistButtonStyle.plain, onPressed: () => onEdit(fs.length - 1)),
+          AssistButton('確認送出'.tr, icon: Icons.lock_rounded, style: AssistButtonStyle.success, onPressed: busy ? null : onSubmit),
+        AssistButton('上一題'.tr, style: AssistButtonStyle.plain, onPressed: () => onEdit(fs.length - 1)),
       ],
     );
   }
@@ -627,9 +628,9 @@ class _Done extends StatelessWidget {
   Widget build(BuildContext context) => _Message(
     icon: Icons.check_circle_rounded,
     iconColor: AssistColors.green500,
-    title: '送出了！',
-    text: '${(result['doneMsg'] as String?)?.isNotEmpty == true ? result['doneMsg'] : form.doneMsg}\n\n收件編號 ${result['receiptNo']}',
-    action: AssistButton('回到首頁', onPressed: () => Get.until((r) => r.isFirst)),
+    title: '送出了！'.tr,
+    text: trf('{0}\n\n收件編號 {1}', [(result['doneMsg'] as String?)?.isNotEmpty == true ? result['doneMsg'] : form.doneMsg, result['receiptNo']]),
+    action: AssistButton('回到首頁'.tr, onPressed: () => Get.until((r) => r.isFirst)),
   );
 }
 
@@ -754,10 +755,10 @@ class _HelpSheetState extends State<_HelpSheet> {
   List<Widget> _choose(int n) {
     final trusted = service.trusted.toList();
     return [
-      const Text('要找誰幫你？', style: AssistText.largeTitle),
+      Text('要找誰幫你？'.tr, style: AssistText.largeTitle),
       const SizedBox(height: 6),
       Text(
-        n > 0 ? '你已經填好的 $n 題會保留，對方會從還沒填的地方陪你。' : '對方會連上你的手機，一步一步陪你填。',
+        n > 0 ? trf('你已經填好的 {0} 題會保留，對方會從還沒填的地方陪你。', [n]) : '對方會連上你的手機，一步一步陪你填。'.tr,
         style: AssistText.callout,
       ),
       const SizedBox(height: 18),
@@ -765,31 +766,31 @@ class _HelpSheetState extends State<_HelpSheet> {
         _Option(
           icon: Icons.favorite_rounded,
           iconColor: TPColors.red500,
-          title: '請 ${t.helper.name} 幫我',
-          text: '${t.helper.title}，你信任的人。他的手機會跳通知',
+          title: trf('請 {0} 幫我', [t.helper.name]),
+          text: trf('{0}，你信任的人。他的手機會跳通知', [t.helper.title]),
           onTap: busy ? null : () => ask(_Mode.trusted, helperId: t.helper.id, name: t.helper.name),
         ),
         const SizedBox(height: 10),
       ],
       _Option(
         icon: Icons.support_agent_rounded,
-        title: '請線上客服幫我',
-        text: '1999 市民熱線客服人員，通常 1 分鐘內接起',
+        title: '請線上客服幫我'.tr,
+        text: '1999 市民熱線客服人員，通常 1 分鐘內接起'.tr,
         onTap: busy ? null : () => ask(_Mode.online),
       ),
       const SizedBox(height: 10),
       _Option(
         icon: Icons.qr_code_2_rounded,
-        title: '請旁邊的人幫我',
-        text: '家人、里長或志工，用他的台北通掃一下就能陪你填',
+        title: '請旁邊的人幫我'.tr,
+        text: '家人、里長或志工，用他的台北通掃一下就能陪你填'.tr,
         onTap: busy ? null : () => ask(_Mode.nearby),
       ),
       const SizedBox(height: 14),
-      const AssistNotice(
+      AssistNotice(
         icon: Icons.lock_rounded,
         color: TPColors.primary800,
         background: TPColors.primary50,
-        text: '幫你的人看不到你的身分證字號、電話這些資料，送出鍵也只有你能按。',
+        text: '幫你的人看不到你的身分證字號、電話這些資料，送出鍵也只有你能按。'.tr,
       ),
     ];
   }
@@ -805,20 +806,20 @@ class _HelpSheetState extends State<_HelpSheet> {
           if (status == 'waiting') ...[
             const Center(child: SizedBox(width: 48, height: 48, child: CircularProgressIndicator(strokeWidth: 4))),
             const SizedBox(height: 18),
-            const Text('已經通知客服了', textAlign: TextAlign.center, style: AssistText.largeTitle),
+            Text('已經通知客服了'.tr, textAlign: TextAlign.center, style: AssistText.largeTitle),
             const SizedBox(height: 8),
-            const Text('客服接起來時，手機會跳出是誰要幫你，你按「同意」就開始。\n可以先關掉這個視窗繼續填。', textAlign: TextAlign.center, style: AssistText.callout),
+            Text('客服接起來時，手機會跳出是誰要幫你，你按「同意」就開始。\n可以先關掉這個視窗繼續填。'.tr, textAlign: TextAlign.center, style: AssistText.callout),
           ] else
             Text(
-              status == 'expired' ? '客服現在比較忙，請再試一次，或請旁邊的人幫忙。' : '求助已經結束了。',
+              status == 'expired' ? '客服現在比較忙，請再試一次，或請旁邊的人幫忙。'.tr : '求助已經結束了。'.tr,
               textAlign: TextAlign.center,
               style: AssistText.headline,
             ),
           const SizedBox(height: 20),
           if (status == 'waiting') ...[
-            AssistButton('好，我先繼續填', onPressed: () => Navigator.of(context).pop()),
+            AssistButton('好，我先繼續填'.tr, onPressed: () => Navigator.of(context).pop()),
             AssistButton(
-              '不用了，取消求助',
+              '不用了，取消求助'.tr,
               style: AssistButtonStyle.destructivePlain,
               onPressed: () async {
                 await assistRun(service.cancelFormTicket);
@@ -826,7 +827,7 @@ class _HelpSheetState extends State<_HelpSheet> {
               },
             ),
           ] else
-            AssistButton('換別的方式', onPressed: () => setState(() => mode = _Mode.choose)),
+            AssistButton('換別的方式'.tr, onPressed: () => setState(() => mode = _Mode.choose)),
         ],
       );
     }),
@@ -838,9 +839,9 @@ class _HelpSheetState extends State<_HelpSheet> {
     final left = p.expiresAt.difference(DateTime.now());
     final expired = left.isNegative;
     return [
-      const Text('請旁邊的人掃這個', textAlign: TextAlign.center, style: AssistText.largeTitle),
+      Text('請旁邊的人掃這個'.tr, textAlign: TextAlign.center, style: AssistText.largeTitle),
       const SizedBox(height: 6),
-      const Text('他打開台北通，按右下角「掃描」，掃完你的手機就會問你要不要讓他幫忙。', textAlign: TextAlign.center, style: AssistText.callout),
+      Text('他打開台北通，按右下角「掃描」，掃完你的手機就會問你要不要讓他幫忙。'.tr, textAlign: TextAlign.center, style: AssistText.callout),
       const SizedBox(height: 16),
       Center(
         child: Opacity(
@@ -855,20 +856,20 @@ class _HelpSheetState extends State<_HelpSheet> {
       ),
       const SizedBox(height: 8),
       Text(
-        expired ? '號碼已經失效' : '或念號碼給他：${p.code.substring(0, 3)} ${p.code.substring(3)}',
+        expired ? '號碼已經失效'.tr : trf('或念號碼給他：{0} {1}', [p.code.substring(0, 3), p.code.substring(3)]),
         textAlign: TextAlign.center,
         style: AssistText.title,
       ),
       Text(
-        expired ? '' : '${left.inMinutes}:${'${left.inSeconds % 60}'.padLeft(2, '0')} 後失效',
+        expired ? '' : trf('{0}:{1} 後失效', [left.inMinutes, '${left.inSeconds % 60}'.padLeft(2, '0')]),
         textAlign: TextAlign.center,
         style: AssistText.footnote,
       ),
       const SizedBox(height: 16),
       if (expired)
-        AssistButton('重新產生', onPressed: busy ? null : () => ask(_Mode.nearby))
+        AssistButton('重新產生'.tr, onPressed: busy ? null : () => ask(_Mode.nearby))
       else
-        AssistButton('換別的方式', style: AssistButtonStyle.plain, onPressed: () => setState(() => mode = _Mode.choose)),
+        AssistButton('換別的方式'.tr, style: AssistButtonStyle.plain, onPressed: () => setState(() => mode = _Mode.choose)),
     ];
   }
 
@@ -876,12 +877,12 @@ class _HelpSheetState extends State<_HelpSheet> {
     const SizedBox(height: 8),
     Icon(Icons.favorite_rounded, color: TPColors.red500, size: context.iconSize(56)),
     const SizedBox(height: 12),
-    Text('已經通知 ${trustedName ?? ''}', textAlign: TextAlign.center, style: AssistText.largeTitle),
+    Text(trf('已經通知 {0}', [trustedName ?? '']), textAlign: TextAlign.center, style: AssistText.largeTitle),
     const SizedBox(height: 8),
-    const Text('他的手機會跳通知。他按「去幫他」之後，你的手機會問你要不要讓他幫忙。', textAlign: TextAlign.center, style: AssistText.callout),
+    Text('他的手機會跳通知。他按「去幫他」之後，你的手機會問你要不要讓他幫忙。'.tr, textAlign: TextAlign.center, style: AssistText.callout),
     const SizedBox(height: 20),
-    AssistButton('好，我先繼續填', onPressed: () => Navigator.of(context).pop()),
-    AssistButton('換別的方式', style: AssistButtonStyle.plain, onPressed: () => setState(() => mode = _Mode.choose)),
+    AssistButton('好，我先繼續填'.tr, onPressed: () => Navigator.of(context).pop()),
+    AssistButton('換別的方式'.tr, style: AssistButtonStyle.plain, onPressed: () => setState(() => mode = _Mode.choose)),
   ];
 }
 
@@ -949,7 +950,7 @@ int assistFormMinutes(List<StaticFormField> fields) {
 String _profileNames(List<StaticFormField> fields) {
   final names = [
     for (final f in fields)
-      if (f.profile != null) f.label.replaceFirst(RegExp(r'^(你|您)的'), ''),
+      if (f.profile != null) profileKindName(f.profile, f.raw['label'] as String? ?? ''),
   ];
-  return names.length <= 3 ? names.join('、') : '${names.take(2).join('、')}這些';
+  return names.length <= 3 ? names.join('、'.tr) : trf('{0}這些', [names.take(2).join('、'.tr)]);
 }

@@ -14,16 +14,16 @@ class _EmptyMessageWidget extends StatelessWidget {
           height: 160,
           child: Center(child: Assets.svg.bookingL.svg()),
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(vertical: 8),
           child: TPText(
-            '目前無訊息',
+            '目前無訊息'.tr,
             style: TPTextStyles.h2SemiBold,
             color: TPColors.primary500,
           ),
         ),
-        const TPText(
-          '請試試其他關鍵字或篩選分類',
+        TPText(
+          '請試試其他關鍵字或篩選分類'.tr,
           style: TPTextStyles.bodySemiBold,
           color: TPColors.grayscale400,
         ),

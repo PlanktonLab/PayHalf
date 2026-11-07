@@ -4,6 +4,7 @@ import 'package:town_pass/page/assist/assist_helper/assist_helper_view.dart';
 import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
+import 'package:town_pass/util/tp_i18n.dart';
 
 /// 協助者手機：信任我的長輩按了「請他來幫我」。按「去幫他」直接帶到陪辦畫面（長輩已選好）。
 class AssistHelpCallSheet extends StatelessWidget {
@@ -79,18 +80,18 @@ class AssistHelpCallSheet extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-                Text('${r.elderName}\n請您幫忙', textAlign: TextAlign.center, style: AssistText.largeTitle),
+                Text(trf('{0}\n請您幫忙', [r.elderName]), textAlign: TextAlign.center, style: AssistText.largeTitle),
                 const SizedBox(height: 8),
                 Text(
                   r.serviceTitle != null
-                      ? '他在填「${r.serviceTitle}」時卡住了。按「去幫他」，已經填好的會直接帶入。'
-                      : '按「去幫他」，選好要辦的事，他的手機就會收到通知。',
+                      ? trf('他在填「{0}」時卡住了。按「去幫他」，已經填好的會直接帶入。', [r.serviceTitle])
+                      : '按「去幫他」，選好要辦的事，他的手機就會收到通知。'.tr,
                   textAlign: TextAlign.center,
                   style: AssistText.callout,
                 ),
                 const SizedBox(height: 20),
                 AssistButton(
-                  '去幫他',
+                  '去幫他'.tr,
                   icon: Icons.volunteer_activism_rounded,
                   onPressed: () {
                     Navigator.of(context).pop();
@@ -98,7 +99,7 @@ class AssistHelpCallSheet extends StatelessWidget {
                   },
                 ),
                 const SizedBox(height: 10),
-                AssistButton('等一下', style: AssistButtonStyle.plain, onPressed: () => Navigator.of(context).pop()),
+                AssistButton('等一下'.tr, style: AssistButtonStyle.plain, onPressed: () => Navigator.of(context).pop()),
               ],
             ),
           ),
