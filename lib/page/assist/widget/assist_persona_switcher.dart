@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:town_pass/page/assist/assist_form/assist_form_view.dart';
 import 'package:town_pass/page/assist/assist_helper/assist_helper_view.dart';
 import 'package:town_pass/page/assist/widget/assist_scan.dart';
 import 'package:town_pass/page/assist/widget/assist_ui.dart';
@@ -123,6 +124,7 @@ class AssistPersonaSheet extends StatefulWidget {
 class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
   final service = Get.find<AssistService>();
   List<({String id, String title})> services = const [];
+  List<({String id, String title, String agency})> forms = const [];
   String? serviceId;
   bool sending = false;
 
@@ -135,8 +137,10 @@ class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
   Future<void> _load() async {
     try {
       final list = await service.listServices();
+      final fs = await service.listForms();
       if (!mounted) return;
       setState(() {
+        forms = fs;
         services = list;
         serviceId ??= list.firstOrNull?.id;
       });
@@ -287,6 +291,28 @@ class _AssistPersonaSheetState extends State<AssistPersonaSheet> {
                 ),
               ],
             ),
+            if (forms.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              const _Section('海報上的表單（假裝掃了 QR Code）'),
+              Container(
+                decoration: BoxDecoration(color: TPColors.white, borderRadius: BorderRadius.circular(14)),
+                child: Column(
+                  children: [
+                    for (final f in forms)
+                      ListTile(
+                        leading: const Icon(Icons.qr_code_2_rounded, color: TPColors.primary600),
+                        title: Text(f.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        subtitle: Text(f.agency, style: const TextStyle(fontSize: 13)),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          AssistFormView.open(f.id);
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             const _Section('伺服器'),
             Container(

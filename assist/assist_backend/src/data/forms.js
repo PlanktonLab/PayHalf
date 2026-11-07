@@ -141,7 +141,7 @@ export function formToService(form) {
     if (pk) {
       profile.push({
         key: f.id,
-        label: f.label || PROFILE_LABEL[pk],
+        label: (f.label || PROFILE_LABEL[pk]).replace(/^(你|您)的/, ''),
         type: 'profile',
         profileKey: pk,
         required: f.required !== false,
@@ -183,7 +183,7 @@ export function formToService(form) {
     const chunk = others.slice(i, i + 2);
     service.steps.push({
       id: `q${i / 2 + 1}`,
-      title: chunk[0].label.length > 12 ? `問題 ${i + 1}${chunk.length > 1 ? `–${i + 2}` : ''}` : chunk[0].label,
+      title: `回答問題（${i / 2 + 1}／${Math.ceil(others.length / 2)}）`,
       elderGuide: '請您自己在手機上回答。',
       helperScript: '把題目念給長輩聽，讓長輩自己在手機上回答。',
       fields: chunk,

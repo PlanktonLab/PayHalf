@@ -316,7 +316,7 @@ class AssistHelpCallCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(18),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(18),
-                    onTap: () => AssistHelpCallSheet.go(r.elderId),
+                    onTap: () => AssistHelpCallSheet.go(r.elderId, r.serviceId),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
                       child: Row(

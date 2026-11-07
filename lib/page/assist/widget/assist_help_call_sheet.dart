@@ -30,7 +30,7 @@ class AssistHelpCallSheet extends StatelessWidget {
     }
   }
 
-  static void go(String elderId) => AssistHelperView.open(elderId: elderId);
+  static void go(String elderId, [String? serviceId]) => AssistHelperView.open(elderId: elderId, serviceId: serviceId);
 
   @override
   Widget build(BuildContext context) {
@@ -81,14 +81,20 @@ class AssistHelpCallSheet extends StatelessWidget {
                 const SizedBox(height: 14),
                 Text('${r.elderName}\n請您幫忙', textAlign: TextAlign.center, style: AssistText.largeTitle),
                 const SizedBox(height: 8),
-                const Text('按「去幫他」，選好要辦的事，他的手機就會收到通知。', textAlign: TextAlign.center, style: AssistText.callout),
+                Text(
+                  r.serviceTitle != null
+                      ? '他在填「${r.serviceTitle}」時卡住了。按「去幫他」，已經填好的會直接帶入。'
+                      : '按「去幫他」，選好要辦的事，他的手機就會收到通知。',
+                  textAlign: TextAlign.center,
+                  style: AssistText.callout,
+                ),
                 const SizedBox(height: 20),
                 AssistButton(
                   '去幫他',
                   icon: Icons.volunteer_activism_rounded,
                   onPressed: () {
                     Navigator.of(context).pop();
-                    go(r.elderId);
+                    go(r.elderId, r.serviceId);
                   },
                 ),
                 const SizedBox(height: 10),

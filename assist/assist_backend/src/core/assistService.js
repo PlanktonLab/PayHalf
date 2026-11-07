@@ -1106,6 +1106,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     const [app] = applications.splice(idx, 1);
     for (const [k, v] of Object.entries(app.data)) s.fields[k].value = v;
     const caseNo = s.caseNo;
+    hooks.onUndone?.({ service: findService(s.serviceId), caseNo });
     s.status = 'active';
     s.phase = 'reviewing';
     s.caseNo = null;

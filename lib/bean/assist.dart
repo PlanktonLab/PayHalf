@@ -9,6 +9,16 @@ class FieldDef {
   String get type => raw['type'] as String;
   bool get sensitive => raw['sensitive'] == true;
   bool get required => raw['required'] == true;
+
+  /// 表單的多選題：值是用「、」串起來的選項
+  bool get multi => raw['multi'] == true;
+
+  /// 表單的文字題（type == 'text'）：text／textarea／number／date／address／phone…
+  String get inputType => raw['inputType'] as String? ?? 'text';
+  String get hint => raw['hint'] as String? ?? '';
+
+  /// 遮罩用的個資種類：表單題目的 key 是題號，個資種類看 profileKey
+  String get maskKey => raw['profileKey'] as String? ?? key;
   String get riskLevel => raw['riskLevel'] as String? ?? 'medium';
   String? get purpose => raw['purpose'] as String?;
   String? get recipient => raw['recipient'] as String?;
@@ -181,6 +191,45 @@ class HelpRequest {
   String get elderName => (raw['elder'] as Map)['displayName'] as String;
   HelperInfo get helper => HelperInfo(Map<String, dynamic>.from(raw['helper'] as Map));
   DateTime get expiresAt => DateTime.fromMillisecondsSinceEpoch((raw['expiresAt'] as num).toInt());
+
+  /// 長輩在某份表單裡求助時，帶著那份表單（對方按「去幫他」會直接選好）
+  String? get serviceId => raw['serviceId'] as String?;
+  String? get serviceTitle => raw['serviceTitle'] as String?;
+}
+
+/// 靜態 QR Code 表單的一題（格式同承辦人表單後台）
+class StaticFormField {
+  StaticFormField(this.raw);
+  final Map<String, dynamic> raw;
+  String get id => raw['id'] as String;
+  String get type => raw['type'] as String;
+  String get label => raw['label'] as String? ?? '';
+  String get hint => raw['hint'] as String? ?? '';
+  bool get required => raw['required'] != false;
+  List<String> get options => (raw['options'] as List? ?? const []).cast<String>();
+
+  /// 可以從台北通實名帳號帶入的個資種類（realName／birthday／idNo／phone／residentAddress）
+  String? get profile => raw['profile'] as String?;
+}
+
+/// 長輩掃 QR Code 打開的表單
+class StaticForm {
+  StaticForm(this.raw);
+  final Map<String, dynamic> raw;
+  String get id => raw['id'] as String;
+  String get title => raw['title'] as String? ?? '';
+  String get dept => raw['dept'] as String? ?? '';
+  String get desc => raw['desc'] as String? ?? '';
+  String get deadline => raw['deadline'] as String? ?? '';
+  String get doneMsg => raw['doneMsg'] as String? ?? '';
+  String get status => raw['status'] as String? ?? 'open';
+  String get serviceId => raw['serviceId'] as String? ?? 'form-$id';
+  bool get allowAssist => raw['allowAssist'] != false;
+  List<StaticFormField> get fields =>
+      (raw['fields'] as List? ?? const []).map((f) => StaticFormField(Map<String, dynamic>.from(f as Map))).toList();
+  Map<String, String> get prefill =>
+      Map<String, dynamic>.from(raw['prefill'] as Map? ?? const {}).map((k, v) => MapEntry(k, '$v'));
+  Map<String, dynamic>? get submitted => raw['submitted'] == null ? null : Map<String, dynamic>.from(raw['submitted'] as Map);
 }
 
 /// 可以加為信任的人：陪長輩辦過的人

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/bean/assist.dart';
 import 'package:town_pass/page/assist/widget/assist_celebration.dart';
+import 'package:town_pass/page/assist/widget/assist_form_inputs.dart';
 import 'package:town_pass/page/assist/widget/assist_speaker.dart';
 import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/service/assist_service.dart';
@@ -266,7 +267,24 @@ class _FieldCardState extends State<_FieldCard> {
     final focused = s.focusField == f.key;
 
     Widget body;
-    if (f.type == 'choice') {
+    if (f.type == 'choice' && f.multi) {
+      body = AssistMultiChoice(
+        options: [for (final o in f.options) o.value],
+        labels: [for (final o in f.options) o.label],
+        value: st.value,
+        onConfirm: (v) => assistRun(() => service.input(s.id, f.key, v)),
+      );
+    } else if (f.type == 'text') {
+      body = AssistTextAnswer(
+        key: ValueKey('${s.id}:${f.key}'),
+        label: f.label,
+        inputType: f.inputType,
+        hint: f.hint,
+        initial: st.value ?? '',
+        done: st.status == 'filled',
+        onSubmit: (v) => assistRun(() => service.input(s.id, f.key, v)),
+      );
+    } else if (f.type == 'choice') {
       body = Column(
         children: [
           for (final o in f.options)
@@ -288,7 +306,7 @@ class _FieldCardState extends State<_FieldCard> {
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: 4,
         children: [
-          AssistRevealValue(fieldKey: f.key, label: f.label, value: st.value, style: AssistText.headline),
+          AssistRevealValue(fieldKey: f.maskKey, label: f.label, value: st.value, style: AssistText.headline),
           _EditButton(s: s, f: f, value: st.value ?? ''),
           TextButton(
             style: TextButton.styleFrom(minimumSize: const Size(44, 44), foregroundColor: TPColors.red600),
@@ -586,7 +604,7 @@ class _AuthSheetState extends State<_AuthSheet> {
                         Text(edited == null ? '將提供' : '將提供（您修改過）', style: AssistText.callout),
                         AssistRevealValue(
                           key: ValueKey(edited),
-                          fieldKey: f.key,
+                          fieldKey: f.maskKey,
                           label: f.label,
                           value: edited ?? f.value,
                           style: AssistText.title.copyWith(fontSize: 22),
@@ -700,9 +718,11 @@ class _ReviewState extends State<_Review> {
                               Text(fields[i].label, style: AssistText.callout),
                               if (fields[i].type == 'choice')
                                 Text(fields[i].optionLabel(s.field(fields[i].key).value), style: AssistText.headline)
+                              else if (!fields[i].sensitive)
+                                Text(s.field(fields[i].key).value ?? '—', style: AssistText.headline)
                               else
                                 AssistRevealValue(
-                                  fieldKey: fields[i].key,
+                                  fieldKey: fields[i].maskKey,
                                   label: fields[i].label,
                                   value: s.field(fields[i].key).value,
                                   style: AssistText.headline,

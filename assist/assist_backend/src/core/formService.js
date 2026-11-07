@@ -324,6 +324,17 @@ export function createFormService({ config, assist, audit, notify = () => {}, no
     drafts.delete(`${elder.id}:${service.id}`);
   }
 
+  /** 長輩在 10 秒內撤回陪辦送出：表單回覆也一起收回 */
+  function onAssistUndone({ service, caseNo }) {
+    const list = service?.formId ? rows.get(service.formId) : null;
+    if (!list) return;
+    const i = list.findIndex((r) => r._receipt === caseNo);
+    if (i < 0) return;
+    const [row] = list.splice(i, 1);
+    save();
+    for (const h of HELPERS) if (isStaff(h)) notify(h.id, 'form:response', { formId: service.formId, removed: row._id, form: summary(forms.get(service.formId)) });
+  }
+
   // ───────────────────────── 半路求助
 
   /** 陪辦 session 建立時帶入長輩已經填好的答案（session key 就是題目 id） */
@@ -480,6 +491,7 @@ export function createFormService({ config, assist, audit, notify = () => {}, no
     openForElder,
     submitByElder,
     onAssistSubmitted,
+    onAssistUndone,
     prefill,
     requestHelp,
     cancelTicket,

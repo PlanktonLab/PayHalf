@@ -116,6 +116,9 @@ class AssistService extends GetxService {
   final Rxn<Map<String, dynamic>> legal = Rxn<Map<String, dynamic>>();
   final RxMap<String, ServiceDef> serviceDefs = <String, ServiceDef>{}.obs;
 
+  /// 長輩在靜態 QR 表單按「找線上客服」後的求助單（等待中／已接手／取消）
+  final Rxn<Map<String, dynamic>> formTicket = Rxn<Map<String, dynamic>>();
+
   String? _token;
   io.Socket? _socket;
   Timer? _retry;
@@ -313,6 +316,14 @@ class AssistService extends GetxService {
 
   /// 從 QR Code 內容取出配對碼（townpass-assist:123456）
   /// 從 QR Code 內容取出加好友邀請碼（townpass-trust:123456）
+  /// 靜態 QR Code 表單：https://<任何主機>/f/<表單代號> 或 townpass-form:<表單代號>
+  static String? formIdFrom(String? raw) {
+    final v = (raw ?? '').trim();
+    final m = RegExp(r'^townpass-form:([\w-]{3,40})$').firstMatch(v) ??
+        RegExp(r'^https?://[^/\s]+/f/([\w-]{3,40})/?(?:[?#].*)?$').firstMatch(v);
+    return m?.group(1);
+  }
+
   static String? trustCodeFrom(String? raw) =>
       RegExp(r'^townpass-trust:(\d{6})$').firstMatch(raw?.trim() ?? '')?.group(1);
 
@@ -442,6 +453,12 @@ class AssistService extends GetxService {
         final r = HelpRequest(Map<String, dynamic>.from(data as Map));
         myHelpRequests.removeWhere((e) => e.id == r.id);
         if (r.isPending) myHelpRequests.add(r);
+      } catch (_) {}
+    });
+    socket.on('form:ticket', (data) {
+      try {
+        final t = Map<String, dynamic>.from(data as Map);
+        if (formTicket.value == null || formTicket.value!['id'] == t['id']) formTicket.value = t;
       } catch (_) {}
     });
     socket.onConnect((_) {
@@ -627,8 +644,12 @@ class AssistService extends GetxService {
   }
 
   /// 長輩：請信任的人來幫忙（對方手機會跳通知）
-  Future<void> requestHelp(String helperId) async {
-    final r = HelpRequest(Map<String, dynamic>.from(await _request('POST', '/elder/help-requests', {'helperId': helperId}) as Map));
+  Future<void> requestHelp(String helperId, {String? serviceId}) async {
+    final r = HelpRequest(
+      Map<String, dynamic>.from(
+        await _request('POST', '/elder/help-requests', {'helperId': helperId, 'serviceId': ?serviceId}) as Map,
+      ),
+    );
     myHelpRequests.removeWhere((e) => e.id == r.id);
     if (r.isPending) myHelpRequests.add(r);
   }
@@ -679,6 +700,61 @@ class AssistService extends GetxService {
     final def = ServiceDef(Map<String, dynamic>.from(await _request('GET', '/services/$id') as Map));
     serviceDefs[id] = def;
     return def;
+  }
+
+  // ───────────────────────── 靜態 QR Code 表單（長輩自己填）
+
+  /// 目前收件中、可以掃的表單（Demo：模擬器沒辦法掃海報，從身分選單直接開）
+  Future<List<({String id, String title, String agency})>> listForms() async {
+    final list = await _request('GET', '/services', null, false) as List;
+    return [
+      for (final e in list.cast<Map>())
+        if ((e['id'] as String).startsWith('form-'))
+          (id: (e['id'] as String).substring(5), title: e['title'] as String, agency: e['agency'] as String? ?? ''),
+    ];
+  }
+
+  Future<StaticForm> openForm(String id) async {
+    if (_token == null) await _link();
+    return StaticForm(Map<String, dynamic>.from(await _request('GET', '/elder/forms/$id') as Map));
+  }
+
+  Future<Map<String, dynamic>> submitForm(String id, Map<String, String> answers) async {
+    final r = Map<String, dynamic>.from(await _request('POST', '/elder/forms/$id/submit', {'answers': answers}) as Map);
+    refreshRecords();
+    return r;
+  }
+
+  /// 填到一半找人幫忙：mode = online（線上客服）／nearby（旁邊的人掃碼）／trusted（信任的人）
+  Future<Map<String, dynamic>> formHelp(
+    String id,
+    String mode,
+    Map<String, String> answers, {
+    String? question,
+    String? helperId,
+  }) async {
+    final r = Map<String, dynamic>.from(
+      await _request('POST', '/elder/forms/$id/help', {
+        'mode': mode,
+        'answers': answers,
+        'question': ?question,
+        'helperId': ?helperId,
+      }) as Map,
+    );
+    if (mode == 'online') formTicket.value = Map<String, dynamic>.from(r['ticket'] as Map);
+    if (mode == 'nearby') pairing.value = PairingCode(r);
+    if (mode == 'trusted') {
+      final h = HelpRequest(Map<String, dynamic>.from(r['help'] as Map));
+      myHelpRequests.removeWhere((e) => e.id == h.id);
+      myHelpRequests.add(h);
+    }
+    return r;
+  }
+
+  Future<void> cancelFormTicket() async {
+    final t = formTicket.value;
+    formTicket.value = null;
+    if (t != null && t['status'] == 'waiting') await _request('POST', '/elder/form-tickets/${t['id']}/cancel');
   }
 
   // ───────────────────────── 長輩的動作

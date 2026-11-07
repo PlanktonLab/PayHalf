@@ -38,6 +38,7 @@ export function createAssistServer(overrides = {}) {
   const forms = createFormService({ config, assist, audit, notify, now });
   hooks.prefill = forms.prefill;
   hooks.onSubmitted = forms.onAssistSubmitted;
+  hooks.onUndone = forms.onAssistUndone;
 
   const app = buildHttpApp({ config, tokens, assist, audit, forms });
   const httpServer = http.createServer(app);

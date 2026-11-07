@@ -13,14 +13,17 @@ import 'package:town_pass/util/tp_colors.dart';
 /// 協助者（里長、家人、1999 客服）用手機陪長輩辦事的畫面。
 /// 由首頁「掃描」掃到長輩的配對 QR Code 進來（帶入配對碼），或從「設定 › 測試身分」打開。
 class AssistHelperView extends StatefulWidget {
-  const AssistHelperView({super.key, this.code, this.elderId});
+  const AssistHelperView({super.key, this.code, this.elderId, this.serviceId});
   final String? code;
+
+  /// 長輩在某份表單裡求助：直接選好那份表單
+  final String? serviceId;
 
   /// 從首頁「幫某某辦事」進來：直接選好這位信任我的長輩
   final String? elderId;
 
-  static Future<void> open({String? code, String? elderId}) async {
-    await Get.to(() => AssistHelperView(code: code, elderId: elderId), routeName: '/assist_helper');
+  static Future<void> open({String? code, String? elderId, String? serviceId}) async {
+    await Get.to(() => AssistHelperView(code: code, elderId: elderId, serviceId: serviceId), routeName: '/assist_helper');
   }
 
   @override
@@ -66,6 +69,7 @@ class _AssistHelperViewState extends State<AssistHelperView> {
           c: c,
           code: widget.code,
           elderId: widget.elderId,
+          serviceId: widget.serviceId,
           onOpenRecent: (session) {
             _pastResultId = session.isOpen ? null : session.id;
             c.focusedId.value = session.id;
@@ -238,10 +242,11 @@ ButtonStyle _secondary() => OutlinedButton.styleFrom(
 // ═════════════════════════════════════════════ 新陪辦
 
 class _NewRequest extends StatefulWidget {
-  const _NewRequest({required this.c, this.code, this.elderId, required this.onOpenRecent});
+  const _NewRequest({required this.c, this.code, this.elderId, this.serviceId, required this.onOpenRecent});
   final AssistHelperController c;
   final String? code;
   final String? elderId;
+  final String? serviceId;
   final ValueChanged<AssistSession> onOpenRecent;
   @override
   State<_NewRequest> createState() => _NewRequestState();
@@ -260,6 +265,7 @@ class _NewRequestState extends State<_NewRequest> {
   void initState() {
     super.initState();
     if (widget.c.services.isNotEmpty) serviceId = widget.c.services.first['id'] as String;
+    if (widget.serviceId != null && widget.c.services.any((e) => e['id'] == widget.serviceId)) serviceId = widget.serviceId;
     if (widget.code == null) {
       final trusted = widget.c.trustedElders;
       if (widget.elderId != null && trusted.any((e) => e['elderId'] == widget.elderId)) {
@@ -935,10 +941,10 @@ class _FieldRow extends StatelessWidget {
     final remaining = st.remainingRequests ?? 0;
     final (String label, Color color) = switch (st.status) {
       'authorized' => (st.edited ? '長輩已授權（修改過）' : '長輩已授權', TPColors.green500),
-      'filled' => ('長輩選了：${f.optionLabel(st.value)}', TPColors.green500),
+      'filled' => (f.type == 'text' ? '長輩填了：${st.value ?? ''}' : '長輩選了：${f.optionLabel(st.value)}', TPColors.green500),
       'requested' => ('等待長輩授權', TPColors.orange500),
       'denied' => ('長輩不同意', TPColors.red500),
-      _ => (f.sensitive ? '尚未授權' : '請長輩在手機上選擇', TPColors.grayscale300),
+      _ => (f.sensitive ? '尚未授權' : f.type == 'text' ? '請長輩在手機上填寫' : '請長輩在手機上選擇', TPColors.grayscale300),
     };
     final canAsk = f.sensitive && st.status != 'authorized' && st.status != 'requested' && s.pendingAuth == null && remaining > 0;
 

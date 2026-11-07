@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:town_pass/page/assist/assist_form/assist_form_view.dart';
 import 'package:town_pass/page/assist/assist_helper/assist_helper_view.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
@@ -11,6 +12,12 @@ import 'package:town_pass/util/tp_web_view.dart';
 Future<void> assistScan() async {
   final raw = await Get.toNamed(TPRoute.qrCodeScan) as String?;
   if (raw == null || raw.trim().isEmpty) return;
+  // 海報上的靜態 QR Code：直接打開表單讓長輩自己填
+  final formId = AssistService.formIdFrom(raw);
+  if (formId != null) {
+    await AssistFormView.open(formId);
+    return;
+  }
   final trustCode = AssistService.trustCodeFrom(raw);
   if (trustCode != null) {
     await assistAcceptTrustInvite(trustCode);

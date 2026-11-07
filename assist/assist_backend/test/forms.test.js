@@ -171,6 +171,12 @@ test('填到一半找線上客服：已填的帶進陪辦，陪辦送出後寫�
     assert.equal(row.q2, 'A102837499');
     assert.equal(row.q7, '有高血壓');
     assert.equal(row._receipt, done.body.caseNo);
+
+    // 10 秒內撤回：表單回覆也收回
+    const undo = await elder.post(`/elder/sessions/${id}/undo`);
+    assert.equal(undo.status, 200, JSON.stringify(undo.body));
+    const after = await staff.get('/console/forms/flu-shot/responses');
+    assert.ok(!after.body.some((r) => r._receipt === done.body.caseNo));
   } finally {
     await h.close();
   }
