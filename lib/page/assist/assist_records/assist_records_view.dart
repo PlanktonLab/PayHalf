@@ -29,6 +29,8 @@ class _AssistRecordsViewState extends State<AssistRecordsView> {
     'lookup.identity' => Icons.person_search_rounded,
     'helper.blocked' || 'helper.auto_blocked' => Icons.block_rounded,
     'request.accepted' => Icons.handshake_rounded,
+    'trust.added' => Icons.favorite_rounded,
+    'trust.removed' => Icons.heart_broken_rounded,
     _ => Icons.circle_outlined,
   };
 
@@ -45,7 +47,10 @@ class _AssistRecordsViewState extends State<AssistRecordsView> {
       appBar: const TPAppBar(title: '歷程與授權管理'),
       body: AssistTextScaleCap(
         child: RefreshIndicator(
-          onRefresh: service.refreshRecords,
+          onRefresh: () async {
+            await service.refreshRecords();
+            await service.refreshTrusted();
+          },
           child: Obx(() {
             final ok = service.auditStatus.value?['ok'] == true;
             return ListView(
@@ -57,6 +62,61 @@ class _AssistRecordsViewState extends State<AssistRecordsView> {
                   background: ok ? AssistColors.green50 : TPColors.white,
                   text: ok ? '紀錄完整，沒有被修改過' : '正在檢查紀錄…',
                 ),
+                const SizedBox(height: 22),
+                Semantics(header: true, child: const Text('信任的人', style: AssistText.title)),
+                const SizedBox(height: 4),
+                const Text('這些人不用配對碼就能請求陪您辦，您一樣要按同意才會開始。', style: AssistText.callout),
+                const SizedBox(height: 10),
+                if (service.trusted.isEmpty)
+                  const AssistCard(child: Text('還沒有信任的人。辦完一次之後，可以把陪您的家人加進來。', style: AssistText.callout))
+                else
+                  AssistCard(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < service.trusted.length; i++) ...[
+                          if (i > 0) const Divider(height: 1),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Row(
+                              children: [
+                                AssistHelperAvatar(helper: service.trusted[i].helper, size: 44),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: MergeSemantics(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(assistHelperDisplayName(service.trusted[i].helper), style: AssistText.headline),
+                                        Text('${assistYmdhm(service.trusted[i].since)} 加入', style: AssistText.footnote),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () async {
+                                    final t = service.trusted[i].helper;
+                                    final ok = await assistConfirm(
+                                      title: '移除 ${t.name}？',
+                                      message: '移除後，${t.name} 要陪您辦事時，需要您再出示配對碼。',
+                                      confirmLabel: '移除',
+                                    );
+                                    if (ok) await assistRun(() => service.removeTrusted(t.id));
+                                  },
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: TPColors.red600,
+                                    minimumSize: const Size(64, 48),
+                                    textStyle: AssistText.body,
+                                  ),
+                                  child: const Text('移除'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 22),
                 Semantics(header: true, child: const Text('陪辦送出的申請', style: AssistText.title)),
                 const SizedBox(height: 10),

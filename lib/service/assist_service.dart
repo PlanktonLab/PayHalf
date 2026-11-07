@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:town_pass/bean/assist.dart';
+import 'package:town_pass/page/assist/widget/assist_incoming_sheet.dart';
 import 'package:town_pass/service/account_service.dart';
 import 'package:town_pass/service/notification_service.dart';
 import 'package:town_pass/service/shared_preferences_service.dart';
@@ -77,6 +78,15 @@ class AssistService extends GetxService {
   final RxnString resultId = RxnString();
   final RxList<Map<String, dynamic>> audit = <Map<String, dynamic>>[].obs;
   final RxList<Map<String, dynamic>> applications = <Map<String, dynamic>>[].obs;
+
+  /// 信任的人：不用配對碼就能請求陪辦（長輩仍要同意）
+  final RxList<TrustedHelper> trusted = <TrustedHelper>[].obs;
+  final Set<String> _sheetShown = {};
+
+  /// 這支手機以「協助者」身分開的案件。測試時同一支手機常常同時是長輩與協助者（同一位長輩），
+  /// 這些案件不能再顯示長輩端的提示（膠囊、徽章、彈窗），點了也不能跳到長輩畫面。
+  final RxSet<String> helpingSessionIds = <String>{}.obs;
+  bool isHelping(String id) => helpingSessionIds.contains(id);
   final Rxn<Map<String, dynamic>> auditStatus = Rxn<Map<String, dynamic>>();
   final Rxn<Map<String, dynamic>> legal = Rxn<Map<String, dynamic>>();
   final RxMap<String, ServiceDef> serviceDefs = <String, ServiceDef>{}.obs;
@@ -188,12 +198,14 @@ class AssistService extends GetxService {
 
   AssistSession? get incoming {
     final now = DateTime.now();
-    final list = sessions.values.where((s) => s.isPending && (s.expiresAt?.isAfter(now) ?? false)).toList()
+    final list = sessions.values
+        .where((s) => s.isPending && !isHelping(s.id) && (s.expiresAt?.isAfter(now) ?? false))
+        .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list.firstOrNull;
   }
 
-  AssistSession? get active => sessions.values.where((s) => s.isActive).firstOrNull;
+  AssistSession? get active => sessions.values.where((s) => s.isActive && !isHelping(s.id)).firstOrNull;
 
   // ───────────────────────── 連線
 
@@ -247,6 +259,7 @@ class AssistService extends GetxService {
         _onSession(Map<String, dynamic>.from(data as Map));
       } catch (_) {}
     });
+    socket.on('trusted:update', (_) => refreshTrusted());
     socket.onConnect((_) {
       connected.value = true;
       refresh();
@@ -303,6 +316,9 @@ class AssistService extends GetxService {
   /// 長輩正在修改資料（底部面板開著）時不要把畫面拉走
   bool editingValue = false;
 
+  /// 長輩自己點開、準備授權的欄位（不用等陪辦人員請求）
+  final RxnString selfAuthKey = RxnString();
+
   /// 協助者帶到下一步、請長輩授權、請長輩確認送出時，
   /// 長輩若停在別的頁面（例如點進法規說明），把畫面帶回協辦畫面，不然會卡住
   static bool needsElderAttention(AssistSession prev, AssistSession s) =>
@@ -321,18 +337,33 @@ class AssistService extends GetxService {
     final s = AssistSession(raw);
     final prev = sessions[s.id];
     sessions[s.id] = s;
-    if (prev != null && needsElderAttention(prev, s)) _bringBackToSession();
+    if (prev != null && !isHelping(s.id) && needsElderAttention(prev, s)) _bringBackToSession();
+    if (!s.isActive && selfAuthKey.value != null && _watchingId == s.id) selfAuthKey.value = null;
     service(s.serviceId);
 
+    // 稍等一下再提示：如果這個請求其實是這支手機自己以協助者身分發的，協助者那邊會先標記起來
     if (s.isPending && !_notifiedRequests.contains(s.id) && (s.expiresAt?.isAfter(DateTime.now()) ?? false)) {
       _notifiedRequests.add(s.id);
-      final h = s.helper;
-      HapticFeedback.heavyImpact();
-      NotificationService.showNotification(
-        title: '${h?.name ?? ''} ${h?.title ?? ''} 想協助您',
-        content: '辦理「${s.serviceTitle}」。請打開台北通首頁查看並回應。',
-      );
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (isHelping(s.id) || !(sessions[s.id]?.isPending ?? false)) return;
+        final h = s.helper;
+        HapticFeedback.heavyImpact();
+        NotificationService.showNotification(
+          title: '${h?.name ?? ''} ${h?.title ?? ''} 想協助您',
+          content: '辦理「${s.serviceTitle}」。請打開台北通首頁查看並回應。',
+        );
+      });
     }
+    // 底部彈出提示：長輩關掉也沒關係，首頁徽章會一直留著
+    if (s.isPending && !_sheetShown.contains(s.id) && (s.expiresAt?.isAfter(DateTime.now()) ?? false)) {
+      _sheetShown.add(s.id);
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (isHelping(s.id) || active != null) return;
+        AssistIncomingSheet.show(s.id);
+      });
+    }
+
+    if (isHelping(s.id)) return;
 
     if (s.isActive) {
       _watchingId = s.id;
@@ -367,6 +398,28 @@ class AssistService extends GetxService {
       _onSession(s.raw);
     }
     await refreshRecords();
+    await refreshTrusted();
+  }
+
+  Future<void> refreshTrusted() async {
+    if (_token == null) return;
+    final list = await _request('GET', '/elder/trusted') as List;
+    trusted.assignAll(list.map((e) => TrustedHelper(Map<String, dynamic>.from(e as Map))));
+  }
+
+  /// 把這次陪辦的人加為信任的人
+  Future<void> addTrusted(String sessionId) async {
+    final list = await _request('POST', '/elder/trusted', {'sessionId': sessionId}) as List;
+    trusted.assignAll(list.map((e) => TrustedHelper(Map<String, dynamic>.from(e as Map))));
+    final s = sessions[sessionId];
+    if (s != null) sessions[sessionId] = AssistSession({...s.raw, 'helperTrusted': true});
+    refreshRecords();
+  }
+
+  Future<void> removeTrusted(String helperId) async {
+    final list = await _request('POST', '/elder/trusted/$helperId/remove') as List;
+    trusted.assignAll(list.map((e) => TrustedHelper(Map<String, dynamic>.from(e as Map))));
+    refreshRecords();
   }
 
   Future<void> refreshRecords() async {
@@ -407,6 +460,12 @@ class AssistService extends GetxService {
   Future<void> authorize(String id, String key, bool approve, {String? value}) => _apply(
     _request('POST', '/elder/sessions/$id/fields/$key/authorize', {'approve': approve, 'value': ?value}),
   );
+
+  /// 長輩自己同意提供（不用等陪辦人員請求）
+  Future<void> selfAuthorize(String id, String key, {String? value}) async {
+    await _apply(_request('POST', '/elder/sessions/$id/fields/$key/self-authorize', {'value': ?value}));
+    selfAuthKey.value = null;
+  }
 
   Future<void> editField(String id, String key, String value) =>
       _apply(_request('POST', '/elder/sessions/$id/fields/$key/edit', {'value': value}));

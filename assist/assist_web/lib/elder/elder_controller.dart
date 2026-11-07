@@ -163,6 +163,18 @@ class ElderController extends ChangeNotifier {
   Future<void> authorize(String id, String key, bool approve, {String? value}) =>
       _apply(api.post('/elder/sessions/$id/fields/$key/authorize', {'approve': approve, 'value': ?value}));
 
+  /// 長輩自己點開、準備授權的欄位（不用等陪辦人員請求）
+  String? selfAuthKey;
+  void openSelfAuth(String? key) {
+    selfAuthKey = key;
+    notifyListeners();
+  }
+
+  Future<void> selfAuthorize(String id, String key, {String? value}) async {
+    await _apply(api.post('/elder/sessions/$id/fields/$key/self-authorize', {'value': ?value}));
+    openSelfAuth(null);
+  }
+
   Future<void> editField(String id, String key, String value) =>
       _apply(api.post('/elder/sessions/$id/fields/$key/edit', {'value': value}));
 

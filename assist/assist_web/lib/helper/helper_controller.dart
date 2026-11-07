@@ -24,6 +24,8 @@ class HelperController extends ChangeNotifier {
   /// 從台北通 App 掃 QR Code 進來時帶的配對碼，新陪辦畫面會自動填入
   String? pendingCode;
   List<Map<String, dynamic>> auditEntries = [];
+  /// 把我加為「信任的人」的長輩：不用配對碼就能請求
+  List<Map<String, dynamic>> trustedElders = [];
 
   bool get loggedIn => me != null;
 
@@ -73,6 +75,7 @@ class HelperController extends ChangeNotifier {
     api.token = null;
     me = null;
     sessions.clear();
+    trustedElders = [];
     focusedSessionId = null;
     notifyListeners();
   }
@@ -96,6 +99,8 @@ class HelperController extends ChangeNotifier {
     for (final e in list) {
       _onSession(Map<String, dynamic>.from(e as Map));
     }
+    trustedElders =
+        (await api.get('/helper/trusted-elders') as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
     await refreshAudit();
   }
 
@@ -126,6 +131,15 @@ class HelperController extends ChangeNotifier {
     return s;
   }
 
+  Future<AssistSession> requestTrusted(String serviceId, String elderId) async {
+    final s = await _apply(
+      api.post('/helper/requests', {'serviceId': serviceId, 'method': 'trusted', 'elderId': elderId}),
+    );
+    focus(s.id);
+    refreshAudit();
+    return s;
+  }
+
   Future<AssistSession> requestByIdentity(String serviceId, String name, String birthday, String idLast4) async {
     final s = await _apply(
       api.post('/helper/requests', {
@@ -143,6 +157,8 @@ class HelperController extends ChangeNotifier {
 
   Future<void> setElderNav(bool enabled) =>
       _apply(api.post('/helper/sessions/$focusedSessionId/elder-nav', {'enabled': enabled}));
+  Future<void> setElderSelfAuth(bool enabled) =>
+      _apply(api.post('/helper/sessions/$focusedSessionId/elder-self-auth', {'enabled': enabled}));
   Future<void> gotoStep(int step) => _apply(api.post('/helper/sessions/$focusedSessionId/step', {'step': step}));
   Future<void> focusField(String? key) =>
       _apply(api.post('/helper/sessions/$focusedSessionId/focus', {'fieldKey': key}));

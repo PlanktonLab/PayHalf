@@ -87,7 +87,16 @@ class _Body extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        if (!h.verified) ...[
+        if (s.helperTrusted) ...[
+          AssistNotice(
+            icon: Icons.favorite_rounded,
+            color: AssistColors.green700,
+            background: AssistColors.green50,
+            title: '這是您信任的人',
+            text: '您之前把 ${h.name} 加為信任的人，所以他不用配對碼就能找您。不想再這樣，可以到「歷程與授權管理」移除。',
+          ),
+          const SizedBox(height: 12),
+        ] else if (!h.verified) ...[
           const AssistNotice(
             icon: Icons.info_rounded,
             color: TPColors.secondary800,

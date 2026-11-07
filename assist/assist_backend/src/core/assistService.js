@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { findService, allFields } from '../data/services.js';
-import { findUser, maskName, ELDERS } from '../data/users.js';
+import { findUser, maskName, publicHelper, ELDERS } from '../data/users.js';
 import { badRequest, forbidden, notFound, conflict, tooMany } from './errors.js';
 import { createRateLimiter } from './rateLimit.js';
 import { helperView, elderView } from './views.js';
@@ -34,11 +34,27 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   const applications = [];
   const identityLimiter = createRateLimiter({ ...config.identityLookupLimit, now });
   const pairingLimiter = createRateLimiter({ ...config.pairingAttemptLimit, now });
+  const trustedLimiter = createRateLimiter({ ...config.trustedRequestLimit, now });
+  // 信任的人：elderId -> Map<helperId, { since }>
+  // 只有長輩本人能新增，而且必須是「已經真的陪辦過一次」的人（第一次一定要掃 QR Code）。
+  const trust = new Map();
+  for (const [elderId, helperId] of config.demoTrust ?? []) {
+    if (findUser(elderId) && findUser(helperId)) trust.set(elderId, new Map([[helperId, { since: now(), demo: true }]]));
+  }
 
   // ───────────────────────── helpers
 
   const hView = (s) => helperView(s, config);
-  const eView = (s) => elderView(s);
+  const eView = (s) => ({ ...elderView(s), helperTrusted: isTrusted(s.elderId, s.helperId) });
+
+  function isTrusted(elderId, helperId) {
+    return trust.get(elderId)?.has(helperId) ?? false;
+  }
+
+  function notifyTrust(elderId, helperId) {
+    notify(elderId, 'trusted:update', {});
+    notify(helperId, 'trusted:update', {});
+  }
 
   function publish(s) {
     notify(s.helperId, 'session:update', hView(s));
@@ -60,6 +76,8 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   function block(elderId, helperId) {
     if (!blocks.has(elderId)) blocks.set(elderId, new Set());
     blocks.get(elderId).add(helperId);
+    // 封鎖一定同時取消信任
+    if (trust.get(elderId)?.delete(helperId)) notifyTrust(elderId, helperId);
   }
 
   function hasOpen(elderId, helperId) {
@@ -172,6 +190,8 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       pendingAuth: null,
       // 長輩自己換頁：完成一步後自動到下一步，且長輩可按上一頁／下一頁。陪辦人員可關閉
       elderNav: true,
+      // 長輩自己授權：不用等陪辦人員發出請求，長輩可以直接點開欄位同意提供。陪辦人員可關閉
+      elderSelfAuth: true,
       caseNo: null,
       undoUntil: null,
       fields,
@@ -313,6 +333,88 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       elderId: deliverable ? match.id : null,
       elderLabel: maskName(cleanName),
       method: 'identity',
+    });
+    return hView(s);
+  }
+
+  // ───────────────────────── 信任的人
+
+  /** 長輩把「這次陪辦的人」加為信任的人。必須已經同意過這個人的協助。 */
+  function addTrusted(elder, sessionId) {
+    const s = ownedByElder(elder, sessionId);
+    if (!s.startedAt) throw conflict('要先接受過這個人的協助，才能加為信任的人', 'NOT_ACCEPTED');
+    const helper = findUser(s.helperId);
+    if (isBlocked(elder.id, helper.id)) throw forbidden('您已封鎖這個人', 'BLOCKED');
+    if (!trust.has(elder.id)) trust.set(elder.id, new Map());
+    const list = trust.get(elder.id);
+    if (list.has(helper.id)) return listTrusted(elder);
+    if (list.size >= config.maxTrustedPerElder) {
+      throw conflict(`信任的人最多 ${config.maxTrustedPerElder} 位，請先移除一位`, 'TOO_MANY_TRUSTED');
+    }
+    list.set(helper.id, { since: now() });
+    audit.append({
+      type: 'trust.added',
+      actor: ROLE_ACTOR(elder),
+      sessionId: s.id,
+      elderId: elder.id,
+      helperId: helper.id,
+      summary: `您把 ${helper.title} ${helper.name} 加為信任的人，對方之後不用配對碼就能請求陪您辦`,
+    });
+    notifyTrust(elder.id, helper.id);
+    return listTrusted(elder);
+  }
+
+  function removeTrusted(elder, helperId) {
+    const helper = findUser(helperId);
+    if (!helper || !trust.get(elder.id)?.delete(helperId)) throw notFound('這個人不在您信任的名單裡');
+    audit.append({
+      type: 'trust.removed',
+      actor: ROLE_ACTOR(elder),
+      elderId: elder.id,
+      helperId,
+      summary: `您把 ${helper.title} ${helper.name} 從信任的人移除`,
+    });
+    notifyTrust(elder.id, helperId);
+    return listTrusted(elder);
+  }
+
+  function listTrusted(elder) {
+    return [...(trust.get(elder.id) ?? new Map())].map(([helperId, t]) => ({
+      helper: publicHelper(findUser(helperId)),
+      since: t.since,
+    }));
+  }
+
+  /** 協助者看到「信任我的長輩」：只有遮罩後的姓名，不含上線狀態或任何個資。 */
+  function listTrustingElders(helper) {
+    const out = [];
+    for (const [elderId, list] of trust) {
+      const t = list.get(helper.id);
+      if (!t) continue;
+      const elder = findUser(elderId);
+      out.push({ elderId, displayName: maskName(elder.profile.realName), since: t.since });
+    }
+    return out;
+  }
+
+  /** 信任的人直接發起請求：不用配對碼，長輩一樣要按同意、一樣逐項授權。 */
+  function requestTrusted(helper, { serviceId, elderId }) {
+    const service = requireService(serviceId);
+    if (!isTrusted(elderId, helper.id) || isBlocked(elderId, helper.id)) {
+      throw forbidden('對方沒有把您加為信任的人，請改用配對碼', 'NOT_TRUSTED');
+    }
+    if (!trustedLimiter.take(helper.id)) {
+      throw tooMany('請求次數過多，請 10 分鐘後再試', 'TRUSTED_RATE_LIMITED');
+    }
+    checkPendingLimit(helper);
+    if (hasOpen(elderId, helper.id)) throw conflict('您已經對這位長輩送出請求了', 'DUPLICATE_REQUEST');
+    const elder = findUser(elderId);
+    const s = createSession({
+      helper,
+      service,
+      elderId,
+      elderLabel: maskName(elder.profile.realName),
+      method: 'trusted',
     });
     return hView(s);
   }
@@ -475,12 +577,38 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
 
   // ───────────────────────── 長輩：授權與填寫
 
-  function authorizeField(elder, id, key, approve, value) {
+  /** 長輩不等陪辦人員請求，自己點開欄位同意提供（「長輩自己授權」開啟時） */
+  function selfAuthorizeField(elder, id, key, value) {
+    const s = ownedByElder(elder, id);
+    requireActive(s);
+    const service = findService(s.serviceId);
+    const f = fieldInCurrentStep(s, service, key);
+    if (s.pendingAuth === key) return authorizeField(elder, id, key, true, value);
+    if (!s.elderSelfAuth) throw forbidden('請等陪辦人員請您提供這項資料', 'ELDER_SELF_AUTH_OFF');
+    if (!f.sensitive) throw badRequest('這個欄位請直接選擇', 'NOT_SENSITIVE');
+    if (s.pendingAuth) throw conflict('請先回答畫面上的問題', 'AUTH_PENDING');
+    if (s.fields[key].status === 'authorized') throw conflict('您已經同意提供這項資料了', 'ALREADY_AUTHORIZED');
+    return authorizeField(elder, id, key, true, value, { self: true });
+  }
+
+  function setElderSelfAuth(helper, id, enabled) {
+    const s = ownedByHelper(helper, id);
+    requireActive(s, null);
+    if (typeof enabled !== 'boolean') throw badRequest('請指定開或關', 'INVALID_VALUE');
+    if (s.elderSelfAuth === enabled) return hView(s);
+    s.elderSelfAuth = enabled;
+    touch(s);
+    timeline(s, 'helper', enabled ? '開啟「長輩自己授權」' : '關閉「長輩自己授權」，改由陪辦人員逐項請長輩確認');
+    publish(s);
+    return hView(s);
+  }
+
+  function authorizeField(elder, id, key, approve, value, { self = false } = {}) {
     const s = ownedByElder(elder, id);
     requireActive(s);
     const service = findService(s.serviceId);
     const f = fieldOf(service, key);
-    if (s.pendingAuth !== key) throw conflict('這個授權請求已經失效', 'AUTH_NOT_PENDING');
+    if (!self && s.pendingAuth !== key) throw conflict('這個授權請求已經失效', 'AUTH_NOT_PENDING');
     const st = s.fields[key];
     if (approve) {
       const original = elder.profile[f.profileKey];
@@ -499,7 +627,9 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     timeline(
       s,
       'elder',
-      approve ? `長輩同意提供「${f.label}」${st.edited ? '（有修改內容）' : ''}` : `長輩不同意提供「${f.label}」`,
+      approve
+        ? `長輩${self ? '自己' : ''}同意提供「${f.label}」${st.edited ? '（有修改內容）' : ''}`
+        : `長輩不同意提供「${f.label}」`,
     );
     audit.append({
       type: approve ? 'field.authorized' : 'field.denied',
@@ -846,6 +976,11 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     createPairingCode,
     requestByCode,
     requestByIdentity,
+    requestTrusted,
+    addTrusted,
+    removeTrusted,
+    listTrusted,
+    listTrustingElders,
     respond,
     gotoStep,
     setElderNav,
@@ -853,7 +988,9 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     editField,
     focusField,
     requestField,
-    authorizeField,
+    authorizeField: (elder, id, key, approve, value) => authorizeField(elder, id, key, approve, value),
+    selfAuthorizeField,
+    setElderSelfAuth,
     revokeField,
     inputChoice,
     requestSubmit,

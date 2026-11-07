@@ -23,6 +23,9 @@ class AssistHelperController extends GetxController {
   final RxList<Map<String, dynamic>> services = <Map<String, dynamic>>[].obs;
   final RxMap<String, ServiceDef> serviceDefs = <String, ServiceDef>{}.obs;
 
+  /// 把我加為「信任的人」的長輩（只有遮罩後的姓名）
+  final RxList<Map<String, dynamic>> trustedElders = <Map<String, dynamic>>[].obs;
+
   /// 目前打開的案件；null 代表在「新陪辦」畫面
   final RxnString focusedId = RxnString();
 
@@ -83,6 +86,7 @@ class AssistHelperController extends GetxController {
         _put(Map<String, dynamic>.from(data as Map));
       } catch (_) {}
     });
+    socket.on('trusted:update', (_) => reload());
     socket.onConnect((_) {
       connected.value = true;
       reload();
@@ -106,11 +110,15 @@ class AssistHelperController extends GetxController {
     for (final e in list) {
       _put(Map<String, dynamic>.from(e as Map));
     }
+    final trusted = await _send('GET', '/helper/trusted-elders') as List;
+    trustedElders.assignAll(trusted.map((e) => Map<String, dynamic>.from(e as Map)));
   }
 
   AssistSession _put(Map<String, dynamic> raw) {
     final s = AssistSession(raw);
     sessions[s.id] = s;
+    // 讓長輩端知道：這個案件是這支手機在協助別人，不要顯示「某某正在陪您操作」
+    Get.find<AssistService>().helpingSessionIds.add(s.id);
     return s;
   }
 
@@ -125,6 +133,14 @@ class AssistHelperController extends GetxController {
     focusedId.value = s.id;
   }
 
+  /// 長輩已把我加為信任的人：不用配對碼，直接請長輩確認
+  Future<void> requestTrusted(String serviceId, String elderId) async {
+    final s = await _apply(
+      _send('POST', '/helper/requests', {'serviceId': serviceId, 'method': 'trusted', 'elderId': elderId}),
+    );
+    focusedId.value = s.id;
+  }
+
   Future<void> gotoStep(int step) => _apply(_send('POST', '/helper/sessions/${focusedId.value}/step', {'step': step}));
   Future<void> focusField(String? key) =>
       _apply(_send('POST', '/helper/sessions/${focusedId.value}/focus', {'fieldKey': key}));
@@ -133,6 +149,8 @@ class AssistHelperController extends GetxController {
   Future<void> requestSubmit() => _apply(_send('POST', '/helper/sessions/${focusedId.value}/request-submit'));
   Future<void> setElderNav(bool on) =>
       _apply(_send('POST', '/helper/sessions/${focusedId.value}/elder-nav', {'enabled': on}));
+  Future<void> setElderSelfAuth(bool on) =>
+      _apply(_send('POST', '/helper/sessions/${focusedId.value}/elder-self-auth', {'enabled': on}));
   Future<void> end() => _apply(_send('POST', '/sessions/${focusedId.value}/end'));
 
   // ───────────────────────── HTTP

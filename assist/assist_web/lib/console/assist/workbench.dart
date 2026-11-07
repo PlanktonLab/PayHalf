@@ -204,6 +204,8 @@ class _NewRequestView extends StatefulWidget {
 class _NewRequestViewState extends State<_NewRequestView> {
   String? serviceId;
   bool byIdentity = false;
+  /// 選了「信任您的長輩」就不用配對碼
+  String? elderId;
   final code = TextEditingController();
   final name = TextEditingController();
   final birthday = TextEditingController();
@@ -232,7 +234,8 @@ class _NewRequestViewState extends State<_NewRequestView> {
   bool get ready =>
       serviceId != null &&
       !busy &&
-      (byIdentity
+      (elderId != null ||
+          byIdentity
           ? name.text.trim().isNotEmpty && birthday.text.trim().isNotEmpty && last4.text.length == 4
           : code.text.length == 6);
 
@@ -243,7 +246,9 @@ class _NewRequestViewState extends State<_NewRequestView> {
       error = null;
     });
     try {
-      if (byIdentity) {
+      if (elderId != null) {
+        await widget.c.requestTrusted(serviceId!, elderId!);
+      } else if (byIdentity) {
         await widget.c.requestByIdentity(serviceId!, name.text.trim(), birthday.text.trim(), last4.text.trim());
       } else {
         await widget.c.requestByCode(serviceId!, code.text.trim());
@@ -374,12 +379,37 @@ class _NewRequestViewState extends State<_NewRequestView> {
                       style: CText.secondary.copyWith(color: C.ink3),
                     ),
                     const SizedBox(height: 24),
+                    if (c.trustedElders.isNotEmpty && !byIdentity) ...[
+                      const Text('信任您的長輩・不用配對碼', style: CText.label),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final e in c.trustedElders)
+                            _TrustedChip(
+                              name: e['displayName'] as String,
+                              selected: elderId == e['elderId'],
+                              onTap: () => setState(() {
+                                error = null;
+                                elderId = elderId == e['elderId'] ? null : e['elderId'] as String;
+                              }),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      const Text('或輸入配對碼', style: CText.label),
+                      const SizedBox(height: 8),
+                    ],
                     if (!byIdentity) ...[
                       CCodeInput(
                         controller: code,
                         box: boxSize,
-                        error: error != null,
-                        onChanged: (_) => setState(() => error = null),
+                        error: error != null && elderId == null,
+                        onChanged: (_) => setState(() {
+                          error = null;
+                          elderId = null;
+                        }),
                         onSubmitted: (_) => submit(),
                       ),
                     ] else ...[
@@ -436,6 +466,7 @@ class _NewRequestViewState extends State<_NewRequestView> {
                     TextButton(
                       onPressed: () => setState(() {
                         byIdentity = !byIdentity;
+                        elderId = null;
                         error = null;
                       }),
                       style: TextButton.styleFrom(foregroundColor: C.accentInk, padding: EdgeInsets.zero),
@@ -450,7 +481,7 @@ class _NewRequestViewState extends State<_NewRequestView> {
                     SizedBox(width: 360, child: service),
                     const SizedBox(height: 24),
                     CButton.primary(
-                      busy ? '送出中…' : '送出請求',
+                      busy ? '送出中…' : (elderId != null ? '請長輩確認' : '送出請求'),
                       icon: Icons.send_rounded,
                       large: true,
                       onPressed: ready ? submit : null,
@@ -694,6 +725,15 @@ class _SessionConsole extends StatelessWidget {
                           : '已關閉：只有您能換頁，長輩手機會顯示「會帶您到下一步」。',
                       value: s.elderNav,
                       onChanged: (v) => run(() => c.setElderNav(v)),
+                    ),
+                    const SizedBox(height: 8),
+                    CSwitchRow(
+                      title: '長輩自己授權',
+                      desc: s.elderSelfAuth
+                          ? '長輩可以直接點開這一步的資料自己同意，不用等您按「請長輩授權」。'
+                          : '已關閉：要由您逐項按「請長輩授權」，長輩才能提供資料。',
+                      value: s.elderSelfAuth,
+                      onChanged: (v) => run(() => c.setElderSelfAuth(v)),
                     ),
                     const SizedBox(height: 8),
                     _StepChips(def: def, s: s),
@@ -1310,4 +1350,50 @@ class AuditView extends StatelessWidget {
       },
     );
   }
+}
+
+
+class _TrustedChip extends StatelessWidget {
+  const _TrustedChip({required this.name, required this.selected, required this.onTap});
+  final String name;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: selected,
+    child: Material(
+      color: selected ? C.accentSoft : C.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(99),
+        side: BorderSide(color: selected ? C.accent : C.borderStrong, width: selected ? 1.5 : 1),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(99),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(6, 6, 14, 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(shape: BoxShape.circle, color: C.warnSoft),
+                child: Text(name.characters.first, style: CText.bodyStrong.copyWith(color: C.warnInk, fontSize: 13)),
+              ),
+              const SizedBox(width: 8),
+              Text(name, style: CText.bodyStrong),
+              if (selected) ...[
+                const SizedBox(width: 6),
+                const Icon(Icons.check_rounded, size: 16, color: C.accentInk),
+              ],
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
