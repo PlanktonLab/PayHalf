@@ -93,6 +93,29 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     for (const st of Object.values(s.fields)) st.value = null;
   }
 
+  /** 長輩修改的資料：只接受一般文字，去掉前後空白 */
+  function cleanValue(value) {
+    if (typeof value !== 'string') throw badRequest('請輸入資料內容', 'INVALID_VALUE');
+    const v = value.trim();
+    if (!v) throw badRequest('資料不能是空白', 'INVALID_VALUE');
+    if (v.length > 100) throw badRequest('資料太長了', 'INVALID_VALUE');
+    // eslint-disable-next-line no-control-regex
+    if (/[\u0000-\u001f\u007f]/.test(v)) throw badRequest('資料含有無法辨識的字元', 'INVALID_VALUE');
+    return v;
+  }
+
+  /** 這一步的欄位都完成了：自動帶到下一步（長輩自己換頁開啟時） */
+  function autoAdvance(s, service) {
+    if (!s.elderNav || s.phase !== 'filling' || s.pendingAuth) return;
+    if (s.currentStep >= service.steps.length - 1) return;
+    const step = service.steps[s.currentStep];
+    if (!step.fields.length) return;
+    if (!step.fields.every((f) => ['authorized', 'filled'].includes(s.fields[f.key].status))) return;
+    s.currentStep += 1;
+    s.focusField = null;
+    timeline(s, 'system', `這一步完成，自動到第 ${s.currentStep + 1} 步：${service.steps[s.currentStep].title}`);
+  }
+
   function checkPendingLimit(helper) {
     let n = 0;
     for (const s of sessions.values()) if (s.helperId === helper.id && s.status === 'pending') n++;
@@ -127,7 +150,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
   function createSession({ helper, service, elderId, elderLabel, method }) {
     const t = now();
     const fields = {};
-    for (const f of allFields(service)) fields[f.key] = { status: 'empty', value: null, requestCount: 0 };
+    for (const f of allFields(service)) fields[f.key] = { status: 'empty', value: null, requestCount: 0, edited: false };
     const s = {
       id: crypto.randomUUID(),
       serviceId: service.id,
@@ -147,6 +170,8 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       currentStep: 0,
       focusField: null,
       pendingAuth: null,
+      // 長輩自己換頁：完成一步後自動到下一步，且長輩可按上一頁／下一頁。陪辦人員可關閉
+      elderNav: true,
       caseNo: null,
       undoUntil: null,
       fields,
@@ -374,6 +399,18 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     return hView(s);
   }
 
+  function setElderNav(helper, id, enabled) {
+    const s = ownedByHelper(helper, id);
+    requireActive(s, null);
+    if (typeof enabled !== 'boolean') throw badRequest('請指定開或關', 'INVALID_VALUE');
+    if (s.elderNav === enabled) return hView(s);
+    s.elderNav = enabled;
+    touch(s);
+    timeline(s, 'helper', enabled ? '開啟「長輩自己換頁」' : '關閉「長輩自己換頁」，改由陪辦人員帶著換頁');
+    publish(s);
+    return hView(s);
+  }
+
   function focusField(helper, id, key) {
     const s = ownedByHelper(helper, id);
     requireActive(s);
@@ -417,9 +454,28 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     return hView(s);
   }
 
+  // ───────────────────────── 長輩：換頁
+
+  function elderStep(elder, id, step) {
+    const s = ownedByElder(elder, id);
+    requireActive(s);
+    const service = findService(s.serviceId);
+    if (!s.elderNav) throw forbidden('陪辦人員會帶您到下一步', 'ELDER_NAV_OFF');
+    if (!Number.isInteger(step) || step < 0 || step >= service.steps.length || Math.abs(step - s.currentStep) !== 1) {
+      throw badRequest('步驟不存在', 'INVALID_STEP');
+    }
+    if (s.pendingAuth) throw conflict('請先回答畫面上的問題', 'AUTH_PENDING');
+    s.currentStep = step;
+    s.focusField = null;
+    touch(s);
+    timeline(s, 'elder', `長輩自己翻到第 ${step + 1} 步：${service.steps[step].title}`);
+    publish(s);
+    return eView(s);
+  }
+
   // ───────────────────────── 長輩：授權與填寫
 
-  function authorizeField(elder, id, key, approve) {
+  function authorizeField(elder, id, key, approve, value) {
     const s = ownedByElder(elder, id);
     requireActive(s);
     const service = findService(s.serviceId);
@@ -427,8 +483,12 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     if (s.pendingAuth !== key) throw conflict('這個授權請求已經失效', 'AUTH_NOT_PENDING');
     const st = s.fields[key];
     if (approve) {
+      const original = elder.profile[f.profileKey];
+      // 長輩可以在授權時改成正確的內容（例如帳號裡的地址是舊的）
+      const v = value === undefined || value === null ? original : cleanValue(value);
       st.status = 'authorized';
-      st.value = elder.profile[f.profileKey];
+      st.value = v;
+      st.edited = v !== original;
     } else {
       st.status = 'denied';
       st.value = null;
@@ -436,7 +496,11 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     s.pendingAuth = null;
     if (s.focusField === key) s.focusField = null;
     touch(s);
-    timeline(s, 'elder', approve ? `長輩同意提供「${f.label}」` : `長輩不同意提供「${f.label}」`);
+    timeline(
+      s,
+      'elder',
+      approve ? `長輩同意提供「${f.label}」${st.edited ? '（有修改內容）' : ''}` : `長輩不同意提供「${f.label}」`,
+    );
     audit.append({
       type: approve ? 'field.authorized' : 'field.denied',
       actor: ROLE_ACTOR(elder),
@@ -448,6 +512,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
         : `您不同意提供「${f.label}」`,
       detail: { field: key },
     });
+    if (approve) autoAdvance(s, service);
     publish(s);
     return eView(s);
   }
@@ -461,6 +526,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     if (!f.sensitive || st.status !== 'authorized') throw badRequest('這項資料沒有被授權', 'NOT_AUTHORIZED');
     st.status = 'empty';
     st.value = null;
+    st.edited = false;
     touch(s);
     timeline(s, 'elder', `長輩撤回「${f.label}」`);
     audit.append({
@@ -470,6 +536,34 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       elderId: elder.id,
       helperId: s.helperId,
       summary: `您撤回了「${f.label}」`,
+      detail: { field: key },
+    });
+    publish(s);
+    return eView(s);
+  }
+
+  /** 已提供的資料，長輩可以再修改（填寫中或確認送出畫面都可以） */
+  function editField(elder, id, key, value) {
+    const s = ownedByElder(elder, id);
+    requireActive(s, null);
+    const service = findService(s.serviceId);
+    const f = fieldOf(service, key);
+    const st = s.fields[key];
+    if (!f.sensitive || st.status !== 'authorized') throw badRequest('這項資料還沒有提供', 'NOT_AUTHORIZED');
+    const v = cleanValue(value);
+    if (v === st.value) return eView(s);
+    st.value = v;
+    st.edited = v !== elder.profile[f.profileKey];
+    touch(s);
+    timeline(s, 'elder', `長輩修改了「${f.label}」`);
+    audit.append({
+      type: 'field.edited',
+      actor: ROLE_ACTOR(elder),
+      sessionId: s.id,
+      elderId: elder.id,
+      helperId: s.helperId,
+      summary: `您修改了「${f.label}」`,
+      helperSummary: `長輩修改了「${f.label}」`,
       detail: { field: key },
     });
     publish(s);
@@ -497,6 +591,7 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
       summary: `您選擇了「${f.label}：${option.label}」`,
       detail: { field: key, value },
     });
+    autoAdvance(s, service);
     publish(s);
     return eView(s);
   }
@@ -753,6 +848,9 @@ export function createAssistService({ config, audit, notify = () => {}, now = ()
     requestByIdentity,
     respond,
     gotoStep,
+    setElderNav,
+    elderStep,
+    editField,
     focusField,
     requestField,
     authorizeField,

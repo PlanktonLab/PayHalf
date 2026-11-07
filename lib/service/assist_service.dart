@@ -326,8 +326,15 @@ class AssistService extends GetxService {
     refreshRecords();
   }
 
-  Future<void> authorize(String id, String key, bool approve) =>
-      _apply(_request('POST', '/elder/sessions/$id/fields/$key/authorize', {'approve': approve}));
+  /// [value] 有值代表長輩在授權時改了內容
+  Future<void> authorize(String id, String key, bool approve, {String? value}) => _apply(
+    _request('POST', '/elder/sessions/$id/fields/$key/authorize', {'approve': approve, 'value': ?value}),
+  );
+
+  Future<void> editField(String id, String key, String value) =>
+      _apply(_request('POST', '/elder/sessions/$id/fields/$key/edit', {'value': value}));
+
+  Future<void> gotoStep(String id, int step) => _apply(_request('POST', '/elder/sessions/$id/step', {'step': step}));
 
   Future<void> revoke(String id, String key) => _apply(_request('POST', '/elder/sessions/$id/fields/$key/revoke'));
 

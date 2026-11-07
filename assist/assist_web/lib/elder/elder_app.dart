@@ -744,7 +744,7 @@ class _IncomingScreen extends StatelessWidget {
                   icon: Icons.shield_rounded,
                   color: TPColors.red700,
                   bg: TPColors.red50,
-                  text: '他看不到您的身分證、地址等資料。\n如果有人要您轉帳、給密碼或驗證碼，一定是詐騙。',
+                  text: '他看不到您的身分證、地址等資料，這些資料會直接填進申請表，交給承辦機關。\n如果有人要您轉帳、給密碼或驗證碼，一定是詐騙。',
                 ),
                 EverySecond(
                   builder: (_, now) => Center(
@@ -953,7 +953,7 @@ class _SessionScreen extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    '請聽 ${s.helper!.name} 說明，這一步不用按任何東西。',
+                    '請聽 ${s.helper!.name} 說明，聽完可以按「下一頁」。',
                     style: const TextStyle(fontSize: 19, height: 1.5, color: TPColors.primary800),
                   ),
                 ),
@@ -961,6 +961,8 @@ class _SessionScreen extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 18),
+        _StepNav(c: c, s: s, def: def),
+        const SizedBox(height: 8),
         TextButton.icon(
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => _LegalPage(c: c))),
           icon: const Icon(Icons.gavel_rounded),
@@ -1019,6 +1021,7 @@ class _ElderFieldState extends State<_ElderField> {
             onPressed: () => setState(() => reveal = !reveal),
             icon: Icon(reveal ? Icons.visibility_off_rounded : Icons.visibility_rounded),
           ),
+          _EditButton(c: widget.c, s: s, f: f, value: st.value ?? ''),
           TextButton(
             onPressed: () => _run(context, () => widget.c.revoke(s.id, f.key)),
             child: const Text('撤回', style: TextStyle(fontSize: 17, color: TPColors.red600)),
@@ -1135,11 +1138,22 @@ class _AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<_AuthScreen> {
   bool reveal = false;
   bool busy = false;
+  String? edited;
 
   Future<void> answer(bool approve) async {
     setState(() => busy = true);
-    await _run(context, () => widget.c.authorize(widget.s.id, widget.f.key, approve));
+    await _run(context, () => widget.c.authorize(widget.s.id, widget.f.key, approve, value: approve ? edited : null));
     if (mounted) setState(() => busy = false);
+  }
+
+  Future<void> change() async {
+    final v = await _editValue(context, widget.f.label, edited ?? widget.f.value ?? '');
+    if (v != null && mounted) {
+      setState(() {
+        edited = v == widget.f.value ? null : v;
+        reveal = true;
+      });
+    }
   }
 
   @override
@@ -1204,10 +1218,13 @@ class _AuthScreenState extends State<_AuthScreen> {
                   decoration: BoxDecoration(color: TPColors.grayscale50, borderRadius: BorderRadius.circular(16)),
                   child: Row(
                     children: [
-                      const Text('將提供：', style: TextStyle(fontSize: 18, color: TPColors.grayscale500)),
+                      Text(
+                        edited == null ? '將提供：' : '將提供（已修改）：',
+                        style: const TextStyle(fontSize: 18, color: TPColors.grayscale500),
+                      ),
                       Expanded(
                         child: Text(
-                          reveal ? (f.value ?? '') : maskValue(f.key, f.value),
+                          reveal ? (edited ?? f.value ?? '') : maskValue(f.key, edited ?? f.value),
                           style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -1219,7 +1236,15 @@ class _AuthScreenState extends State<_AuthScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 18),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: busy ? null : change,
+                    icon: const Icon(Icons.edit_rounded),
+                    label: const Text('內容不對？我要修改', style: TextStyle(fontSize: 18)),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 infoRow(Icons.account_balance_rounded, '給誰用', f.recipient ?? s.agency ?? ''),
                 infoRow(Icons.help_outline_rounded, '做什麼用', f.purpose ?? ''),
                 infoRow(Icons.schedule_rounded, '保存多久', f.retention ?? ''),
@@ -1233,7 +1258,7 @@ class _AuthScreenState extends State<_AuthScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          '${s.helper!.name} 看不到這項資料的內容',
+                          '${s.helper!.name} 看不到內容。這項資料會直接填進申請表，交給${f.recipient ?? s.agency ?? '承辦機關'}。',
                           style: const TextStyle(fontSize: 19, color: TPColors.green700, fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -1360,19 +1385,27 @@ class _ReviewScreenState extends State<_ReviewScreen> {
                             for (final f in def.allFields) ...[
                               Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                child: Row(
                                   children: [
-                                    Text(f.label, style: const TextStyle(fontSize: 17, color: TPColors.grayscale500)),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      f.type == 'choice'
-                                          ? f.optionLabel(s.field(f.key).value)
-                                          : reveal
-                                          ? (s.field(f.key).value ?? '')
-                                          : maskValue(f.key, s.field(f.key).value),
-                                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(f.label, style: const TextStyle(fontSize: 17, color: TPColors.grayscale500)),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            f.type == 'choice'
+                                                ? f.optionLabel(s.field(f.key).value)
+                                                : reveal
+                                                ? (s.field(f.key).value ?? '')
+                                                : maskValue(f.key, s.field(f.key).value),
+                                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                                          ),
+                                        ],
+                                      ),
                                     ),
+                                    if (f.sensitive && s.field(f.key).status == 'authorized')
+                                      _EditButton(c: c, s: s, f: f, value: s.field(f.key).value ?? ''),
                                   ],
                                 ),
                               ),
@@ -1391,7 +1424,7 @@ class _ReviewScreenState extends State<_ReviewScreen> {
                         icon: Icons.send_rounded,
                         color: TPColors.primary800,
                         bg: TPColors.primary50,
-                        text: '按下「確認送出」後，資料會交給 ${s.agency}。送出鍵只有您能按。',
+                        text: '按下「確認送出」後，這些資料會直接填進申請表，交給 ${s.agency}。${s.helper!.name} 看不到內容。送出鍵只有您能按。',
                       ),
                     ],
                   ),
@@ -1729,6 +1762,107 @@ class _LegalContent extends StatelessWidget {
           '最後更新：${legal['updatedAt']}　·　條文為摘要，以全國法規資料庫為準',
           style: const TextStyle(fontSize: 14, color: TPColors.grayscale500),
         ),
+      ],
+    );
+  }
+}
+
+// ═════════════════════════════════════════════ 修改資料與換頁
+
+Future<String?> _editValue(BuildContext context, String label, String initial) {
+  final text = TextEditingController(text: initial);
+  return showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text('修改「$label」', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('改成正確的內容。送出前，您還會再看到一次全部的資料。', style: TextStyle(fontSize: 17, height: 1.5)),
+          const SizedBox(height: 14),
+          TextField(
+            controller: text,
+            autofocus: true,
+            maxLength: 100,
+            style: const TextStyle(fontSize: 21),
+            decoration: InputDecoration(labelText: label, counterText: '', border: const OutlineInputBorder()),
+            onSubmitted: (v) => v.trim().isEmpty ? null : Navigator.of(ctx).pop(v.trim()),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('取消', style: TextStyle(fontSize: 18))),
+        FilledButton(
+          onPressed: () => text.text.trim().isEmpty ? null : Navigator.of(ctx).pop(text.text.trim()),
+          child: const Text('改好了', style: TextStyle(fontSize: 18)),
+        ),
+      ],
+    ),
+  );
+}
+
+class _EditButton extends StatelessWidget {
+  const _EditButton({required this.c, required this.s, required this.f, required this.value});
+  final ElderController c;
+  final AssistSession s;
+  final FieldDef f;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => TextButton(
+    onPressed: () async {
+      final v = await _editValue(context, f.label, value);
+      if (v != null && v != value && context.mounted) await _run(context, () => c.editField(s.id, f.key, v));
+    },
+    child: const Text('修改', style: TextStyle(fontSize: 17, color: TPColors.primary700, fontWeight: FontWeight.w600)),
+  );
+}
+
+class _StepNav extends StatelessWidget {
+  const _StepNav({required this.c, required this.s, required this.def});
+  final ElderController c;
+  final AssistSession s;
+  final ServiceDef def;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = s.helper!.name;
+    final last = def.steps.length - 1;
+    if (!s.elderNav) {
+      return _Warn(
+        icon: Icons.front_hand_rounded,
+        color: TPColors.primary800,
+        bg: TPColors.primary50,
+        text: '$name 會帶您到下一步，請等一下。',
+      );
+    }
+    final waiting = s.pendingAuth != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (s.currentStep < last)
+          _BigButton(
+            '下一頁',
+            icon: Icons.arrow_forward_rounded,
+            onPressed: waiting ? null : () => _run(context, () => c.gotoStep(s.id, s.currentStep + 1)),
+          )
+        else
+          _Warn(
+            icon: Icons.send_rounded,
+            color: TPColors.primary800,
+            bg: TPColors.primary50,
+            text: '這是最後一步。$name 會請您確認資料，再由您按送出。',
+          ),
+        if (s.currentStep > 0) ...[
+          const SizedBox(height: 10),
+          _BigButton(
+            '上一頁',
+            icon: Icons.arrow_back_rounded,
+            outlined: true,
+            onPressed: waiting ? null : () => _run(context, () => c.gotoStep(s.id, s.currentStep - 1)),
+          ),
+        ],
       ],
     );
   }

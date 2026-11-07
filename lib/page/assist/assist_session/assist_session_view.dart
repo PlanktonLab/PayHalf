@@ -192,8 +192,10 @@ class _Steps extends StatelessWidget {
             icon: Icons.hearing_rounded,
             color: TPColors.primary800,
             background: TPColors.primary50,
-            text: '請聽 ${s.helper!.name} 說明，這一步不用按任何東西。',
+            text: '請聽 ${s.helper!.name} 說明，聽完可以按「下一頁」。',
           ),
+        const SizedBox(height: 8),
+        _StepNav(s: s, def: def),
         const SizedBox(height: 8),
         AssistButton(
           '我的權利與法規說明',
@@ -225,7 +227,7 @@ class _FieldCardState extends State<_FieldCard> {
     final st = s.field(f.key);
     final focused = s.focusField == f.key;
 
-    final Widget body;
+    Widget body;
     if (f.type == 'choice') {
       body = Column(
         children: [
@@ -255,6 +257,7 @@ class _FieldCardState extends State<_FieldCard> {
             onPressed: () => setState(() => reveal = !reveal),
             icon: Icon(reveal ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: context.iconSize(24)),
           ),
+          _EditButton(s: s, f: f, value: st.value ?? ''),
           TextButton(
             style: TextButton.styleFrom(minimumSize: const Size(44, 44), foregroundColor: TPColors.red600),
             onPressed: () async {
@@ -268,6 +271,12 @@ class _FieldCardState extends State<_FieldCard> {
           ),
         ],
       );
+      if (st.edited) {
+        body = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [body, const Text('您已修改過這項資料', style: AssistText.footnote)],
+        );
+      }
     } else {
       body = Text(switch (st.status) {
         'denied' => '您選擇不提供這項資料',
@@ -396,12 +405,26 @@ class _AuthSheet extends StatefulWidget {
 class _AuthSheetState extends State<_AuthSheet> {
   bool reveal = false;
   bool busy = false;
+  // 長輩改過的內容；null 代表用帳號裡的資料
+  String? edited;
 
   Future<void> answer(bool approve) async {
     setState(() => busy = true);
     if (approve) HapticFeedback.mediumImpact();
-    await assistRun(() => Get.find<AssistService>().authorize(widget.s.id, widget.f.key, approve));
+    await assistRun(
+      () => Get.find<AssistService>().authorize(widget.s.id, widget.f.key, approve, value: approve ? edited : null),
+    );
     if (mounted) setState(() => busy = false);
+  }
+
+  Future<void> change() async {
+    final v = await assistEditValue(label: widget.f.label, initial: edited ?? widget.f.value ?? '');
+    if (v != null && mounted) {
+      setState(() {
+        edited = v == widget.f.value ? null : v;
+        reveal = true;
+      });
+    }
   }
 
   @override
@@ -483,7 +506,7 @@ class _AuthSheetState extends State<_AuthSheet> {
                     text: () =>
                         '${s.helper!.name}請您確認，要提供您的${f.label}嗎？'
                         '給${f.recipient ?? s.agency ?? ''}使用。用途是${f.purpose ?? ''}。保存期限：${f.retention ?? ''}。'
-                        '請注意：${f.risks.join('。')}。${s.helper!.name}看不到這項資料的內容。'
+                        '請注意：${f.risks.join('。')}。${assistWhereDataGoes(s.helper!.name, f.recipient ?? s.agency)}'
                         '不想提供，可以按先不要，不會有任何處罰。',
                   ),
                 ],
@@ -503,9 +526,9 @@ class _AuthSheetState extends State<_AuthSheet> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('將提供', style: AssistText.callout),
+                              Text(edited == null ? '將提供' : '將提供（您修改過）', style: AssistText.callout),
                               Text(
-                                reveal ? (f.value ?? '') : assistMask(f.key, f.value),
+                                reveal ? (edited ?? f.value ?? '') : assistMask(f.key, edited ?? f.value),
                                 style: AssistText.title.copyWith(fontSize: 22),
                               ),
                             ],
@@ -523,7 +546,15 @@ class _AuthSheetState extends State<_AuthSheet> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: AssistButton(
+                      '內容不對？我要修改',
+                      style: AssistButtonStyle.plain,
+                      icon: Icons.edit_rounded,
+                      onPressed: busy ? null : change,
+                    ),
+                  ),
                   info(Icons.account_balance_rounded, '給誰用', f.recipient ?? s.agency ?? ''),
                   const Divider(height: 1),
                   info(Icons.help_outline_rounded, '做什麼用', f.purpose ?? ''),
@@ -534,7 +565,7 @@ class _AuthSheetState extends State<_AuthSheet> {
                     icon: Icons.visibility_off_rounded,
                     color: AssistColors.green700,
                     background: AssistColors.green50,
-                    text: '${s.helper!.name} 看不到這項資料的內容',
+                    text: assistWhereDataGoes(s.helper!.name, f.recipient ?? s.agency),
                   ),
                   const SizedBox(height: 12),
                   AssistNotice(
@@ -608,23 +639,31 @@ class _ReviewState extends State<_Review> {
             children: [
               for (var i = 0; i < fields.length; i++) ...[
                 if (i > 0) const Divider(height: 1),
-                MergeSemantics(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(fields[i].label, style: AssistText.callout),
-                        Text(
-                          fields[i].type == 'choice'
-                              ? fields[i].optionLabel(s.field(fields[i].key).value)
-                              : reveal
-                              ? (s.field(fields[i].key).value ?? '')
-                              : assistMask(fields[i].key, s.field(fields[i].key).value),
-                          style: AssistText.headline,
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: MergeSemantics(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(fields[i].label, style: AssistText.callout),
+                              Text(
+                                fields[i].type == 'choice'
+                                    ? fields[i].optionLabel(s.field(fields[i].key).value)
+                                    : reveal
+                                    ? (s.field(fields[i].key).value ?? '')
+                                    : assistMask(fields[i].key, s.field(fields[i].key).value),
+                                style: AssistText.headline,
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                      if (fields[i].sensitive && s.field(fields[i].key).status == 'authorized')
+                        _EditButton(s: s, f: fields[i], value: s.field(fields[i].key).value ?? ''),
+                    ],
                   ),
                 ),
               ],
@@ -641,7 +680,7 @@ class _ReviewState extends State<_Review> {
           icon: Icons.send_rounded,
           color: TPColors.primary800,
           background: TPColors.primary50,
-          text: '按下「確認送出」後，資料會交給 ${s.agency}。送出鍵只有您能按。',
+          text: '按下「確認送出」後，這些資料會直接填進申請表，交給 ${s.agency}。${s.helper!.name} 看不到內容。送出鍵只有您能按。',
         ),
       ],
       actions: [
@@ -761,6 +800,95 @@ class _Result extends StatelessWidget {
             semanticsHint: '按錯了可以撤回，撤回後會回到確認畫面',
             onPressed: () => assistRun(() => Get.find<AssistService>().undoSubmit(s.id)),
           ),
+      ],
+    );
+  }
+}
+
+// ═════════════════════════════════════════════ 小元件
+
+/// 「修改」：把要送出的資料改成正確的內容
+class _EditButton extends StatelessWidget {
+  const _EditButton({required this.s, required this.f, required this.value});
+  final AssistSession s;
+  final FieldDef f;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      style: TextButton.styleFrom(minimumSize: const Size(44, 44), foregroundColor: TPColors.primary700),
+      onPressed: () async {
+        final v = await assistEditValue(label: f.label, initial: value);
+        if (v != null && v != value) await assistRun(() => Get.find<AssistService>().editField(s.id, f.key, v));
+      },
+      child: Text(
+        '修改',
+        semanticsLabel: '修改${f.label}',
+        style: AssistText.callout.copyWith(color: TPColors.primary700, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+/// 上一頁／下一頁。陪辦人員關閉「長輩自己換頁」時，改成提示由對方帶著換頁
+class _StepNav extends StatefulWidget {
+  const _StepNav({required this.s, required this.def});
+  final AssistSession s;
+  final ServiceDef def;
+  @override
+  State<_StepNav> createState() => _StepNavState();
+}
+
+class _StepNavState extends State<_StepNav> {
+  bool busy = false;
+
+  Future<void> go(int step) async {
+    setState(() => busy = true);
+    HapticFeedback.selectionClick();
+    await assistRun(() => Get.find<AssistService>().gotoStep(widget.s.id, step));
+    if (mounted) setState(() => busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.s;
+    final last = widget.def.steps.length - 1;
+    final name = s.helper!.name;
+    if (!s.elderNav) {
+      return AssistNotice(
+        icon: Icons.front_hand_rounded,
+        color: TPColors.primary800,
+        background: TPColors.primary50,
+        text: '$name 會帶您到下一步，請等一下。',
+      );
+    }
+    final waiting = s.pendingAuth != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (s.currentStep < last)
+          AssistButton(
+            '下一頁',
+            icon: Icons.arrow_forward_rounded,
+            onPressed: busy || waiting ? null : () => go(s.currentStep + 1),
+          )
+        else
+          AssistNotice(
+            icon: Icons.send_rounded,
+            color: TPColors.primary800,
+            background: TPColors.primary50,
+            text: '這是最後一步。$name 會請您確認資料，再由您按送出。',
+          ),
+        if (s.currentStep > 0) ...[
+          const SizedBox(height: 10),
+          AssistButton(
+            '上一頁',
+            style: AssistButtonStyle.secondary,
+            icon: Icons.arrow_back_rounded,
+            onPressed: busy || waiting ? null : () => go(s.currentStep - 1),
+          ),
+        ],
       ],
     );
   }

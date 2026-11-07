@@ -138,6 +138,8 @@ class HelperController extends ChangeNotifier {
     return s;
   }
 
+  Future<void> setElderNav(bool enabled) =>
+      _apply(api.post('/helper/sessions/$focusedSessionId/elder-nav', {'enabled': enabled}));
   Future<void> gotoStep(int step) => _apply(api.post('/helper/sessions/$focusedSessionId/step', {'step': step}));
   Future<void> focusField(String? key) =>
       _apply(api.post('/helper/sessions/$focusedSessionId/focus', {'fieldKey': key}));

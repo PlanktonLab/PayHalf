@@ -71,7 +71,7 @@ class _Body extends StatelessWidget {
             text: () =>
                 '${assistHelperDisplayName(h)}想陪您辦理${s.serviceTitle}。'
                 '${h.verified ? '這是市府認證的身分。' : '對方不是公務人員，請確認您認識他。'}'
-                '對方看不到您的身分證、地址、電話。每一項資料都會先問過您，最後也只有您能按送出。'
+                '對方看不到您的身分證、地址、電話，這些資料會直接填進申請表，交給承辦機關。每一項都會先問過您，最後也只有您能按送出。'
                 '市府、里長、一九九九都不會要您轉帳、給密碼或簡訊驗證碼。'
                 '要接受協助，請按好，請他幫我。不要的話，請按不要。',
           ),
@@ -102,7 +102,7 @@ class _Body extends StatelessWidget {
           color: AssistColors.green700,
           background: AssistColors.green50,
           title: '您的資料由您決定',
-          text: '對方看不到您的身分證、地址、電話。每一項資料都會先問過您，最後也只有您能按「送出」。',
+          text: '對方看不到您的身分證、地址、電話，這些資料會直接填進申請表，交給承辦機關。每一項都會先問過您，最後也只有您能按「送出」。',
         ),
         const SizedBox(height: 12),
         AssistNotice.fraud(),

@@ -435,3 +435,128 @@ test('送出後 10 秒內可撤回：案件收回、資料回到確認畫面；�
     await h.close();
   }
 });
+
+/** 建立一個已接受的敬老卡協辦，回傳長輩、協助者與 id */
+async function startActive(h) {
+  const elder = await h.login('elder-wang');
+  const helper = await h.login('helper-chief');
+  const code = (await elder.post('/elder/pairing-code')).body.code;
+  const id = (await helper.post('/helper/requests', { serviceId: 'senior-card', method: 'pairing_code', code })).body.id;
+  await elder.post(`/elder/sessions/${id}/respond`, { accept: true });
+  return { elder, helper, id };
+}
+
+test('長輩可以修改要送出的資料：授權時改、授權後改、確認畫面改；協助者只知道「改過」', async () => {
+  const h = await startTestServer();
+  try {
+    const { elder, helper, id } = await startActive(h);
+    await helper.post(`/helper/sessions/${id}/step`, { step: 1 });
+
+    // 授權時直接改
+    await helper.post(`/helper/sessions/${id}/fields/realName/request`);
+    const a = await elder.post(`/elder/sessions/${id}/fields/realName/authorize`, { approve: true, value: '  王大銘 ' });
+    assert.equal(a.body.fields.realName.value, '王大銘');
+    assert.equal(a.body.fields.realName.edited, true);
+
+    // 原樣同意：edited = false
+    await helper.post(`/helper/sessions/${id}/fields/birthday/request`);
+    const b = await elder.post(`/elder/sessions/${id}/fields/birthday/authorize`, { approve: true });
+    assert.equal(b.body.fields.birthday.edited, false);
+
+    // 授權後再改
+    const e = await elder.post(`/elder/sessions/${id}/fields/birthday/edit`, { value: '1948-03-16' });
+    assert.equal(e.body.fields.birthday.value, '1948-03-16');
+    assert.equal(e.body.fields.birthday.edited, true);
+
+    // 不合法的值
+    assert.equal((await elder.post(`/elder/sessions/${id}/fields/birthday/edit`, { value: '   ' })).body.error.code, 'INVALID_VALUE');
+    assert.equal((await elder.post(`/elder/sessions/${id}/fields/birthday/edit`, { value: 123 })).body.error.code, 'INVALID_VALUE');
+    // 沒授權的欄位不能改
+    assert.equal((await elder.post(`/elder/sessions/${id}/fields/idNo/edit`, { value: 'A1' })).body.error.code, 'NOT_AUTHORIZED');
+    // 協助者不能呼叫
+    assert.equal((await helper.post(`/elder/sessions/${id}/fields/birthday/edit`, { value: 'x' })).status, 403);
+
+    const hv = (await helper.get(`/sessions/${id}`)).body;
+    assert.equal(hv.fields.realName.edited, true);
+    assert.equal(hv.fields.realName.value, null);
+    assert.ok(!JSON.stringify(hv).includes('王大銘'), '協助者看不到修改後的內容');
+    assert.ok(!JSON.stringify((await helper.get('/helper/audit')).body).includes('1948-03-16'));
+  } finally {
+    await h.close();
+  }
+});
+
+test('修改後的資料會送進申辦案件', async () => {
+  const h = await startTestServer();
+  try {
+    const { elder, helper, id } = await startActive(h);
+    await helper.post(`/helper/sessions/${id}/step`, { step: 1 });
+    for (const k of ['realName', 'birthday', 'idNo']) {
+      await helper.post(`/helper/sessions/${id}/fields/${k}/request`);
+      await elder.post(`/elder/sessions/${id}/fields/${k}/authorize`, { approve: true });
+    }
+    for (const k of ['residentAddress', 'phone']) {
+      await helper.post(`/helper/sessions/${id}/fields/${k}/request`);
+      await elder.post(`/elder/sessions/${id}/fields/${k}/authorize`, { approve: true });
+    }
+    await elder.post(`/elder/sessions/${id}/fields/pickup/input`, { value: 'mail' });
+    await helper.post(`/helper/sessions/${id}/request-submit`);
+    // 確認畫面上還能改
+    const r = await elder.post(`/elder/sessions/${id}/fields/phone/edit`, { value: '0912-000-111' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const done = await elder.post(`/elder/sessions/${id}/submit`, { confirm: true });
+    assert.equal(done.body.status, 'completed');
+    // 撤回後可以看到送出的內容
+    const undo = await elder.post(`/elder/sessions/${id}/undo`);
+    assert.equal(undo.body.fields.phone.value, '0912-000-111');
+  } finally {
+    await h.close();
+  }
+});
+
+test('換頁：一步完成會自動到下一步；長輩可按上一頁／下一頁；陪辦人員可關閉', async () => {
+  const h = await startTestServer();
+  try {
+    const { elder, helper, id } = await startActive(h);
+
+    // 長輩自己按下一頁（第 1 步沒有欄位）
+    const n = await elder.post(`/elder/sessions/${id}/step`, { step: 1 });
+    assert.equal(n.body.currentStep, 1);
+    assert.equal(n.body.elderNav, true);
+    // 一次只能前後一頁
+    assert.equal((await elder.post(`/elder/sessions/${id}/step`, { step: 3 })).body.error.code, 'INVALID_STEP');
+
+    // 第 2 步三個欄位都授權後自動到第 3 步
+    for (const k of ['realName', 'birthday', 'idNo']) {
+      await helper.post(`/helper/sessions/${id}/fields/${k}/request`);
+      // 授權等待中不能換頁
+      if (k === 'realName') {
+        assert.equal((await elder.post(`/elder/sessions/${id}/step`, { step: 2 })).body.error.code, 'AUTH_PENDING');
+      }
+      await elder.post(`/elder/sessions/${id}/fields/${k}/authorize`, { approve: true });
+    }
+    assert.equal((await helper.get(`/sessions/${id}`)).body.currentStep, 2);
+
+    // 上一頁
+    assert.equal((await elder.post(`/elder/sessions/${id}/step`, { step: 1 })).body.currentStep, 1);
+
+    // 陪辦人員關閉：不能自己換頁，也不會自動換頁
+    const off = await helper.post(`/helper/sessions/${id}/elder-nav`, { enabled: false });
+    assert.equal(off.body.elderNav, false);
+    const blocked = await elder.post(`/elder/sessions/${id}/step`, { step: 2 });
+    assert.equal(blocked.status, 403);
+    assert.equal(blocked.body.error.code, 'ELDER_NAV_OFF');
+    await helper.post(`/helper/sessions/${id}/step`, { step: 2 });
+    for (const k of ['residentAddress', 'phone']) {
+      await helper.post(`/helper/sessions/${id}/fields/${k}/request`);
+      await elder.post(`/elder/sessions/${id}/fields/${k}/authorize`, { approve: true });
+    }
+    assert.equal((await helper.get(`/sessions/${id}`)).body.currentStep, 2, '關閉後不自動換頁');
+
+    // 長輩不能改開關
+    assert.equal((await elder.post(`/helper/sessions/${id}/elder-nav`, { enabled: true })).status, 403);
+    assert.equal((await helper.post(`/helper/sessions/${id}/elder-nav`, { enabled: 'yes' })).body.error.code, 'INVALID_VALUE');
+  } finally {
+    await h.close();
+  }
+});

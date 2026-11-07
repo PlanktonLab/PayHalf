@@ -681,7 +681,16 @@ class _SessionConsole extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
+                    CSwitchRow(
+                      title: '長輩自己換頁',
+                      desc: s.elderNav
+                          ? '完成一步會自動到下一步，長輩也能按上一頁／下一頁。長輩亂按時可以關掉。'
+                          : '已關閉：只有您能換頁，長輩手機會顯示「會帶您到下一步」。',
+                      value: s.elderNav,
+                      onChanged: (v) => run(() => c.setElderNav(v)),
+                    ),
+                    const SizedBox(height: 8),
                     _StepChips(def: def, s: s),
                     const SizedBox(height: 14),
                     _CurrentStep(c: c, s: s, def: def, step: step, run: run, tight: tight),
@@ -902,12 +911,15 @@ class _FieldRow extends StatelessWidget {
           children: [
             Text(f.label, style: CText.bodyStrong),
             tag,
+            if (st.edited && st.status == 'authorized') const CTag('長輩修改過', tone: CTone.accent),
           ],
         ),
         const SizedBox(height: 4),
         if (f.sensitive)
           Text(
-            st.status == 'authorized' ? '●●●●●●　已由長輩提供，內容僅長輩與受理機關可見' : '●●●●●●　用途：${f.purpose ?? ''}',
+            st.status == 'authorized'
+                ? '●●●●●●　${st.edited ? '長輩修改後提供' : '已由長輩提供'}，內容僅長輩與受理機關可見'
+                : '●●●●●●　用途：${f.purpose ?? ''}',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: CText.small,
