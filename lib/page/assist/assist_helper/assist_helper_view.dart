@@ -3,6 +3,7 @@ import 'package:town_pass/page/assist/widget/assist_scan.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/bean/assist.dart';
+import 'package:town_pass/page/assist/widget/assist_celebration.dart';
 import 'package:town_pass/page/assist/widget/assist_ui.dart' show AssistTicker, assistMmss;
 import 'package:town_pass/service/assist_helper_controller.dart';
 import 'package:town_pass/service/assist_service.dart';
@@ -28,6 +29,7 @@ class AssistHelperView extends StatefulWidget {
 
 class _AssistHelperViewState extends State<AssistHelperView> {
   late final AssistHelperController c;
+  String? _pastResultId;
 
   @override
   void initState() {
@@ -60,7 +62,15 @@ class _AssistHelperViewState extends State<AssistHelperView> {
         );
       } else if (s == null) {
         title = '新陪辦';
-        body = _NewRequest(c: c, code: widget.code, elderId: widget.elderId);
+        body = _NewRequest(
+          c: c,
+          code: widget.code,
+          elderId: widget.elderId,
+          onOpenRecent: (session) {
+            _pastResultId = session.isOpen ? null : session.id;
+            c.focusedId.value = session.id;
+          },
+        );
       } else if (s.isPending) {
         title = '等待長輩回應';
         body = _Waiting(c: c, s: s);
@@ -69,7 +79,7 @@ class _AssistHelperViewState extends State<AssistHelperView> {
         body = _Session(c: c, s: s);
       } else {
         title = s.serviceTitle;
-        body = _Done(c: c, s: s);
+        body = _Done(c: c, s: s, animate: s.id != _pastResultId);
       }
       return PopScope(
         // 案件開著時，返回鍵先回到新陪辦／列表，不直接離開
@@ -141,11 +151,14 @@ class _Card extends StatelessWidget {
   final EdgeInsets padding;
   final Color color;
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => SizedBox(
     width: double.infinity,
-    padding: padding,
-    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(_cardRadius)),
-    child: child,
+    child: Material(
+      color: color,
+      borderRadius: BorderRadius.circular(_cardRadius),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(padding: padding, child: child),
+    ),
   );
 }
 
@@ -225,10 +238,11 @@ ButtonStyle _secondary() => OutlinedButton.styleFrom(
 // ═════════════════════════════════════════════ 新陪辦
 
 class _NewRequest extends StatefulWidget {
-  const _NewRequest({required this.c, this.code, this.elderId});
+  const _NewRequest({required this.c, this.code, this.elderId, required this.onOpenRecent});
   final AssistHelperController c;
   final String? code;
   final String? elderId;
+  final ValueChanged<AssistSession> onOpenRecent;
   @override
   State<_NewRequest> createState() => _NewRequestState();
 }
@@ -425,7 +439,7 @@ class _NewRequestState extends State<_NewRequest> {
                     children: [
                       for (var i = 0; i < recent.length; i++) ...[
                         if (i > 0) const Divider(height: 1, indent: 16),
-                        _CaseRow(s: recent[i], onTap: () => c.focusedId.value = recent[i].id),
+                        _CaseRow(s: recent[i], onTap: () => widget.onOpenRecent(recent[i])),
                       ],
                     ],
                   ),
@@ -1069,9 +1083,10 @@ class _TimelineState extends State<_Timeline> {
 // ═════════════════════════════════════════════ 結果
 
 class _Done extends StatelessWidget {
-  const _Done({required this.c, required this.s});
+  const _Done({required this.c, required this.s, required this.animate});
   final AssistHelperController c;
   final AssistSession s;
+  final bool animate;
   @override
   Widget build(BuildContext context) {
     final ok = s.status == 'completed';
@@ -1079,29 +1094,36 @@ class _Done extends StatelessWidget {
       children: [
         Expanded(
           child: Center(
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 88,
-                    height: 88,
-                    decoration: BoxDecoration(color: ok ? TPColors.green50 : TPColors.grayscale100, shape: BoxShape.circle),
-                    child: Icon(
-                      ok ? Icons.check_rounded : Icons.info_outline_rounded,
-                      size: 44,
-                      color: ok ? TPColors.green500 : TPColors.grayscale500,
+                  if (ok)
+                    AssistCelebration.gratitude(key: ValueKey(s.id), animate: animate)
+                  else
+                    Container(
+                      width: 88,
+                      height: 88,
+                      decoration: const BoxDecoration(color: TPColors.grayscale100, shape: BoxShape.circle),
+                      child: const Icon(Icons.info_outline_rounded, size: 44, color: TPColors.grayscale500),
+                    ),
+                  const SizedBox(height: 18),
+                  Semantics(
+                    header: true,
+                    liveRegion: true,
+                    child: Text(
+                      ok ? '謝謝您的陪伴！' : statusLabel(s),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  Text(
-                    ok ? '${s.elderDisplayName} 已經送出申請' : statusLabel(s),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                  ),
                   const SizedBox(height: 6),
-                  Text('「${s.serviceTitle}」', style: const TextStyle(fontSize: 14, color: TPColors.grayscale500)),
+                  Text(
+                    ok ? '${s.elderDisplayName} 已送出「${s.serviceTitle}」。' : '「${s.serviceTitle}」',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 15, color: TPColors.grayscale600),
+                  ),
                   if (ok && s.caseNo != null) ...[
                     const SizedBox(height: 16),
                     _Card(
@@ -1113,8 +1135,6 @@ class _Done extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    const Text('謝謝您陪長輩完成！', style: TextStyle(fontSize: 15, color: TPColors.grayscale600)),
                   ],
                 ],
               ),
