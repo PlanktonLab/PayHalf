@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:town_pass/bean/assist.dart';
 import 'package:town_pass/page/assist/widget/assist_ui.dart';
 import 'package:town_pass/service/assist_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
@@ -15,7 +16,7 @@ class AssistRemoteFrame extends StatelessWidget {
   const AssistRemoteFrame({super.key, required this.child});
   final Widget child;
 
-  static const double bannerHeight = 40;
+  static const double bannerHeight = 46;
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +53,7 @@ class AssistRemoteFrame extends StatelessWidget {
               // 這一層在 Navigator 之上，沒有 Material 的預設文字樣式，要自己包一層
               child: Material(
                 type: MaterialType.transparency,
-                child: _Banner(name: assistHelperDisplayName(s.helper!), sessionId: s.id),
+                child: _Banner(helper: s.helper!, sessionId: s.id),
               ),
             ),
           ],
@@ -70,53 +71,110 @@ class AssistRemoteFrame extends StatelessWidget {
   }
 }
 
-class _Banner extends StatelessWidget {
-  const _Banner({required this.name, required this.sessionId});
-  final String name;
+/// 狀態列下方的膠囊：白底、外框是和光框同一組漸層，左邊頭像、右邊「›」可點
+class _Banner extends StatefulWidget {
+  const _Banner({required this.helper, required this.sessionId});
+  final HelperInfo helper;
   final String sessionId;
+  @override
+  State<_Banner> createState() => _BannerState();
+}
+
+class _BannerState extends State<_Banner> with SingleTickerProviderStateMixin {
+  // 出現時從上面輕輕滑下來
+  late final AnimationController enter = AnimationController(vsync: this, duration: const Duration(milliseconds: 420))
+    ..forward();
+
+  @override
+  void dispose() {
+    enter.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final name = assistHelperDisplayName(widget.helper);
+    final reduce = MediaQuery.disableAnimationsOf(context);
+    final scaler = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.1);
+    final curve = CurvedAnimation(parent: enter, curve: Curves.easeOutBack);
+
+    final capsule = Container(
+      // 漸層外框
+      padding: const EdgeInsets.all(1.5),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(99),
+        gradient: const LinearGradient(
+          colors: [TPColors.primary300, TPColors.secondary300, TPColors.primary500],
+        ),
+        boxShadow: [
+          BoxShadow(color: TPColors.primary600.withValues(alpha: 0.22), blurRadius: 14, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.fromLTRB(4, 0, 10, 0),
+        decoration: BoxDecoration(color: TPColors.white, borderRadius: BorderRadius.circular(99)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AssistHelperAvatar(helper: widget.helper, size: 28),
+                const Positioned(right: -2, bottom: -2, child: _LiveDot()),
+              ],
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: name,
+                      style: const TextStyle(color: TPColors.grayscale900, fontWeight: FontWeight.w700),
+                    ),
+                    const TextSpan(
+                      text: '  正在陪您操作',
+                      style: TextStyle(color: TPColors.primary700, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textScaler: scaler,
+                style: const TextStyle(fontSize: 15, height: 1.2),
+              ),
+            ),
+            const SizedBox(width: 2),
+            const Icon(Icons.chevron_right_rounded, size: 20, color: TPColors.primary500),
+          ],
+        ),
+      ),
+    );
+
     return Center(
       child: Semantics(
         button: true,
         label: '$name 正在陪您操作手機。點兩下回到協助畫面',
         child: GestureDetector(
           onTap: () {
-            if (Get.currentRoute != TPRoute.assistSession) Get.toNamed(TPRoute.assistSession, arguments: sessionId);
+            if (Get.currentRoute != TPRoute.assistSession) {
+              Get.toNamed(TPRoute.assistSession, arguments: widget.sessionId);
+            }
           },
           child: ExcludeSemantics(
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 4),
-              padding: const EdgeInsets.fromLTRB(10, 0, 14, 0),
-              decoration: BoxDecoration(
-                color: TPColors.grayscale900.withValues(alpha: 0.88),
-                borderRadius: BorderRadius.circular(99),
-                boxShadow: [
-                  BoxShadow(color: TPColors.primary500.withValues(alpha: 0.45), blurRadius: 14, spreadRadius: 0.5),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const _LiveDot(),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(text: name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                          const TextSpan(text: ' 正在陪您操作'),
-                        ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: reduce
+                  ? capsule
+                  : AnimatedBuilder(
+                      animation: curve,
+                      builder: (context, child) => Opacity(
+                        opacity: enter.value,
+                        child: Transform.translate(offset: Offset(0, -10 * (1 - curve.value)), child: child),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.15),
-                      style: const TextStyle(color: TPColors.white, fontSize: 15, height: 1.2),
+                      child: capsule,
                     ),
-                  ),
-                ],
-              ),
             ),
           ),
         ),
@@ -147,25 +205,31 @@ class _LiveDotState extends State<_LiveDot> with SingleTickerProviderStateMixin 
     return AnimatedBuilder(
       animation: a,
       builder: (context, _) {
-        final t = MediaQuery.disableAnimationsOf(context) ? 1.0 : Curves.easeInOut.transform(a.value);
+        final t = MediaQuery.disableAnimationsOf(context) ? 0.0 : Curves.easeInOut.transform(a.value);
         return SizedBox(
-          width: 14,
-          height: 14,
+          width: 12,
+          height: 12,
           child: Stack(
             alignment: Alignment.center,
+            clipBehavior: Clip.none,
             children: [
+              // 往外擴散的光暈
               Container(
-                width: 8 + 6 * t,
-                height: 8 + 6 * t,
+                width: 10 + 8 * t,
+                height: 10 + 8 * t,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: TPColors.primary300.withValues(alpha: 0.35 * (1 - t) + 0.1),
+                  color: TPColors.green500.withValues(alpha: 0.35 * (1 - t)),
                 ),
               ),
               Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(shape: BoxShape.circle, color: TPColors.primary300),
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: TPColors.green500,
+                  border: Border.all(color: TPColors.white, width: 2),
+                ),
               ),
             ],
           ),
