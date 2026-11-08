@@ -84,7 +84,7 @@ class _Login extends StatelessWidget {
                   children: [
                     _Brand(),
                     SizedBox(width: 10),
-                    Text('承辦工作台', style: CText.title),
+                    Text('陪辦工作站', style: CText.title),
                   ],
                 ),
                 const SizedBox(height: 28),
@@ -182,16 +182,10 @@ class _Brand extends StatelessWidget {
   const _Brand({this.size = 32});
   final double size;
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => SizedBox(
     width: size,
     height: size,
-    decoration: BoxDecoration(
-      color: C.surface,
-      borderRadius: BorderRadius.circular(size * 0.28),
-      border: Border.all(color: C.border),
-    ),
-    alignment: Alignment.center,
-    child: TownPassLogo(size: size * 0.5),
+    child: Image.asset('assets/app_bar_logo_clear.png', fit: BoxFit.contain, filterQuality: FilterQuality.medium),
   );
 }
 
@@ -483,9 +477,9 @@ class _Sidebar extends StatelessWidget {
               children: [
                 const _Brand(size: 30),
                 if (!rail) ...[
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 14),
                   const Expanded(
-                    child: Text('承辦工作台', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    child: Text('陪辦工作站', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   ),
                 ],
               ],
